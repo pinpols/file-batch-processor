@@ -1,0 +1,79 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: file-batch-processor
+  batch:
+    job:
+      enabled: false  # Disable auto-start of jobs
+  datasource:
+    url: jdbc:h2:mem:filebatch;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password: 
+    driver-class-name: org.h2.Driver
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+# XXL-Job Admin Addresses: such as "http://address" or "http://address01,http://address02"
+# If you don't have XXL-Job Admin running, comment out the addresses line or set it to empty string
+# The application can still run without XXL-Job Admin, but XXL-Job scheduling features won't work
+xxl:
+  job:
+    admin:
+      # addresses: http://localhost:8080/xxl-job-admin  # Uncomment and set correct address when XXL-Job Admin is available
+      addresses:  # Empty to disable XXL-Job registration (application will still work)
+    accessToken: default_token
+    executor:
+      appname: file-batch-executor
+      address: 
+      ip: 
+      port: 9999
+      logpath: /data/applogs/xxl-job/jobhandler
+      logretentiondays: 30
+
+orchestration:
+  tasks:
+    - id: process-file-cron
+      jobName: processFileJob
+      priority: HIGH
+      dedupKey: process-file-cron
+      allowParallel: true
+      trigger:
+        type: CRON
+        cron: "0 0/10 * * * ?"
+      parameters:
+        input.file.name: C:\Users\aa\CascadeProjects\file-batch-processor\src\main\resources\data\sample.csv
+    - id: process-file-fixed
+      jobName: processFileJob
+      priority: NORMAL
+      allowParallel: true
+      trigger:
+        type: FIXED_RATE
+        fixedRateMs: 300000
+      parameters:
+        input.file.name: C:\Users\aa\CascadeProjects\file-batch-processor\src\main\resources\data\sample.csv
+    - id: process-file-backfill-20250101
+      jobName: processFileJob
+      priority: HIGH
+      allowParallel: true
+      trigger:
+        type: ONE_TIME
+        oneTimeAt: 2025-01-01T02:00:00Z
+      parameters:
+        input.file.name: C:\Users\aa\CascadeProjects\file-batch-processor\src\main\resources\data\sample.csv
+        batchDate: "2025-01-01"
+        runMode: backfill
+        rerunId: bf-20250101
+    - id: data-export-daily
+      jobName: dataExportJob
+      priority: NORMAL
+      allowParallel: true
+      trigger:
+        type: CRON
+        cron: "0 5 0 * * ?"
+      parameters:
+        export.sql: "select id, business_key, name, description, batch_date from imported_records where batch_date = '2025-01-01'"
+        output.file.name: "export/data_export_20250101.csv"
