@@ -7,7 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.parameters.JobParametersBuilder;
 
-import org.springframework.batch.core.launch.JobOperator;
+import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.scheduling.TaskScheduler;
@@ -17,7 +17,6 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -29,7 +28,7 @@ import java.util.concurrent.PriorityBlockingQueue;
 @Service
 public class TaskSchedulerService {
 
-    private final JobOperator jobOperator;
+    private final JobLauncher jobLauncher;
     private final ObjectProvider<Map<String, Job>> jobsProvider;
     private final TaskGraphManager taskGraphManager;
     private final LocalCacheService localCacheService;
@@ -41,14 +40,14 @@ public class TaskSchedulerService {
     private final PriorityBlockingQueue<TaskDefinition> queue =
             new PriorityBlockingQueue<>(11, (a, b) -> Integer.compare(b.getPriority().weight(), a.getPriority().weight()));
 
-    public TaskSchedulerService(@Qualifier("asyncJobLauncher") JobOperator jobOperator,
+    public TaskSchedulerService(@Qualifier("asyncJobLauncher") JobLauncher jobLauncher,
                                 ObjectProvider<Map<String, Job>> jobsProvider,
                                 TaskGraphManager taskGraphManager,
                                 LocalCacheService localCacheService,
                                 TaskMergeService taskMergeService,
                                 TaskScheduler taskScheduler,
                                 ThreadPoolTaskExecutor batchTaskExecutor) {
-        this.jobOperator = jobOperator;
+        this.jobLauncher = jobLauncher;
         this.jobsProvider = jobsProvider;
         this.taskGraphManager = taskGraphManager;
         this.localCacheService = localCacheService;
@@ -72,13 +71,13 @@ public class TaskSchedulerService {
                 taskScheduler.schedule(() -> enqueue(definition), new CronTrigger(definition.getTrigger().getCron()));
                 break;
             case FIXED_RATE:
-                taskScheduler.scheduleAtFixedRate(() -> enqueue(definition), definition.getTrigger().getFixedRateMs());
+                taskScheduler.scheduleAtFixedRate(() -> enqueue(definition), Duration.ofMillis(definition.getTrigger().getFixedRateMs()));
                 break;
             case FIXED_DELAY:
-                taskScheduler.scheduleWithFixedDelay(() -> enqueue(definition), definition.getTrigger().getFixedDelayMs());
+                taskScheduler.scheduleWithFixedDelay(() -> enqueue(definition), Duration.ofMillis(definition.getTrigger().getFixedDelayMs()));
                 break;
             case ONE_TIME:
-                taskScheduler.schedule(() -> enqueue(definition), Date.from(definition.getTrigger().getOneTimeAt()));
+                taskScheduler.schedule(() -> enqueue(definition), definition.getTrigger().getOneTimeAt());
                 break;
             default:
                 queue.add(definition);
@@ -154,12 +153,9 @@ public class TaskSchedulerService {
         }
         def.getParameters().forEach(builder::addString);
         try {
-            String jobName = job.getName();
-            String parameters = convertJobParametersToString(builder.toJobParameters());
-            Long executionId = jobOperator.start(jobName, parameters);
+            jobLauncher.run(job, builder.toJobParameters());
             String batchDate = def.getParameters().getOrDefault("batchDate", "default");
             localCacheService.put("task:" + def.getId() + ":" + batchDate + ":completed", true, Duration.ofMinutes(10));
-            log.info("Started job {} with executionId {}", jobName, executionId);
         } catch (Exception e) {
             log.error("Failed to launch job {} for task {}", def.getJobName(), def.getId(), e);
         }

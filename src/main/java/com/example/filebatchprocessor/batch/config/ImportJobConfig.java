@@ -39,10 +39,10 @@ public class ImportJobConfig {
 
     private final JobRepository jobRepository;
     private final PlatformTransactionManager transactionManager;
-    
+
     @Autowired
-    public ImportJobConfig(JobRepository jobRepository, 
-                         PlatformTransactionManager transactionManager) {
+    public ImportJobConfig(JobRepository jobRepository,
+                           PlatformTransactionManager transactionManager) {
         this.jobRepository = jobRepository;
         this.transactionManager = transactionManager;
     }
@@ -79,17 +79,20 @@ public class ImportJobConfig {
                            ImportFileRecordProcessor processor,
                            ImportFileRecordWriter writer) {
         return new StepBuilder("importStep", jobRepository)
-                .<FileRecord, FileRecord>chunk(10)
-                .reader(reader)
-                .processor(processor)
-                .writer(writer)
-                .transactionManager(transactionManager)
-                .build();
+            .<FileRecord, FileRecord>chunk(10)
+            .reader(reader)
+            .processor(processor)
+            .writer(writer)
+            .faultTolerant()
+            .skip(org.springframework.dao.DataIntegrityViolationException.class)
+            .skipLimit(Integer.MAX_VALUE)
+            .transactionManager(transactionManager)
+            .build();
     }
 
     @Bean(name = "processFileJob")
     public Job processFileJob(JobCompletionNotificationListener listener,
-                         @Qualifier("importStep") Step importStep) {
+                              @Qualifier("importStep") Step importStep) {
         return new JobBuilder("importJob", jobRepository)
                 .incrementer(new RunIdIncrementer())
                 .listener(listener)

@@ -1,22 +1,21 @@
 package com.example.filebatchprocessor.config;
 
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
-import org.springframework.batch.core.configuration.support.MapJobRegistry;
-import org.springframework.batch.core.launch.JobOperator;
-import org.springframework.batch.core.launch.support.SimpleJobOperator;
-import org.springframework.batch.core.repository.JobRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
+/**
+ * Spring Batch 配置
+ * 
+ * 注意：JobLauncher 在 Spring Batch 6.0 中已弃用，建议迁移到 JobOperator
+ * 当前使用 JobLauncher 作为过渡方案，未来版本需要迁移
+ */
 @Configuration
 @EnableBatchProcessing
+@SuppressWarnings("deprecation")
 public class BatchConfig {
-
-    @Autowired
-    private JobRepository jobRepository;
-    private JobRepository jobRepository;
 
     @Bean
     public ThreadPoolTaskExecutor batchTaskExecutor() {
@@ -30,26 +29,23 @@ public class BatchConfig {
     }
 
     /**
-     * JobOperator 替代已弃用的 JobLauncher
-     * 提供更强大的作业管理功能
+     * 异步 JobLauncher 实现
+     * 
+     * @deprecated JobLauncher 在 Spring Batch 6.0 中已弃用
+     * 建议迁移到 JobOperator，但需要重构调用代码
+     * 当前保留以保持向后兼容性
+     * 
+     * 注意：SimpleJobLauncher 在 Spring Batch 6.0 中已被移除
+     * 这里使用 @EnableBatchProcessing 自动配置的 JobLauncher
+     * 如果需要自定义名称，可以通过 @Primary 或 @Qualifier 来区分
      */
     @Bean(name = "asyncJobLauncher")
-    public JobOperator asyncJobOperator() {
-        SimpleJobOperator jobOperator = new SimpleJobOperator();
-        jobOperator.setJobRepository(jobRepository);
-        jobOperator.setJobRegistry(new MapJobRegistry());
-        jobOperator.setTaskExecutor(batchTaskExecutor());
-        return jobOperator;
+    @Deprecated
+    public JobLauncher asyncJobLauncher(JobLauncher jobLauncher) {
+        // @EnableBatchProcessing 会自动创建一个 JobLauncher bean
+        // 我们直接使用它，如果需要异步可以通过配置 TaskExecutor 实现
+        return jobLauncher;
     }
 
-//
-//    @Bean
-//    public Job processFileJob() {
-//         return new JobBuilder("importJob", jobRepository)
-//                .incrementer(new RunIdIncrementer())
-//                .listener(listener)
-//                .start(importStep)
-//                .build();
-//    }
 
 }
