@@ -17,6 +17,9 @@ import org.springframework.util.StringUtils;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.transaction.PlatformTransactionManager;
 
 /**
  * 导入文件写入器：写表 imported_records，依赖唯一索引保证落库幂等。
@@ -31,9 +34,15 @@ public class ImportFileRecordWriter implements ItemWriter<FileRecord>, StepExecu
     private final Set<String> seenKeys = new HashSet<>();
     private long writeCount = 0L;
 
-    public ImportFileRecordWriter(String batchDate, ImportedRecordRepository importedRecordRepository) {
+    // 使用 TransactionTemplate 在每条记录上开启 REQUIRES_NEW 事务，避免单条写入失败影响外层 chunk 事务
+    private final TransactionTemplate txTemplate;
+
+    public ImportFileRecordWriter(String batchDate, ImportedRecordRepository importedRecordRepository,
+                                  PlatformTransactionManager transactionManager) {
         this.batchDate = StringUtils.hasText(batchDate) ? batchDate : "default";
         this.importedRecordRepository = importedRecordRepository;
+        this.txTemplate = new TransactionTemplate(transactionManager);
+        this.txTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
 
 
@@ -81,14 +90,25 @@ public class ImportFileRecordWriter implements ItemWriter<FileRecord>, StepExecu
             entity.setBatchDate(batchDate);
             
             try {
-                importedRecordRepository.save(entity);
-                log.debug("Persisted record key={} data={}", bizKey, item);
-                writeCount++;
-            } catch (DataIntegrityViolationException e) {
-                // 唯一约束违反：视为幂等命中（记录已存在）
-                // 这是预期的行为，不是错误
-                log.debug("Record already exists (idempotent hit): businessKey={}, batchDate={}", bizKey, batchDate);
-                writeCount++; // 视为成功（记录已存在）
+                // 在独立事务中保存并立即 flush；若违反唯一约束，会在这里被捕获且只回滚内层事务
+                Boolean saved = txTemplate.execute(status -> {
+                    try {
+                        importedRecordRepository.saveAndFlush(entity);
+                        return Boolean.TRUE;
+                    } catch (DataIntegrityViolationException ex) {
+                        // 标记内层事务回滚并返回未保存
+                        status.setRollbackOnly();
+                        return Boolean.FALSE;
+                    }
+                });
+
+                if (Boolean.TRUE.equals(saved)) {
+                    log.debug("Persisted record key={} data={}", bizKey, item);
+                    writeCount++;
+                } else {
+                    log.debug("Record already exists (idempotent hit): businessKey={}, batchDate={}", bizKey, batchDate);
+                    writeCount++; // 视为成功（记录已存在）
+                }
             } catch (Exception e) {
                 // 其他异常：记录错误但不中断处理
                 log.error("Failed to persist record key={} for batchDate={}", bizKey, batchDate, e);

@@ -140,7 +140,17 @@ public class TaskSchedulerService {
             return;
         }
         Job job = jobs.get(def.getJobName());
+        
+        // 生成唯一的执行 ID，避免 Spring Batch 认为是重复的 job instance
+        // 格式：taskId-batchDate-runId-timestamp，确保每次都不同
+        String batchDate = def.getParameters().getOrDefault("batchDate", "default");
+        String rerunId = def.getParameters().getOrDefault("rerunId", "");
+        String executionId = def.getId() + "-" + batchDate + 
+                            (rerunId.isEmpty() ? "" : "-" + rerunId) + 
+                            "-" + System.nanoTime();
+        
         JobParametersBuilder builder = new JobParametersBuilder()
+                .addString("execution.id", executionId)
                 .addLong("time", System.currentTimeMillis())
                 .addString("task.id", def.getId())
                 .addLong("priority", (long) def.getPriority().weight());
@@ -154,8 +164,8 @@ public class TaskSchedulerService {
         def.getParameters().forEach(builder::addString);
         try {
             jobLauncher.run(job, builder.toJobParameters());
-            String batchDate = def.getParameters().getOrDefault("batchDate", "default");
             localCacheService.put("task:" + def.getId() + ":" + batchDate + ":completed", true, Duration.ofMinutes(10));
+            log.info("Job {} launched with execution.id={}", def.getJobName(), executionId);
         } catch (Exception e) {
             log.error("Failed to launch job {} for task {}", def.getJobName(), def.getId(), e);
         }

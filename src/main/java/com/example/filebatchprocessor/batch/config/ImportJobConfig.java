@@ -71,7 +71,7 @@ public class ImportJobConfig {
     @StepScope
     public ImportFileRecordWriter importWriter(@Value("#{jobParameters['batch.date']}") String batchDate,
                                                ImportedRecordRepository importedRecordRepository) {
-        return new ImportFileRecordWriter(batchDate, importedRecordRepository);
+        return new ImportFileRecordWriter(batchDate, importedRecordRepository, transactionManager);
     }
 
     @Bean
