@@ -1,0 +1,65 @@
+package com.example.filebatchprocessor.model;
+
+import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import java.time.LocalDateTime;
+
+/**
+ * 导入记录分区表：支持按 batch_date 分区，提高查询性能
+ * 物理表结构：imported_records_2025_01, imported_records_2025_02 ...
+ */
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Entity
+@Table(name = "imported_records_partition", indexes = {
+        @Index(name = "uk_import_biz_batch_part", columnList = "business_key,batch_date,partition_key", unique = true),
+        @Index(name = "idx_batch_date_part", columnList = "batch_date"),
+        @Index(name = "idx_partition_key", columnList = "partition_key")
+})
+public class ImportedRecordPartitioned {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "business_key", length = 200, nullable = false)
+    private String businessKey;
+
+    @Column(length = 200)
+    private String name;
+
+    @Column(length = 500)
+    private String description;
+
+    @Column(name = "batch_date", length = 20, nullable = false)
+    private String batchDate;
+
+    /**
+     * 分区键：用于支持按年月分区
+     * 格式：yyyy_MM
+     */
+    @Column(name = "partition_key", length = 10, nullable = false)
+    private String partitionKey;
+
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt = LocalDateTime.now();
+
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt = LocalDateTime.now();
+
+    @Column(name = "checksum", length = 64)
+    private String checksum; // MD5/SHA256 用于数据完整性校验
+
+    @Column(name = "source_file_name")
+    private String sourceFileName;
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
+}

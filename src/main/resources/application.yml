@@ -83,3 +83,72 @@ orchestration:
       parameters:
         export.sql: "select id, business_key, name, description, batch_date from imported_records where batch_date = '2025-01-01'"
         output.file.name: "export/data_export_20250101.csv"
+    # ===================== 4 个核心功能任务配置 =====================
+    - id: partitioned-import-daily
+      jobName: partitionedImportJob
+      priority: HIGH
+      allowParallel: false
+      trigger:
+        type: CRON
+        cron: "0 0 1 * * ?"
+      parameters:
+        batchDate: ""
+    - id: file-export-daily
+      jobName: fileExportJob
+      priority: NORMAL
+      allowParallel: false
+      trigger:
+        type: CRON
+        cron: "0 0 2 * * ?"
+      parameters:
+        batchDate: ""
+        format: "csv"
+        outputDir: "export"
+    - id: file-reception-monitor
+      jobName: fileReceptionJob
+      priority: NORMAL
+      allowParallel: true
+      trigger:
+        type: FIXED_RATE
+        fixedRateMs: 600000
+      parameters: {}
+    - id: file-reception-timeout-check
+      jobName: fileReceptionTimeoutJob
+      priority: NORMAL
+      allowParallel: true
+      trigger:
+        type: CRON
+        cron: "0 0 */6 * * ?"
+      parameters: {}
+    - id: file-distribution-pending
+      jobName: fileDistributionJob
+      priority: HIGH
+      allowParallel: true
+      trigger:
+        type: FIXED_RATE
+        fixedRateMs: 300000
+      parameters: {}
+    - id: file-distribution-retry
+      jobName: fileDistributionRetryJob
+      priority: NORMAL
+      allowParallel: true
+      trigger:
+        type: FIXED_RATE
+        fixedRateMs: 900000
+      parameters: {}
+    - id: file-distribution-timeout
+      jobName: fileDistributionTimeoutJob
+      priority: NORMAL
+      allowParallel: true
+      trigger:
+        type: CRON
+        cron: "0 0 */12 * * ?"
+      parameters: {}
+
+# SFTP 默认示例配置（用于开发/测试）
+sftp:
+  host: 127.0.0.1
+  port: 22
+  username: root
+  password: root
+  remoteDir: /upload

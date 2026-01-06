@@ -6,7 +6,7 @@ import com.example.filebatchprocessor.batch.writer.ImportFileRecordWriter;
 
 import com.example.filebatchprocessor.listener.JobCompletionNotificationListener;
 import com.example.filebatchprocessor.model.FileRecord;
-import com.example.filebatchprocessor.repository.ImportedRecordRepository;
+import com.example.filebatchprocessor.service.PartitionedImportService;
 
 
 import org.springframework.batch.core.configuration.annotation.StepScope;
@@ -70,8 +70,8 @@ public class ImportJobConfig {
     @Bean
     @StepScope
     public ImportFileRecordWriter importWriter(@Value("#{jobParameters['batch.date']}") String batchDate,
-                                               ImportedRecordRepository importedRecordRepository) {
-        return new ImportFileRecordWriter(batchDate, importedRecordRepository, transactionManager);
+                                               PartitionedImportService partitionedImportService) {
+        return new ImportFileRecordWriter(batchDate, partitionedImportService, transactionManager);
     }
 
     @Bean

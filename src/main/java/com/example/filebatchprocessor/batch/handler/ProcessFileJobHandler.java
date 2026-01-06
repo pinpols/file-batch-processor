@@ -32,6 +32,7 @@ import java.util.concurrent.TimeUnit;
  * XXL 调度入口：触发文件导入作业 processFileJob。
  */
 @Component
+@SuppressWarnings("deprecation")
 public class ProcessFileJobHandler {
 
     private static final Logger logger = LoggerFactory.getLogger(ProcessFileJobHandler.class);
