@@ -13,7 +13,7 @@ import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.JobExecution;
 import org.springframework.batch.core.job.parameters.JobParameters;
 import org.springframework.batch.core.job.parameters.JobParametersBuilder;
-import org.springframework.batch.core.launch.JobOperator;
+import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -38,7 +38,7 @@ public class ProcessFileJobHandler {
 
     @Autowired
     @Qualifier("asyncJobLauncher")
-    private JobOperator jobOperator;
+    private JobLauncher jobLauncher;
 
     @Autowired
     private com.example.filebatchprocessor.repository.DlqRecordRepository dlqRecordRepository;
@@ -186,36 +186,20 @@ public class ProcessFileJobHandler {
     }
 
     private BatchStatus runWithTimeout(JobParameters params, long timeoutMs) throws Exception {
-        String jobName = processFileJob.getName();
-        // 将 JobParameters 转换为参数字符串格式
-        String parameters = convertJobParametersToString(params);
-        
         if (timeoutMs <= 0) {
-            Long executionId = jobOperator.start(jobName, parameters);
-            JobExecution execution = jobOperator.getJobExecution(executionId);
+            JobExecution execution = jobLauncher.run(processFileJob, params);
             return execution.getStatus();
         }
         CompletableFuture<JobExecution> future =
                 CompletableFuture.supplyAsync(() -> {
                     try {
-                        Long executionId = jobOperator.start(jobName, parameters);
-                        return jobOperator.getJobExecution(executionId);
+                        return jobLauncher.run(processFileJob, params);
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     }
                 }, batchTaskExecutor);
         JobExecution execution = future.get(timeoutMs, TimeUnit.MILLISECONDS);
         return execution.getStatus();
-    }
-    
-    /**
-     * 将 JobParameters 转换为 JobOperator 需要的参数字符串格式
-     * 格式: key1=value1,key2=value2
-     */
-    private String convertJobParametersToString(JobParameters params) {
-        return params.getParameters().entrySet().stream()
-                .map(entry -> entry.getKey() + "=" + entry.getValue().getValue())
-                .collect(java.util.stream.Collectors.joining(","));
     }
 
     private void persistDlq(String inputParam, String rawParams, String error) {

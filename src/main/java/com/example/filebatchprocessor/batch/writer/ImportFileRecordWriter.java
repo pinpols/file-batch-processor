@@ -11,6 +11,7 @@ import org.springframework.batch.core.listener.StepExecutionListener;
 import org.springframework.batch.core.step.StepExecution;
 import org.springframework.batch.infrastructure.item.Chunk;
 import org.springframework.batch.infrastructure.item.ItemWriter;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.util.StringUtils;
 
 import java.util.HashSet;
@@ -63,22 +64,36 @@ public class ImportFileRecordWriter implements ItemWriter<FileRecord>, StepExecu
 
         for (FileRecord item : items) {
             String bizKey = buildBusinessKey(item);
+            
+            // 内存去重：跳过本批次中已处理的记录
             if (!seenKeys.add(bizKey)) {
+                log.debug("Skipping duplicate record in current batch: {}", bizKey);
+                writeCount++; // 视为已处理
                 continue;
             }
+            
+            // 直接尝试保存，依赖唯一约束来处理幂等性
+            // 这样可以避免 Hibernate session 中的实体状态问题
             ImportedRecord entity = new ImportedRecord();
             entity.setBusinessKey(bizKey);
             entity.setName(item.getName());
             entity.setDescription(item.getDescription());
             entity.setBatchDate(batchDate);
+            
             try {
                 importedRecordRepository.save(entity);
-                log.info("Persisted record key={} data={}", bizKey, item);
+                log.debug("Persisted record key={} data={}", bizKey, item);
+                writeCount++;
+            } catch (DataIntegrityViolationException e) {
+                // 唯一约束违反：视为幂等命中（记录已存在）
+                // 这是预期的行为，不是错误
+                log.debug("Record already exists (idempotent hit): businessKey={}, batchDate={}", bizKey, batchDate);
+                writeCount++; // 视为成功（记录已存在）
             } catch (Exception e) {
+                // 其他异常：记录错误但不中断处理
                 log.error("Failed to persist record key={} for batchDate={}", bizKey, batchDate, e);
-                // 违反唯一约束时视为幂等命中，可忽略或做更新逻辑
+                // 注意：这里不增加 writeCount，因为写入失败
             }
-            writeCount++;
         }
     }
 }
