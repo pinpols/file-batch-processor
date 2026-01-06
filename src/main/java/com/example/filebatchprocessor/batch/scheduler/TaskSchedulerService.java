@@ -26,6 +26,7 @@ import java.util.concurrent.PriorityBlockingQueue;
 
 @Slf4j
 @Service
+@SuppressWarnings("deprecation")
 public class TaskSchedulerService {
 
     private final JobLauncher jobLauncher;

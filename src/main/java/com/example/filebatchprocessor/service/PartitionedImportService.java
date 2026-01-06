@@ -1,0 +1,189 @@
+package com.example.filebatchprocessor.service;
+
+import com.example.filebatchprocessor.model.ImportedRecordPartitioned;
+import com.example.filebatchprocessor.repository.ImportedRecordPartitionedRepository;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+
+/**
+ * 分区表导入服务：
+ * 1. 支持导入到按时间分区的表
+ * 2. 提供分区管理功能
+ * 3. 支持分区查询和统计
+ */
+@Slf4j
+@Service
+@Transactional
+public class PartitionedImportService {
+
+    private final ImportedRecordPartitionedRepository partitionedRepository;
+    private static final DateTimeFormatter PARTITION_FORMATTER = DateTimeFormatter.ofPattern("yyyy_MM");
+
+    public PartitionedImportService(ImportedRecordPartitionedRepository partitionedRepository) {
+        this.partitionedRepository = partitionedRepository;
+    }
+
+    /**
+     * 导入记录到分区表
+     */
+    public ImportedRecordPartitioned importRecord(String businessKey, String name, String description, 
+                                                  String batchDate, String sourceFileName, String checksum) {
+        log.info("Importing record to partitioned table: key={}, batchDate={}", businessKey, batchDate);
+
+        try {
+            // 生成分区键（yyyy_MM 格式）
+            String partitionKey = generatePartitionKey(batchDate);
+
+            // 检查是否已存在
+            if (partitionedRepository.findByBusinessKeyAndBatchDate(businessKey, batchDate).isPresent()) {
+                log.warn("Record already exists: key={}, batchDate={}", businessKey, batchDate);
+                throw new IllegalArgumentException("Record already exists for this business key and batch date");
+            }
+
+            ImportedRecordPartitioned record = new ImportedRecordPartitioned();
+            record.setBusinessKey(businessKey);
+            record.setName(name);
+            record.setDescription(description);
+            record.setBatchDate(batchDate);
+            record.setPartitionKey(partitionKey);
+            record.setSourceFileName(sourceFileName);
+            record.setChecksum(checksum);
+            record.setCreatedAt(LocalDateTime.now());
+            record.setUpdatedAt(LocalDateTime.now());
+
+            ImportedRecordPartitioned saved = partitionedRepository.save(record);
+            log.info("Record imported successfully: id={}, partition={}", saved.getId(), partitionKey);
+            return saved;
+        } catch (Exception e) {
+            log.error("Failed to import record: key={}", businessKey, e);
+            throw new RuntimeException("Failed to import record: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 批量导入记录
+     */
+    public List<ImportedRecordPartitioned> importRecordsBatch(List<ImportedRecordPartitioned> records) {
+        log.info("Batch importing {} records to partitioned table", records.size());
+
+        try {
+            records.forEach(record -> {
+                if (record.getPartitionKey() == null) {
+                    record.setPartitionKey(generatePartitionKey(record.getBatchDate()));
+                }
+                record.setCreatedAt(LocalDateTime.now());
+                record.setUpdatedAt(LocalDateTime.now());
+            });
+
+            List<ImportedRecordPartitioned> saved = partitionedRepository.saveAll(records);
+            log.info("Batch import completed: {} records", saved.size());
+            return saved;
+        } catch (Exception e) {
+            log.error("Failed to batch import records", e);
+            throw new RuntimeException("Failed to batch import records: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 查询指定分区的数据
+     */
+    public List<ImportedRecordPartitioned> queryByPartition(String partitionKey) {
+        log.info("Querying partition: {}", partitionKey);
+        return partitionedRepository.findByPartitionKey(partitionKey);
+    }
+
+    /**
+     * 查询时间范围内的数据
+     */
+    public List<ImportedRecordPartitioned> queryByDateRange(String startDate, String endDate) {
+        log.info("Querying date range: {} to {}", startDate, endDate);
+
+        String startPartition = generatePartitionKey(startDate);
+        String endPartition = generatePartitionKey(endDate);
+
+        return partitionedRepository.findByPartitionKeyRange(startPartition, endPartition);
+    }
+
+    /**
+     * 查询指定批次的记录
+     */
+    public List<ImportedRecordPartitioned> queryByBatchDate(String batchDate) {
+        log.info("Querying batch date: {}", batchDate);
+        return partitionedRepository.findByBatchDate(batchDate);
+    }
+
+    /**
+     * 统计分区内的记录数
+     */
+    public long countByPartition(String partitionKey) {
+        return partitionedRepository.countByPartitionKey(partitionKey);
+    }
+
+    /**
+     * 统计批次内的记录数
+     */
+    public long countByBatchDate(String batchDate) {
+        return partitionedRepository.countByBatchDate(batchDate);
+    }
+
+    /**
+     * 生成分区键（从日期生成 yyyy_MM 格式）
+     * 支持多种日期格式输入
+     */
+    public String generatePartitionKey(String dateString) {
+        try {
+            // 尝试解析为日期
+            if (dateString.contains("-")) {
+                // yyyy-MM-dd 格式
+                String[] parts = dateString.split("-");
+                if (parts.length >= 2) {
+                    return parts[0] + "_" + parts[1];
+                }
+            } else if (dateString.contains("/")) {
+                // yyyy/MM/dd 格式
+                String[] parts = dateString.split("/");
+                if (parts.length >= 2) {
+                    return parts[0] + "_" + parts[1];
+                }
+            } else if (dateString.length() == 8) {
+                // yyyyMMdd 格式
+                return dateString.substring(0, 4) + "_" + dateString.substring(4, 6);
+            } else if (dateString.length() >= 7 && !dateString.contains("_")) {
+                // yyyy_MM 格式，直接使用
+                return dateString;
+            }
+
+            log.warn("Unable to parse date format: {}", dateString);
+            return dateString;
+        } catch (Exception e) {
+            log.error("Error generating partition key: {}", dateString, e);
+            return dateString;
+        }
+    }
+
+    /**
+     * 获取分区统计信息
+     */
+    public PartitionStats getPartitionStats(String partitionKey) {
+        long count = countByPartition(partitionKey);
+        return new PartitionStats(partitionKey, count);
+    }
+
+    /**
+     * 统计数据类
+     */
+    public static class PartitionStats {
+        public String partitionKey;
+        public long recordCount;
+
+        public PartitionStats(String partitionKey, long recordCount) {
+            this.partitionKey = partitionKey;
+            this.recordCount = recordCount;
+        }
+    }
+}
