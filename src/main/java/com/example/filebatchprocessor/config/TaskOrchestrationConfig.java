@@ -26,7 +26,7 @@ public class TaskOrchestrationConfig {
     @Bean
     public CommandLineRunner registerConfiguredTasks(TaskDefinitionProperties properties,
                                                      TaskSchedulerService schedulerService) {
-        return args -> properties.getTasks().forEach(schedulerService::register);
+        return _ -> properties.getTasks().forEach(schedulerService::register);
     }
 }
 
