@@ -45,3 +45,4 @@ input=/data/input.csv&batchDate=2025-01-01&runMode=backfill&rerunId=bf-20250101&
 - 监控与告警：可接入 Prometheus 指标、日志 traceId 与告警策略。
 
 
+"# file-batch-processor" 
