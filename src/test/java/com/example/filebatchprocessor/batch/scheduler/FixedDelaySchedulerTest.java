@@ -1,6 +1,5 @@
 package com.example.filebatchprocessor.batch.scheduler;
 
-import com.example.filebatchprocessor.service.FixedDelayScheduler;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -28,9 +27,9 @@ class FixedDelaySchedulerTest {
 
     @BeforeEach
     void setUp() {
-        // 使用反射设置私有字段进行测试
-        ReflectionTestUtils.setField(fixedDelayScheduler, "runningTasks", 
-            new java.util.concurrent.ConcurrentHashMap<String, FixedDelayScheduler.FixedDelayTask>());
+// 使用反射设置私有字段进行测试
+//        ReflectionTestUtils.setField(fixedDelayScheduler, "runningTasks",
+//            new java.util.concurrent.ConcurrentHashMap<String, FixedDelayScheduler.FixedDelayTask>());
     }
 
     @Test
@@ -51,7 +50,7 @@ class FixedDelaySchedulerTest {
         // Then
         assertTrue(latch.await(2, TimeUnit.SECONDS), "Task should be executed");
         assertTrue(taskExecuted.get(), "Task should be marked as executed");
-        assertTrue(fixedDelayScheduler.isRunning(testTaskId), "Task should be running");
+        assertTrue(fixedDelayScheduler.isTaskScheduled(testTaskId), "Task should be running");
     }
 
     @Test
@@ -66,7 +65,7 @@ class FixedDelaySchedulerTest {
         fixedDelayScheduler.cancelTask(testTaskId);
 
         // Then
-        assertFalse(fixedDelayScheduler.isRunning(testTaskId), "Task should be cancelled");
+        assertFalse(fixedDelayScheduler.isTaskScheduled(testTaskId), "Task should be cancelled");
     }
 
     @Test
@@ -118,19 +117,19 @@ class FixedDelaySchedulerTest {
 
         // Then
         assertTrue(latch.await(2, TimeUnit.SECONDS), "Task should be executed twice despite exception");
-        assertTrue(fixedDelayScheduler.isRunning(testTaskId), "Task should continue running after exception");
+        assertTrue(fixedDelayScheduler.isTaskScheduled(testTaskId), "Task should continue running after exception");
     }
 
     @Test
     void shouldGetRunningTaskCount() {
         // Given
-        assertEquals(0, fixedDelayScheduler.getRunningTaskCount(), "Should start with no running tasks");
+        assertEquals(0, fixedDelayScheduler.getScheduledTaskCount(), "Should start with no running tasks");
 
         // When
         fixedDelayScheduler.scheduleFixedDelay("task1", () -> {}, 1000);
         fixedDelayScheduler.scheduleFixedDelay("task2", () -> {}, 1000);
 
         // Then
-        assertEquals(2, fixedDelayScheduler.getRunningTaskCount(), "Should count running tasks");
+        assertEquals(2, fixedDelayScheduler.getScheduledTaskCount(), "Should count running tasks");
     }
 }
