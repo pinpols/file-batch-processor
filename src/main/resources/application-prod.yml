@@ -1,0 +1,51 @@
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://postgres:5432/file_batch}
+    username: ${SPRING_DATASOURCE_USERNAME:filebatch}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  flyway:
+    enabled: true
+    placeholder-replacement: false
+    locations: classpath:db/migration
+
+server:
+  port: ${SERVER_PORT:8011}
+
+batch:
+  alert:
+    enabled: ${BATCH_ALERT_ENABLED:true}
+    failure-rate-threshold: ${BATCH_ALERT_FAILURE_RATE_THRESHOLD:0.2}
+    dlq-backlog-threshold: ${BATCH_ALERT_DLQ_BACKLOG_THRESHOLD:100}
+    min-throughput-rps-threshold: ${BATCH_ALERT_MIN_THROUGHPUT_RPS_THRESHOLD:5}
+    webhook:
+      enabled: ${BATCH_ALERT_WEBHOOK_ENABLED:false}
+      url: ${BATCH_ALERT_WEBHOOK_URL:}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: always
+  metrics:
+    tags:
+      application: ${spring.application.name:file-batch-processor}
+
+logging:
+  level:
+    root: INFO
+    com.example.filebatchprocessor: INFO
+
+orchestration:
+  config-source: ${ORCHESTRATION_CONFIG_SOURCE:db}

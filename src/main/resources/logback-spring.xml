@@ -1,28 +1,68 @@
 <configuration>
-    <!-- 控制台输出 -->
-    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+    <springProperty scope="context" name="APP_NAME" source="spring.application.name" defaultValue="file-batch-processor"/>
+    <property name="ENV" value="${ENVIRONMENT:-dev}"/>
+    <property name="LOG_PATH" value="logs"/>
+
+    <property name="TEXT_PATTERN"
+              value="%date{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{64} - %msg %n%ex"/>
+
+    <property name="JSON_PATTERN"
+              value="{&quot;ts&quot;:&quot;%date{yyyy-MM-dd'T'HH:mm:ss.SSSXXX}&quot;,&quot;level&quot;:&quot;%level&quot;,&quot;app&quot;:&quot;${APP_NAME}&quot;,&quot;env&quot;:&quot;${ENV}&quot;,&quot;thread&quot;:&quot;%thread&quot;,&quot;logger&quot;:&quot;%logger{64}&quot;,&quot;trace_id&quot;:&quot;%X{trace_id:-}&quot;,&quot;span_id&quot;:&quot;%X{span_id:-}&quot;,&quot;task_id&quot;:&quot;%X{task_id:-}&quot;,&quot;job_name&quot;:&quot;%X{job_name:-}&quot;,&quot;execution_id&quot;:&quot;%X{execution_id:-}&quot;,&quot;batch_date&quot;:&quot;%X{batch_date:-}&quot;,&quot;shard_index&quot;:&quot;%X{shard_index:-}&quot;,&quot;shard_total&quot;:&quot;%X{shard_total:-}&quot;,&quot;msg&quot;:&quot;%replace(%replace(%msg){'\\','\\\\'}){'&quot;','\\&quot;'}&quot;,&quot;exception&quot;:&quot;%replace(%replace(%replace(%ex){'\\','\\\\'}){'\n','\\n'}){'&quot;','\\&quot;'}&quot;}%n"/>
+
+    <appender name="CONSOLE_TEXT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+            <pattern>${TEXT_PATTERN}</pattern>
         </encoder>
     </appender>
 
-    <!-- 滚动文件输出，记录到磁盘 logs/app.log -->
-    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>logs/app.log</file>
-        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <!-- 按天滚动，保留 30 天 -->
-            <fileNamePattern>logs/app.%d{yyyy-MM-dd}.log</fileNamePattern>
+    <appender name="FILE_TEXT" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_PATH}/app.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_PATH}/app.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>50MB</maxFileSize>
             <maxHistory>30</maxHistory>
+            <totalSizeCap>2GB</totalSizeCap>
         </rollingPolicy>
         <encoder>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+            <pattern>${TEXT_PATTERN}</pattern>
         </encoder>
     </appender>
 
-    <root level="INFO">
-        <appender-ref ref="CONSOLE"/>
-        <appender-ref ref="FILE"/>
-    </root>
+    <appender name="CONSOLE_JSON" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${JSON_PATTERN}</pattern>
+        </encoder>
+    </appender>
+
+    <appender name="FILE_JSON" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_PATH}/app.json.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_PATH}/app.%d{yyyy-MM-dd}.%i.json.log</fileNamePattern>
+            <maxFileSize>50MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>2GB</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern>${JSON_PATTERN}</pattern>
+        </encoder>
+    </appender>
+
+    <logger name="org.springframework.batch" level="INFO"/>
+    <logger name="com.example.filebatchprocessor" level="INFO"/>
+
+    <springProfile name="json-log">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE_JSON"/>
+            <appender-ref ref="FILE_JSON"/>
+        </root>
+    </springProfile>
+
+    <springProfile name="!json-log">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE_TEXT"/>
+            <appender-ref ref="FILE_TEXT"/>
+        </root>
+    </springProfile>
 </configuration>
 
 

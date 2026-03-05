@@ -32,5 +32,40 @@ build/
 ### VS Code ###
 .vscode/
 
-###log
+### Logs ###
 *.log
+logs/
+
+### Local env ###
+.env
+backup/
+*.bak
+*.tmp
+
+### Build artifacts ###
+*.jar
+!*.jar
+target/
+build/
+out/
+
+### Documentation ###
+docs/ops/dag-*-graph.generated.md
+docs/ops/dag-complex-template.sql
+
+### OS ###
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+### Temporary files ###
+*.temp
+*.cache
+*.pid
+
+### Local tools ###
+tools/scheduler/*.jar
+!tools/scheduler/.gitkeep
+/.local/*
+

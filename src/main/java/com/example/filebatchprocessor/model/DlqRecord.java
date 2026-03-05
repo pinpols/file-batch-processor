@@ -29,7 +29,23 @@ public class DlqRecord {
     @Column(length = 1000)
     private String errorMessage;
 
+    @Column(length = 64)
+    private String errorCode;
+
+    private Boolean retryable = true;
+    private Boolean manualRequired = false;
+
+    @Column(length = 32)
+    private String compensationStatus = "PENDING";
+
+    private LocalDateTime nextRetryAt;
+
     private Boolean handled = false;
+    private Long replayCount = 0L;
+
+    @Column(length = 1000)
+    private String lastReplayError;
 
     private LocalDateTime createdAt = LocalDateTime.now();
+    private LocalDateTime handledAt;
 }

@@ -1,11 +1,16 @@
 package com.example.filebatchprocessor.service;
 
+import com.example.filebatchprocessor.exception.TransientImportException;
 import com.example.filebatchprocessor.model.ImportedRecordPartitioned;
 import com.example.filebatchprocessor.repository.ImportedRecordPartitionedRepository;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.TransientDataAccessException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -22,7 +27,7 @@ import java.util.List;
 public class PartitionedImportService {
 
     private final ImportedRecordPartitionedRepository partitionedRepository;
-    private static final DateTimeFormatter PARTITION_FORMATTER = DateTimeFormatter.ofPattern("yyyy_MM");
+    private static final DateTimeFormatter BATCH_DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
 
     public PartitionedImportService(ImportedRecordPartitionedRepository partitionedRepository) {
         this.partitionedRepository = partitionedRepository;
@@ -33,23 +38,28 @@ public class PartitionedImportService {
      */
     public ImportedRecordPartitioned importRecord(String businessKey, String name, String description, 
                                                   String batchDate, String sourceFileName, String checksum) {
-        log.info("Importing record to partitioned table: key={}, batchDate={}", businessKey, batchDate);
+        String normalizedBatchDate = StringUtils.hasText(batchDate)
+                ? batchDate
+                : LocalDate.now().format(BATCH_DATE_FORMATTER);
+        log.info("Importing record to partitioned table: key={}, batchDate={}", businessKey, normalizedBatchDate);
 
         try {
             // 生成分区键（yyyy_MM 格式）
-            String partitionKey = generatePartitionKey(batchDate);
+            String partitionKey = generatePartitionKey(normalizedBatchDate);
 
             // 检查是否已存在
-            if (partitionedRepository.findByBusinessKeyAndBatchDate(businessKey, batchDate).isPresent()) {
-                log.warn("Record already exists: key={}, batchDate={}", businessKey, batchDate);
-                throw new IllegalArgumentException("Record already exists for this business key and batch date");
+            var existing = partitionedRepository.findByBusinessKeyAndBatchDate(businessKey, normalizedBatchDate);
+            if (existing.isPresent()) {
+                // 幂等：重复导入时直接返回已存在记录，避免抛错污染日志
+                log.debug("Record already exists (idempotent hit): key={}, batchDate={}", businessKey, normalizedBatchDate);
+                return existing.get();
             }
 
             ImportedRecordPartitioned record = new ImportedRecordPartitioned();
             record.setBusinessKey(businessKey);
             record.setName(name);
             record.setDescription(description);
-            record.setBatchDate(batchDate);
+            record.setBatchDate(normalizedBatchDate);
             record.setPartitionKey(partitionKey);
             record.setSourceFileName(sourceFileName);
             record.setChecksum(checksum);
@@ -59,6 +69,18 @@ public class PartitionedImportService {
             ImportedRecordPartitioned saved = partitionedRepository.save(record);
             log.info("Record imported successfully: id={}, partition={}", saved.getId(), partitionKey);
             return saved;
+        } catch (DataIntegrityViolationException e) {
+            // 并发下可能出现先查不存在、后插入冲突，按幂等命中处理
+            return partitionedRepository
+                    .findByBusinessKeyAndBatchDate(businessKey, normalizedBatchDate)
+                    .map(existing -> {
+                        log.debug("Record already exists after concurrent insert (idempotent hit): key={}, batchDate={}",
+                                businessKey, normalizedBatchDate);
+                        return existing;
+                    })
+                    .orElseThrow(() -> e);
+        } catch (TransientDataAccessException e) {
+            throw new TransientImportException("Transient failure while importing record", e);
         } catch (Exception e) {
             log.error("Failed to import record: key={}", businessKey, e);
             throw new RuntimeException("Failed to import record: " + e.getMessage(), e);
@@ -137,6 +159,9 @@ public class PartitionedImportService {
      */
     public String generatePartitionKey(String dateString) {
         try {
+            if (dateString == null || dateString.isBlank()) {
+                return LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy_MM"));
+            }
             // 尝试解析为日期
             if (dateString.contains("-")) {
                 // yyyy-MM-dd 格式
@@ -153,7 +178,7 @@ public class PartitionedImportService {
             } else if (dateString.length() == 8) {
                 // yyyyMMdd 格式
                 return dateString.substring(0, 4) + "_" + dateString.substring(4, 6);
-            } else if (dateString.length() >= 7 && !dateString.contains("_")) {
+            } else if (dateString.length() >= 7 && dateString.contains("_")) {
                 // yyyy_MM 格式，直接使用
                 return dateString;
             }

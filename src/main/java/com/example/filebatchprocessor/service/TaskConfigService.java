@@ -1,9 +1,11 @@
 package com.example.filebatchprocessor.service;
 
 import com.example.filebatchprocessor.model.TaskDefinition;
+import com.example.filebatchprocessor.model.TaskDependency;
 import com.example.filebatchprocessor.model.TaskParameter;
 import com.example.filebatchprocessor.model.TaskTrigger;
 import com.example.filebatchprocessor.repository.TaskDefinitionRepository;
+import com.example.filebatchprocessor.repository.TaskDependencyRepository;
 import com.example.filebatchprocessor.repository.TaskParameterRepository;
 import com.example.filebatchprocessor.repository.TaskTriggerRepository;
 import lombok.extern.slf4j.Slf4j;
@@ -26,13 +28,16 @@ public class TaskConfigService {
     private final TaskDefinitionRepository taskDefinitionRepository;
     private final TaskTriggerRepository taskTriggerRepository;
     private final TaskParameterRepository taskParameterRepository;
+    private final TaskDependencyRepository taskDependencyRepository;
 
     public TaskConfigService(TaskDefinitionRepository taskDefinitionRepository,
-                            TaskTriggerRepository taskTriggerRepository,
-                            TaskParameterRepository taskParameterRepository) {
+                             TaskTriggerRepository taskTriggerRepository,
+                             TaskParameterRepository taskParameterRepository,
+                             TaskDependencyRepository taskDependencyRepository) {
         this.taskDefinitionRepository = taskDefinitionRepository;
         this.taskTriggerRepository = taskTriggerRepository;
         this.taskParameterRepository = taskParameterRepository;
+        this.taskDependencyRepository = taskDependencyRepository;
     }
 
     /**
@@ -75,6 +80,20 @@ public class TaskConfigService {
             paramMap.put(param.getParamName(), param.getParamValue());
         }
         return paramMap;
+    }
+
+    /**
+     * 获取任务的所有依赖任务 ID 列表
+     */
+    public List<String> getTaskDependencies(String taskId) {
+        return taskDependencyRepository.findByTaskId(taskId)
+                .stream()
+                .map(TaskDependency::getDependsOnTaskId)
+                .toList();
+    }
+
+    public List<TaskDependency> getTaskDependencyConfigs(String taskId) {
+        return taskDependencyRepository.findByTaskId(taskId);
     }
 
     /**

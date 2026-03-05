@@ -1,6 +1,6 @@
 package com.example.filebatchprocessor.config;
 
-import com.example.filebatchprocessor.scheduler.TaskDefinition;
+import com.example.filebatchprocessor.scheduler.OrchestrationTaskDefinition;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
@@ -10,6 +10,6 @@ import java.util.List;
 @Data
 @ConfigurationProperties(prefix = "orchestration")
 public class TaskDefinitionProperties {
-    private List<TaskDefinition> tasks = new ArrayList<>();
+    private List<OrchestrationTaskDefinition> tasks = new ArrayList<>();
 }
 

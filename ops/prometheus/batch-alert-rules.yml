@@ -1,0 +1,98 @@
+groups:
+  - name: file-batch-processor-rules
+    interval: 30s
+    rules:
+      - alert: BatchJobFailureRateHigh
+        expr: |
+          (
+            batch_recent_failure_count
+            /
+            clamp_min(batch_recent_failure_count + batch_recent_completed_count, 1)
+          ) > 0.2
+        for: 5m
+        labels:
+          severity: critical
+          service: file-batch-processor
+        annotations:
+          summary: "Batch failure rate is high"
+          description: "Failure ratio > 20% in recent window."
+
+      - alert: BatchDlqBacklogHigh
+        expr: batch_dlq_backlog > 100
+        for: 5m
+        labels:
+          severity: warning
+          service: file-batch-processor
+        annotations:
+          summary: "DLQ backlog is high"
+          description: "Unhandled DLQ count exceeded threshold."
+
+      - alert: BatchThroughputLow
+        expr: batch_avg_throughput_rps < 5
+        for: 10m
+        labels:
+          severity: warning
+          service: file-batch-processor
+        annotations:
+          summary: "Batch throughput degraded"
+          description: "Average throughput dropped below 5 rows/s."
+
+      - alert: BatchBlockedTasksHigh
+        expr: batch_blocked_task_count > 20
+        for: 5m
+        labels:
+          severity: warning
+          service: file-batch-processor
+        annotations:
+          summary: "Blocked task backlog is high"
+          description: "Blocked/ready/running backlog exceeded threshold."
+
+      - alert: BatchServiceDown
+        expr: up{job="file-batch-processor"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: file-batch-processor
+        annotations:
+          summary: "Batch service is down"
+          description: "Prometheus scrape target is unavailable."
+
+      - alert: BatchCircuitBreakerOpened
+        expr: increase(circuit_open_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+          service: file-batch-processor
+        annotations:
+          summary: "Circuit breaker opened"
+          description: "Target system circuit breaker opened in the last 5 minutes."
+
+      - alert: BatchCircuitBreakerRejectedHigh
+        expr: increase(scheduler_circuit_rejected_total[5m]) > 10
+        for: 3m
+        labels:
+          severity: warning
+          service: file-batch-processor
+        annotations:
+          summary: "Circuit breaker rejections high"
+          description: "Tasks rejected by circuit breaker > 10 in 5 minutes."
+
+      - alert: BatchQualityGateFailed
+        expr: increase(import_parse_error_gate_failed_total[5m]) > 0
+        for: 2m
+        labels:
+          severity: warning
+          service: file-batch-processor
+        annotations:
+          summary: "Import quality gate failed"
+          description: "Parse error rate exceeded threshold in recent import job."
+
+      - alert: BatchQualityGateFrequentFailure
+        expr: increase(import_parse_error_gate_failed_total[15m]) >= 3
+        for: 5m
+        labels:
+          severity: critical
+          service: file-batch-processor
+        annotations:
+          summary: "Quality gate failures frequent"
+          description: "Quality gate failed >= 3 times in 15 minutes."

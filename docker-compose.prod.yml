@@ -1,0 +1,183 @@
+version: '3.8'
+
+services:
+  # ================================
+  # PostgreSQL 数据库
+  # ================================
+  postgres:
+    image: postgres:17-alpine
+    container_name: file-batch-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-qrtz}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/db/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-qrtz}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - file-batch-network
+
+  # ================================
+  # 应用服务
+  # ================================
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - BUILD_PROFILE=${BUILD_PROFILE:-prod}
+    image: file-batch-processor:latest
+    container_name: file-batch-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # 应用配置
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      SERVER_PORT: 8011
+      
+      # 数据库配置
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-qrtz}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.postgresql.Driver
+      
+      # JVM 配置
+      JAVA_OPTS: ${JAVA_OPTS:--XX:+UseContainerSupport -XX:MaxRAMPercentage=75 -XX:+UseG1GC}
+      
+      # 调度器配置
+      ORCHESTRATION_SCHEDULER_POOL_SIZE: ${SCHEDULER_POOL_SIZE:-4}
+      ORCHESTRATION_CONFIG_SOURCE: ${CONFIG_SOURCE:-db}
+      
+      # 监控配置
+      BATCH_ALERT_ENABLED: ${BATCH_ALERT_ENABLED:-true}
+      BATCH_ALERT_WEBHOOK_ENABLED: ${BATCH_ALERT_WEBHOOK_ENABLED:-false}
+      BATCH_ALERT_WEBHOOK_URL: ${BATCH_ALERT_WEBHOOK_URL:-}
+      
+      # 集群配置
+      CLUSTER_INSTANCE_ID: ${CLUSTER_INSTANCE_ID:-file-batch-$(hostname)}
+      ORCHESTRATION_SCHEDULER_CLUSTER_MODE: ${CLUSTER_MODE:-custom}
+      
+      # Misfire 策略配置
+      ORCHESTRATION_SCHEDULER_MISFIRE_ENABLED: ${MISFIRE_ENABLED:-true}
+      ORCHESTRATION_SCHEDULER_MISFIRE_DETECTION_WINDOW_MS: ${MISFIRE_DETECTION_WINDOW_MS:-300000}
+      
+      # 日历排除配置
+      ORCHESTRATION_SCHEDULER_CALENDAR_EXCLUSION_ENABLED: ${CALENDAR_EXCLUSION_ENABLED:-true}
+      
+      # 日志配置
+      LOGGING_LEVEL_ROOT: ${LOG_LEVEL:-INFO}
+      LOGGING_LEVEL_COM_EXAMPLE_FILEBATCHPROCESSOR: ${APP_LOG_LEVEL:-DEBUG}
+    ports:
+      - "8011:8011"
+    volumes:
+      - app_logs:/app/logs
+      - ${UPLOAD_DIR:-./uploads}:/app/uploads
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8011/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - file-batch-network
+
+  # ================================
+  # Prometheus 监控
+  # ================================
+  prometheus:
+    image: prom/prometheus:v3.4.2
+    container_name: file-batch-prometheus
+    restart: unless-stopped
+    depends_on:
+      - app
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.console.libraries=/etc/prometheus/console_libraries
+      - --web.console.templates=/etc/prometheus/consoles
+    volumes:
+      - ./ops/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./ops/prometheus/batch-alert-rules.yml:/etc/prometheus/batch-alert-rules.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - file-batch-network
+
+  # ================================
+  # Grafana 可视化
+  # ================================
+  grafana:
+    image: grafana/grafana:11.4.0
+    container_name: file-batch-grafana
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin123}
+      GF_USERS_ALLOW_SIGN_UP: false
+      GF_INSTALL_PLUGINS: grafana-clock-panel,grafana-simple-json-datasource
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./ops/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./ops/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3000:3000"
+    networks:
+      - file-batch-network
+
+  # ================================
+  # AlertManager 告警
+  # ================================
+  alertmanager:
+    image: prom/alertmanager:v0.29.0
+    container_name: file-batch-alertmanager
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    volumes:
+      - ./ops/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    ports:
+      - "9093:9093"
+    networks:
+      - file-batch-network
+
+# ================================
+# 网络配置
+# ================================
+networks:
+  file-batch-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+# ================================
+# 数据卷配置
+# ================================
+volumes:
+  postgres_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+  alertmanager_data:
+    driver: local
+  app_logs:
+    driver: local

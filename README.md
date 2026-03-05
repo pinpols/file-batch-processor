@@ -2,7 +2,7 @@
 
 ### 场景概览
 - **场景一：文件接收 → 解析 → 入表（幂等）**  
-  - 入口：`processFileJob`（可被 XXL 触发或本地编排触发）。  
+  - 入口：`processFileJob`（可被本地编排触发）。  
   - Reader：`FileRecordReader` 读取 CSV，支持分片；记录 read.count 与 checksum。  
   - Processor：`FileRecordProcessor` 示例逻辑，可扩展业务校验/转换。  
   - Writer：`FileRecordWriter` 将数据写入表 `imported_records`，唯一索引 `business_key + batch_date` 保证幂等。  
@@ -14,8 +14,8 @@
   - Writer：`FlatFileItemWriter` 输出 CSV，路径由 `output.file.name` 决定；可在后续 Step/Listener 中扩展分发（SFTP/HTTP/OSS）。
 
 ### 关键能力
-- 触发：CRON/固定频率/固定延迟/一次性；XXL JobHandler + 本地编排器（`orchestration.tasks`）。
-- DAG/优先级/分片：`TaskSchedulerService` 管理；XXL 分片参数透传到 Reader。
+- 触发：CRON/固定频率/固定延迟/一次性；本地编排器（`orchestration.tasks`）。
+- DAG/优先级/分片：`TaskSchedulerService` 管理；分片参数透传到 Reader。
 - 去重与合并：短窗 dedup，时间窗合并小任务；批量日/重跑 `batchDate/runMode/rerunId` 透传。
 - 可靠性：可配重试/退避/最大时长/超时；失败落 `dlq_records`。
 - 幂等：Writer 利用唯一索引 + 批量日保证重复导入不污染数据。
@@ -27,7 +27,7 @@
   - `export.sql`: 自定义查询  
   - `output.file.name`: 输出路径
 
-### XXL 触发参数示例
+### 触发参数示例
 ```
 input=/data/input.csv&batchDate=2025-01-01&runMode=backfill&rerunId=bf-20250101&priority=10&maxRetries=3&backoffMs=2000&timeoutMs=60000&maxDurationMs=300000
 ```
@@ -35,8 +35,7 @@ input=/data/input.csv&batchDate=2025-01-01&runMode=backfill&rerunId=bf-20250101&
 ### 启动与运行
 1) 构建/启动：`mvn spring-boot:run`（内置 H2，h2-console 开启）。  
 2) H2 控制台：`/h2-console`，JDBC URL `jdbc:h2:mem:filebatch`.  
-3) 调度：  
-   - XXL：在控制台配置执行器，绑定 `processFileJobHandler`。  
+3) 调度：
    - 本地编排：在 `application.yml` 的 `orchestration.tasks` 定义触发器和参数，应用启动后自动注册。
 
 ### 扩展点

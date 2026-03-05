@@ -18,6 +18,8 @@ public interface TaskParameterRepository extends JpaRepository<TaskParameter, Lo
      */
     List<TaskParameter> findByTaskId(String taskId);
 
+    List<TaskParameter> findByTaskIdIn(List<String> taskIds);
+
     /**
      * 按任务ID和参数名查询参数
      */

@@ -1,0 +1,24 @@
+[Unit]
+Description=File Batch Processor Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=filebatch
+Group=filebatch
+WorkingDirectory=/opt/file-batch-processor
+EnvironmentFile=/etc/file-batch-processor/file-batch-processor.env
+ExecStart=/usr/bin/java $JAVA_OPTS -jar /opt/file-batch-processor/file-batch-processor.jar --spring.profiles.active=prod
+SuccessExitStatus=143
+Restart=always
+RestartSec=5
+TimeoutStartSec=90
+TimeoutStopSec=30
+LimitNOFILE=65535
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=file-batch-processor
+
+[Install]
+WantedBy=multi-user.target

@@ -17,9 +17,9 @@ public interface FileDistributionTaskRepository extends JpaRepository<FileDistri
     List<FileDistributionTask> findByStatus(String status);
 
     /**
-     * 查找失败且需要重试的任务
+     * 查找可重试任务（状态为 RETRY 且重试次数未超限）
      */
-    @Query("SELECT t FROM FileDistributionTask t WHERE t.status = 'FAILED' AND t.retryCount < t.maxRetries AND t.updatedAt < :beforeTime")
+    @Query("SELECT t FROM FileDistributionTask t WHERE t.status = 'RETRY' AND t.retryCount < t.maxRetries AND t.updatedAt < :beforeTime")
     List<FileDistributionTask> findRetriableTasks(LocalDateTime beforeTime);
 
     /**
