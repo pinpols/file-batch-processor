@@ -1,5 +1,7 @@
-package com.example.filebatchprocessor.config;
+package com.example.filebatchprocessor.batch.config;
 
+import com.example.filebatchprocessor.batch.processor.ExportRecordProcessor;
+import com.example.filebatchprocessor.batch.processor.FileImportRecordProcessor;
 import com.example.filebatchprocessor.listener.JobCompletionNotificationListener;
 import com.example.filebatchprocessor.model.ExportRecord;
 import com.example.filebatchprocessor.batch.writer.ExportRecordTraceWriter;
@@ -127,10 +129,12 @@ public class DataExportJobConfig {
 
     @Bean
     public Step exportStep(JdbcCursorItemReader<ExportRecord> exportReader,
+                           ExportRecordProcessor processor,
                            ExportRecordTraceWriter exportTraceWriter) {
         return new StepBuilder("exportStep", jobRepository)
                 .<ExportRecord, ExportRecord>chunk(200)
                 .reader(exportReader)
+                .processor(processor)
                 .writer(exportTraceWriter)
                 .transactionManager(transactionManager)
                 .build();
