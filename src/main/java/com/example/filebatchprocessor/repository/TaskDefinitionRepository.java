@@ -32,4 +32,6 @@ public interface TaskDefinitionRepository extends JpaRepository<TaskDefinition, 
      * 查询允许并行执行的任务
      */
     List<TaskDefinition> findByAllowParallelTrue();
+
+    List<TaskDefinition> findByTaskIdIn(List<String> taskIds);
 }

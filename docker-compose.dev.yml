@@ -1,0 +1,134 @@
+version: '3.8'
+
+services:
+  # ================================
+  # PostgreSQL 数据库 (开发环境)
+  # ================================
+  postgres:
+    image: postgres:17-alpine
+    container_name: file-batch-postgres-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-qrtz}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+      - ./scripts/testdata:/docker-entrypoint-initdb.d/testdata:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-qrtz}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - file-batch-dev-network
+
+  # ================================
+  # 应用服务 (开发环境)
+  # ================================
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - BUILD_PROFILE=dev
+    image: file-batch-processor:dev
+    container_name: file-batch-app-dev
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # 开发环境配置
+      SPRING_PROFILES_ACTIVE: dev
+      SERVER_PORT: 8011
+      
+      # 数据库配置
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-qrtz}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      
+      # JVM 配置 (开发环境)
+      JAVA_OPTS: ${JAVA_OPTS:--XX:+UseContainerSupport -XX:MaxRAMPercentage=75 -XX:+UseG1GC -Xdebug}
+      
+      # 调度器配置
+      ORCHESTRATION_SCHEDULER_POOL_SIZE: ${SCHEDULER_POOL_SIZE:-2}
+      ORCHESTRATION_CONFIG_SOURCE: yaml  # 开发环境使用 YAML 配置
+      
+      # 开发调试配置
+      LOGGING_LEVEL_ROOT: DEBUG
+      LOGGING_LEVEL_COM_EXAMPLE_FILEBATCHPROCESSOR: DEBUG
+      
+      # 热重载配置
+      SPRING_DEVTOOLS_RESTART_ENABLED: true
+      SPRING_LIVE_RELOAD_ENABLED: true
+    ports:
+      - "8011:8011"
+      - "5005:5005"  # Java 调试端口
+    volumes:
+      - app_dev_logs:/app/logs
+      - ./src:/app/src:ro  # 源代码热重载
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8011/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - file-batch-dev-network
+
+  # ================================
+  # Redis (开发环境缓存)
+  # ================================
+  redis:
+    image: redis:8-alpine
+    container_name: file-batch-redis-dev
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_dev_data:/data
+    networks:
+      - file-batch-dev-network
+
+  # ================================
+  # 开发工具
+  # ================================
+  adminer:
+    image: adminer:4.8.1
+    container_name: file-batch-adminer-dev
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+      ADMINER_DEFAULT_DRIVER: pgsql
+      ADMINER_DEFAULT_USERNAME: ${POSTGRES_USER:-postgres}
+      ADMINER_DEFAULT_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "8080:8080"
+    networks:
+      - file-batch-dev-network
+
+# ================================
+# 网络配置
+# ================================
+networks:
+  file-batch-dev-network:
+    driver: bridge
+
+# ================================
+# 数据卷配置
+# ================================
+volumes:
+  postgres_dev_data:
+    driver: local
+  redis_dev_data:
+    driver: local
+  app_dev_logs:
+    driver: local

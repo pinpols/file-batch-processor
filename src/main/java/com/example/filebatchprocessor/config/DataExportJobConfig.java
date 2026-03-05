@@ -2,16 +2,16 @@ package com.example.filebatchprocessor.config;
 
 import com.example.filebatchprocessor.listener.JobCompletionNotificationListener;
 import com.example.filebatchprocessor.model.ExportRecord;
-
+import com.example.filebatchprocessor.batch.writer.ExportRecordTraceWriter;
+import com.example.filebatchprocessor.params.ExportJobParams;
+import com.example.filebatchprocessor.repository.RecordTraceRepository;
 import org.springframework.batch.core.configuration.annotation.StepScope;
-
 import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.job.parameters.RunIdIncrementer;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.Step;
 import org.springframework.batch.core.step.builder.StepBuilder;
-import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.batch.infrastructure.item.database.JdbcCursorItemReader;
 import org.springframework.batch.infrastructure.item.file.FlatFileItemWriter;
 import org.springframework.batch.infrastructure.item.file.builder.FlatFileItemWriterBuilder;
@@ -22,13 +22,18 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.FileSystemResource;
+import org.springframework.transaction.PlatformTransactionManager;
 
 import javax.sql.DataSource;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Locale;
+import java.util.Map;
 
 @Configuration
 public class DataExportJobConfig {
+
+    private static final String DEFAULT_EXPORT_SQL = "select id, business_key, name, description, batch_date from imported_records";
 
     private final JobRepository jobRepository;
     private final PlatformTransactionManager transactionManager;
@@ -36,8 +41,8 @@ public class DataExportJobConfig {
 
     @Autowired
     public DataExportJobConfig(JobRepository jobRepository,
-                              PlatformTransactionManager transactionManager,
-                              DataSource dataSource) {
+                               PlatformTransactionManager transactionManager,
+                               DataSource dataSource) {
         this.jobRepository = jobRepository;
         this.transactionManager = transactionManager;
         this.dataSource = dataSource;
@@ -46,14 +51,32 @@ public class DataExportJobConfig {
     @Bean
     @StepScope
     public JdbcCursorItemReader<ExportRecord> exportReader(
-            @Value("#{jobParameters['export.sql']}") String exportSql) {
+            @Value("#{jobParameters}") Map<String, Object> jobParameters) {
 
-
-        String sql = exportSql != null && !exportSql.trim().isEmpty()
-                ? exportSql
-                : "select id, business_key, name, description, batch_date from imported_records";
-
+        ExportJobParams params = ExportJobParams.from(jobParameters);
+        String sql = resolveSafeExportSql(params.getExportSql());
         return new JdbcCursorItemReader<>(dataSource, sql, DataExportJobConfig::mapRow);
+    }
+
+    private String resolveSafeExportSql(String exportSql) {
+        if (exportSql == null || exportSql.trim().isEmpty()) {
+            return DEFAULT_EXPORT_SQL;
+        }
+
+        String normalized = exportSql.trim();
+        String lower = normalized.toLowerCase(Locale.ROOT);
+
+        boolean startsWithSelect = lower.startsWith("select ");
+        boolean singleStatement = !lower.contains(";");
+        boolean noDmlKeywords = !(lower.contains(" insert ") || lower.contains(" update ") ||
+                lower.contains(" delete ") || lower.contains(" drop ") || lower.contains(" alter ") ||
+                lower.contains(" truncate "));
+
+        if (startsWithSelect && singleStatement && noDmlKeywords) {
+            return normalized;
+        }
+
+        throw new IllegalArgumentException("Unsupported export.sql: only a single SELECT statement is allowed");
     }
 
     private static ExportRecord mapRow(ResultSet rs, int rowNum) throws SQLException {
@@ -69,10 +92,11 @@ public class DataExportJobConfig {
     @Bean
     @StepScope
     public FlatFileItemWriter<ExportRecord> exportWriter(
-            @Value("#{jobParameters['output.file.name']}") String outputFileName) {
-        String fileName = (outputFileName == null || outputFileName.isEmpty())
+            @Value("#{jobParameters}") Map<String, Object> jobParameters) {
+        ExportJobParams params = ExportJobParams.from(jobParameters);
+        String fileName = (params.getOutputFileName() == null || params.getOutputFileName().isEmpty())
                 ? "export/output.csv"
-                : outputFileName;
+                : params.getOutputFileName();
 
         FieldExtractor<ExportRecord> fieldExtractor = item -> new Object[]{
                 item.getId(),
@@ -95,12 +119,19 @@ public class DataExportJobConfig {
     }
 
     @Bean
+    @StepScope
+    public ExportRecordTraceWriter exportTraceWriter(FlatFileItemWriter<ExportRecord> exportWriter,
+                                                     RecordTraceRepository recordTraceRepository) {
+        return new ExportRecordTraceWriter(exportWriter, recordTraceRepository, "dataExportJob");
+    }
+
+    @Bean
     public Step exportStep(JdbcCursorItemReader<ExportRecord> exportReader,
-                           FlatFileItemWriter<ExportRecord> exportWriter) {
+                           ExportRecordTraceWriter exportTraceWriter) {
         return new StepBuilder("exportStep", jobRepository)
                 .<ExportRecord, ExportRecord>chunk(200)
                 .reader(exportReader)
-                .writer(exportWriter)
+                .writer(exportTraceWriter)
                 .transactionManager(transactionManager)
                 .build();
     }
@@ -114,5 +145,3 @@ public class DataExportJobConfig {
                 .build();
     }
 }
-
-

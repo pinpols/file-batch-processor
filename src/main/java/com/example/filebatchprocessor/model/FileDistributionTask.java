@@ -29,6 +29,12 @@ public class FileDistributionTask {
     @Column(name = "export_file_id")
     private Long exportFileId;
 
+    @Column(name = "tenant_id", length = 64)
+    private String tenantId;
+
+    @Column(name = "biz_domain", length = 64)
+    private String bizDomain;
+
     @Column(name = "file_name", nullable = false, length = 500)
     private String fileName;
 

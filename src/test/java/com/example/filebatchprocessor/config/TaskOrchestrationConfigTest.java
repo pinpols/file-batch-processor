@@ -1,0 +1,102 @@
+package com.example.filebatchprocessor.config;
+
+import com.example.filebatchprocessor.batch.scheduler.TaskSchedulerService;
+import com.example.filebatchprocessor.model.TaskDefinition;
+import com.example.filebatchprocessor.model.TaskTrigger;
+import com.example.filebatchprocessor.scheduler.OrchestrationTaskDefinition;
+import com.example.filebatchprocessor.service.TaskConfigService;
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.core.env.Environment;
+import org.springframework.test.util.ReflectionTestUtils;
+
+import java.util.List;
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.*;
+
+class TaskOrchestrationConfigTest {
+
+    @Test
+    void shouldRegisterFromDbByDefault() throws Exception {
+        TaskOrchestrationConfig config = new TaskOrchestrationConfig();
+        ReflectionTestUtils.setField(config, "configSource", "db");
+
+        TaskDefinitionProperties properties = new TaskDefinitionProperties();
+        TaskSchedulerService schedulerService = mock(TaskSchedulerService.class);
+        TaskConfigService taskConfigService = mock(TaskConfigService.class);
+        Environment env = mock(Environment.class);
+
+        TaskDefinition definition = new TaskDefinition();
+        definition.setTaskId("t1");
+        definition.setJobName("processFileJob");
+        definition.setPriority("HIGH");
+        definition.setAllowParallel(true);
+
+        TaskTrigger trigger = new TaskTrigger();
+        trigger.setTriggerType("FIXED_RATE");
+        trigger.setFixedRateMs(1000L);
+
+        when(taskConfigService.getAllEnabledTasks()).thenReturn(List.of(definition));
+        when(taskConfigService.getTaskTrigger("t1")).thenReturn(trigger);
+        when(taskConfigService.getTaskParametersAsMap("t1")).thenReturn(Map.of("k", "v"));
+        when(taskConfigService.getTaskDependencyConfigs("t1")).thenReturn(List.of());
+
+        CommandLineRunner runner = config.registerConfiguredTasks(properties, schedulerService, taskConfigService, env);
+        runner.run();
+
+        verify(schedulerService, times(1)).register(any(OrchestrationTaskDefinition.class));
+    }
+
+    @Test
+    void shouldRejectYamlOutsideLocalDev() {
+        TaskOrchestrationConfig config = new TaskOrchestrationConfig();
+        ReflectionTestUtils.setField(config, "configSource", "yaml");
+
+        TaskDefinitionProperties properties = new TaskDefinitionProperties();
+        properties.setTasks(List.of(new OrchestrationTaskDefinition()));
+        TaskSchedulerService schedulerService = mock(TaskSchedulerService.class);
+        TaskConfigService taskConfigService = mock(TaskConfigService.class);
+        Environment env = mock(Environment.class);
+        when(env.getActiveProfiles()).thenReturn(new String[]{"prod"});
+
+        assertThrows(IllegalStateException.class, () -> {
+            config.registerConfiguredTasks(properties, schedulerService, taskConfigService, env).run();
+        });
+    }
+
+    @Test
+    void shouldMapFixedDelayTriggerFromDb() throws Exception {
+        TaskOrchestrationConfig config = new TaskOrchestrationConfig();
+        ReflectionTestUtils.setField(config, "configSource", "db");
+
+        TaskDefinitionProperties properties = new TaskDefinitionProperties();
+        TaskSchedulerService schedulerService = mock(TaskSchedulerService.class);
+        TaskConfigService taskConfigService = mock(TaskConfigService.class);
+        Environment env = mock(Environment.class);
+
+        TaskDefinition definition = new TaskDefinition();
+        definition.setTaskId("t-delay");
+        definition.setJobName("fileReceptionJob");
+        definition.setPriority("NORMAL");
+        definition.setAllowParallel(true);
+
+        TaskTrigger trigger = new TaskTrigger();
+        trigger.setTriggerType("FIXED_DELAY");
+        trigger.setFixedDelayMs(2000L);
+
+        when(taskConfigService.getAllEnabledTasks()).thenReturn(List.of(definition));
+        when(taskConfigService.getTaskTrigger("t-delay")).thenReturn(trigger);
+        when(taskConfigService.getTaskParametersAsMap("t-delay")).thenReturn(Map.of());
+        when(taskConfigService.getTaskDependencyConfigs("t-delay")).thenReturn(List.of());
+
+        CommandLineRunner runner = config.registerConfiguredTasks(properties, schedulerService, taskConfigService, env);
+        runner.run();
+
+        var captor = org.mockito.ArgumentCaptor.forClass(OrchestrationTaskDefinition.class);
+        verify(schedulerService, times(1)).register(captor.capture());
+        assertEquals(2000L, captor.getValue().getTrigger().getFixedDelayMs());
+    }
+}

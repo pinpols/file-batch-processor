@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: 8011
 
 spring:
   application:
@@ -7,10 +7,22 @@ spring:
   batch:
     job:
       enabled: false  # Disable auto-start of jobs
+  quartz:
+    job-store-type: memory
+    auto-startup: true
+    properties:
+      org:
+        quartz:
+          scheduler:
+            instanceName: fileBatchQuartzScheduler
+          threadPool:
+            threadCount: 8
+          jobStore:
+            misfireThreshold: 60000
   datasource:
-    url: jdbc:postgresql://localhost:5432/postgres
-    username: postgres
-    password: postgres
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/postgres}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -18,29 +30,117 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+  flyway:
+    enabled: true
+    placeholder-replacement: false
+    locations: classpath:db/migration
   h2:
     console:
       enabled: false
       path: /h2-console
-
-# XXL-Job Admin Addresses: such as "http://address" or "http://address01,http://address02"
-# If you don't have XXL-Job Admin running, comment out the addresses line or set it to empty string
-# The application can still run without XXL-Job Admin, but XXL-Job scheduling features won't work
-xxl:
-  job:
-    admin:
-      # addresses: http://localhost:8080/xxl-job-admin  # Uncomment and set correct address when XXL-Job Admin is available
-      addresses:  # Empty to disable XXL-Job registration (application will still work)
-    accessToken: default_token
-    executor:
-      appname: file-batch-executor
-      address: 
-      ip: 
-      port: 9999
-      logpath: /data/applogs/xxl-job/jobhandler
-      logretentiondays: 30
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics,beans
+  endpoint:
+    health:
+      show-details: always
+batch:
+  alert:
+    enabled: true
+    failure-rate-threshold: 0.2
+    dlq-backlog-threshold: 100
+    dlq-manual-threshold: 20
+    min-throughput-rps-threshold: 5
+    webhook:
+      enabled: false
+      url: ""
+  retention:
+    enabled: true
+    cron: "0 30 3 * * ?"
+    dedup-days: 7
+    task-state-days: 30
+    dlq-handled-days: 30
+    batch-run-days: 90
+  dlq:
+    max-replay-count: 5
+    retry-delay-ms: 60000
+  # Parse error quality gate (global defaults + per-job overrides)
+  import:
+    parse-error:
+      max-rate: 0.2
+      min-lines: 50
+      rules:
+        fileImportJob:
+          max-rate: 0.1
+          min-lines: 20
 
 orchestration:
+  config-source: ${ORCHESTRATION_CONFIG_SOURCE:db}
+  scheduler:
+    pool-size: 4
+    max-queue-size: 2000
+    max-concurrent-launches: 4
+    backpressure-threshold: 1500
+    backpressure-delay-ms: 5000
+    default-max-queue-wait-ms: 300000
+    default-timeout-ms: 1800000
+    default-dynamic-shard-max: 1
+    default-dependency-timeout-ms: 600000
+    default-rerun-window-ms: 86400000
+    default-retry-backoff-ms: 60000
+    default-retry-jitter-ratio: 0.0
+    default-max-attempts: 3
+    # 集群配置
+    cluster:
+      mode: custom # custom | quartz
+      instance-id: ${CLUSTER_INSTANCE_ID:}
+      checkin-interval-ms: 15000
+      max-failure-count: 3
+    # Misfire 策略配置
+    misfire:
+      enabled: true
+      detection-window-ms: 300000 # 5分钟
+      recovery-delay-ms: 30000 # 30秒
+      max-recovery-attempts: 3
+      check-interval-ms: 60000 # 1分钟
+    # 日历排除配置
+    calendar-exclusion:
+      enabled: true
+      exclude-weekends: true
+      default-calendar: default
+      holidays:
+        default:
+          - "01-01" # 元旦
+          - "05-01" # 劳动节
+          - "10-01" # 国庆节
+          - "12-25" # 圣诞节
+          - "2025-02-10" # 春节示例
+        business:
+          - "01-01"
+          - "05-01"
+          - "10-01"
+      exclude-time-windows:
+        default:
+          - "22:00-06:00" # 夜间维护窗口
+          - "12:00-13:00" # 午休时间
+        business:
+          - "18:00-08:00" # 非工作时间
+    # Per-job/target concurrency limits (jobName or jobName:targetSystem)
+    max-concurrent-by-key:
+      fileImportJob: 2
+      fileExportJob: 1
+      fileImportJob:SFTP: 1
+    leader:
+      lock-name: orchestration-scheduler
+      ttl-seconds: 30
+      refresh-ms: 5000
+  # Circuit breaker per targetSystem (window failure rate > threshold -> cooldown)
+  circuit-breaker:
+    window-size: 10
+    failure-rate-threshold: 0.5
+    cooldown-duration-ms: 300000
   tasks:
     - id: process-file-cron
       jobName: processFileJob
@@ -51,25 +151,32 @@ orchestration:
         type: CRON
         cron: "0 0/10 * * * ?"
       parameters:
-        input.file.name: C:\Users\aa\CascadeProjects\file-batch-processor\src\main\resources\data\sample.csv
+        input.file.name: ${BATCH_INPUT_FILE:}
     - id: process-file-fixed
       jobName: processFileJob
       priority: NORMAL
       allowParallel: true
+      dynamicShardMax: 2
+      timeoutMs: 600000
+      maxQueueWaitMs: 180000
+      dependencyTimeoutMs: 300000
+      rerunWindowMs: 86400000
+      maxAttempts: 3
+      retryBackoffMs: 60000
       trigger:
         type: FIXED_RATE
         fixedRateMs: 300000
       parameters:
-        input.file.name: C:\Users\aa\CascadeProjects\file-batch-processor\src\main\resources\data\sample.csv
+        input.file.name: ${BATCH_INPUT_FILE:}
     - id: process-file-backfill-20250101
       jobName: processFileJob
       priority: HIGH
       allowParallel: true
       trigger:
         type: ONE_TIME
-        oneTimeAt: 2025-01-01T02:00:00Z
+        oneTimeAt: 2099-01-01T02:00:00Z
       parameters:
-        input.file.name: C:\Users\aa\CascadeProjects\file-batch-processor\src\main\resources\data\sample.csv
+        input.file.name: ${BATCH_INPUT_FILE:}
         batchDate: "2025-01-01"
         runMode: backfill
         rerunId: bf-20250101
@@ -104,51 +211,24 @@ orchestration:
         batchDate: ""
         format: "csv"
         outputDir: "export"
-    - id: file-reception-monitor
-      jobName: fileReceptionJob
-      priority: NORMAL
-      allowParallel: true
-      trigger:
-        type: FIXED_RATE
-        fixedRateMs: 600000
-      parameters: {}
-    - id: file-reception-timeout-check
-      jobName: fileReceptionTimeoutJob
-      priority: NORMAL
-      allowParallel: true
-      trigger:
-        type: CRON
-        cron: "0 0 */6 * * ?"
-      parameters: {}
-    - id: file-distribution-pending
-      jobName: fileDistributionJob
-      priority: HIGH
-      allowParallel: true
-      trigger:
-        type: FIXED_RATE
-        fixedRateMs: 300000
-      parameters: {}
-    - id: file-distribution-retry
-      jobName: fileDistributionRetryJob
-      priority: NORMAL
-      allowParallel: true
-      trigger:
-        type: FIXED_RATE
-        fixedRateMs: 900000
-      parameters: {}
-    - id: file-distribution-timeout
-      jobName: fileDistributionTimeoutJob
-      priority: NORMAL
-      allowParallel: true
-      trigger:
-        type: CRON
-        cron: "0 0 */12 * * ?"
-      parameters: {}
 
 # SFTP 默认示例配置（用于开发/测试）
 sftp:
-  host: 127.0.0.1
-  port: 22
-  username: root
-  password: root
-  remoteDir: /upload
+  host: ${SFTP_HOST:}
+  port: ${SFTP_PORT:22}
+  username: ${SFTP_USERNAME:}
+  password: ${SFTP_PASSWORD:}
+  remoteDir: ${SFTP_REMOTE_DIR:/upload}
+
+ops:
+  security:
+    enabled: ${OPS_SECURITY_ENABLED:true}
+    viewer:
+      username: ${OPS_VIEWER_USERNAME:viewer}
+      password: ${OPS_VIEWER_PASSWORD:{noop}viewer123}
+    operator:
+      username: ${OPS_OPERATOR_USERNAME:operator}
+      password: ${OPS_OPERATOR_PASSWORD:{noop}operator123}
+    admin:
+      username: ${OPS_ADMIN_USERNAME:admin}
+      password: ${OPS_ADMIN_PASSWORD:{noop}admin123}

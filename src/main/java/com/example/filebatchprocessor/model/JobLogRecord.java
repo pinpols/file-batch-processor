@@ -24,7 +24,7 @@ public class JobLogRecord {
     /** 作业名称，如 processFileJob / dataExportJob */
     private String jobName;
 
-    /** XXL 下发或编排传入的原始参数 */
+    /** 任务调度传入的原始参数 */
     @Column(length = 2000)
     private String params;
 

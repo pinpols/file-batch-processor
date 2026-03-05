@@ -5,7 +5,7 @@
 
 -- ========================================================
 -- 表 1: task_definition (任务定义表)
--- 用于存储 XXL-Job 任务的基本配置信息
+-- 用于存储任务的基本配置信息
 -- ========================================================
 CREATE TABLE IF NOT EXISTS task_definition (
     id BIGSERIAL PRIMARY KEY,
@@ -75,12 +75,20 @@ VALUES ('partitioned-import-daily', 'partitionedImportJob', '分区导入任务�
 ON CONFLICT (task_id) DO NOTHING;
 
 INSERT INTO task_trigger (task_id, trigger_type, cron_expression, enabled)
-VALUES ('partitioned-import-daily', 'CRON', '0 0 1 * * ?', TRUE)
-ON CONFLICT DO NOTHING;
+SELECT 'partitioned-import-daily', 'CRON', '0 0 1 * * ?', TRUE
+WHERE NOT EXISTS (
+    SELECT 1 FROM task_trigger
+    WHERE task_id = 'partitioned-import-daily'
+      AND trigger_type = 'CRON'
+      AND cron_expression = '0 0 1 * * ?'
+);
 
 INSERT INTO task_parameter (task_id, param_name, param_value, param_type, description)
-VALUES ('partitioned-import-daily', 'batchDate', '', 'STRING', '批次日期（空表示使用当前日期）')
-ON CONFLICT (task_id, param_name) DO NOTHING;
+SELECT 'partitioned-import-daily', 'batchDate', '', 'STRING', '批次日期（空表示使用当前日期）'
+WHERE NOT EXISTS (
+    SELECT 1 FROM task_parameter
+    WHERE task_id = 'partitioned-import-daily' AND param_name = 'batchDate'
+);
 
 -- 2. 数据导出任务
 INSERT INTO task_definition (task_id, job_name, description, priority, allow_parallel, enabled)
@@ -88,14 +96,32 @@ VALUES ('file-export-daily', 'fileExportJob', '数据导出任务：每天导出
 ON CONFLICT (task_id) DO NOTHING;
 
 INSERT INTO task_trigger (task_id, trigger_type, cron_expression, enabled)
-VALUES ('file-export-daily', 'CRON', '0 0 2 * * ?', TRUE)
-ON CONFLICT DO NOTHING;
+SELECT 'file-export-daily', 'CRON', '0 0 2 * * ?', TRUE
+WHERE NOT EXISTS (
+    SELECT 1 FROM task_trigger
+    WHERE task_id = 'file-export-daily'
+      AND trigger_type = 'CRON'
+      AND cron_expression = '0 0 2 * * ?'
+);
 
 INSERT INTO task_parameter (task_id, param_name, param_value, param_type, description)
-VALUES ('file-export-daily', 'batchDate', '', 'STRING', '批次日期'),
-       ('file-export-daily', 'format', 'csv', 'STRING', '导出格式：csv/json/excel'),
-       ('file-export-daily', 'outputDir', 'export', 'STRING', '输出目录')
-ON CONFLICT (task_id, param_name) DO NOTHING;
+SELECT 'file-export-daily', 'batchDate', '', 'STRING', '批次日期'
+WHERE NOT EXISTS (
+    SELECT 1 FROM task_parameter
+    WHERE task_id = 'file-export-daily' AND param_name = 'batchDate'
+);
+INSERT INTO task_parameter (task_id, param_name, param_value, param_type, description)
+SELECT 'file-export-daily', 'format', 'csv', 'STRING', '导出格式：csv/json/excel'
+WHERE NOT EXISTS (
+    SELECT 1 FROM task_parameter
+    WHERE task_id = 'file-export-daily' AND param_name = 'format'
+);
+INSERT INTO task_parameter (task_id, param_name, param_value, param_type, description)
+SELECT 'file-export-daily', 'outputDir', 'export', 'STRING', '输出目录'
+WHERE NOT EXISTS (
+    SELECT 1 FROM task_parameter
+    WHERE task_id = 'file-export-daily' AND param_name = 'outputDir'
+);
 
 -- 3. 文件接收监控任务
 INSERT INTO task_definition (task_id, job_name, description, priority, allow_parallel, enabled)
@@ -103,8 +129,13 @@ VALUES ('file-reception-monitor', 'fileReceptionJob', '文件接收监控：每 
 ON CONFLICT (task_id) DO NOTHING;
 
 INSERT INTO task_trigger (task_id, trigger_type, fixed_rate_ms, enabled)
-VALUES ('file-reception-monitor', 'FIXED_RATE', 600000, TRUE)
-ON CONFLICT DO NOTHING;
+SELECT 'file-reception-monitor', 'FIXED_RATE', 600000, TRUE
+WHERE NOT EXISTS (
+    SELECT 1 FROM task_trigger
+    WHERE task_id = 'file-reception-monitor'
+      AND trigger_type = 'FIXED_RATE'
+      AND fixed_rate_ms = 600000
+);
 
 -- 4. 文件接收超时检测任务
 INSERT INTO task_definition (task_id, job_name, description, priority, allow_parallel, enabled)
@@ -112,8 +143,13 @@ VALUES ('file-reception-timeout-check', 'fileReceptionTimeoutJob', '文件接收
 ON CONFLICT (task_id) DO NOTHING;
 
 INSERT INTO task_trigger (task_id, trigger_type, cron_expression, enabled)
-VALUES ('file-reception-timeout-check', 'CRON', '0 0 */6 * * ?', TRUE)
-ON CONFLICT DO NOTHING;
+SELECT 'file-reception-timeout-check', 'CRON', '0 0 */6 * * ?', TRUE
+WHERE NOT EXISTS (
+    SELECT 1 FROM task_trigger
+    WHERE task_id = 'file-reception-timeout-check'
+      AND trigger_type = 'CRON'
+      AND cron_expression = '0 0 */6 * * ?'
+);
 
 -- 5. 待分发文件处理任务
 INSERT INTO task_definition (task_id, job_name, description, priority, allow_parallel, enabled)
@@ -121,8 +157,13 @@ VALUES ('file-distribution-pending', 'fileDistributionJob', '文件分发：每 
 ON CONFLICT (task_id) DO NOTHING;
 
 INSERT INTO task_trigger (task_id, trigger_type, fixed_rate_ms, enabled)
-VALUES ('file-distribution-pending', 'FIXED_RATE', 300000, TRUE)
-ON CONFLICT DO NOTHING;
+SELECT 'file-distribution-pending', 'FIXED_RATE', 300000, TRUE
+WHERE NOT EXISTS (
+    SELECT 1 FROM task_trigger
+    WHERE task_id = 'file-distribution-pending'
+      AND trigger_type = 'FIXED_RATE'
+      AND fixed_rate_ms = 300000
+);
 
 -- 6. 文件分发重试任务
 INSERT INTO task_definition (task_id, job_name, description, priority, allow_parallel, enabled)
@@ -130,8 +171,13 @@ VALUES ('file-distribution-retry', 'fileDistributionRetryJob', '文件分发重�
 ON CONFLICT (task_id) DO NOTHING;
 
 INSERT INTO task_trigger (task_id, trigger_type, fixed_rate_ms, enabled)
-VALUES ('file-distribution-retry', 'FIXED_RATE', 900000, TRUE)
-ON CONFLICT DO NOTHING;
+SELECT 'file-distribution-retry', 'FIXED_RATE', 900000, TRUE
+WHERE NOT EXISTS (
+    SELECT 1 FROM task_trigger
+    WHERE task_id = 'file-distribution-retry'
+      AND trigger_type = 'FIXED_RATE'
+      AND fixed_rate_ms = 900000
+);
 
 -- 7. 文件分发超时检测任务
 INSERT INTO task_definition (task_id, job_name, description, priority, allow_parallel, enabled)
@@ -139,8 +185,116 @@ VALUES ('file-distribution-timeout', 'fileDistributionTimeoutJob', '文件分发
 ON CONFLICT (task_id) DO NOTHING;
 
 INSERT INTO task_trigger (task_id, trigger_type, cron_expression, enabled)
-VALUES ('file-distribution-timeout', 'CRON', '0 0 */12 * * ?', TRUE)
-ON CONFLICT DO NOTHING;
+SELECT 'file-distribution-timeout', 'CRON', '0 0 */12 * * ?', TRUE
+WHERE NOT EXISTS (
+    SELECT 1 FROM task_trigger
+    WHERE task_id = 'file-distribution-timeout'
+      AND trigger_type = 'CRON'
+      AND cron_expression = '0 0 */12 * * ?'
+);
+
+-- 8. 死信重放任务（自动补偿）
+INSERT INTO task_definition (task_id, job_name, description, priority, allow_parallel, enabled)
+VALUES ('dlq-replay-job', 'dlqReplayJob', 'DLQ 自动重放补偿任务', 'HIGH', FALSE, TRUE)
+ON CONFLICT (task_id) DO NOTHING;
+
+INSERT INTO task_trigger (task_id, trigger_type, fixed_rate_ms, enabled)
+SELECT 'dlq-replay-job', 'FIXED_RATE', 1800000, TRUE
+WHERE NOT EXISTS (
+    SELECT 1 FROM task_trigger
+    WHERE task_id = 'dlq-replay-job'
+      AND trigger_type = 'FIXED_RATE'
+      AND fixed_rate_ms = 1800000
+);
+
+INSERT INTO task_parameter (task_id, param_name, param_value, param_type, description)
+SELECT 'dlq-replay-job', 'limit', '50', 'INT', '单次重放条数上限'
+WHERE NOT EXISTS (
+    SELECT 1 FROM task_parameter
+    WHERE task_id = 'dlq-replay-job' AND param_name = 'limit'
+);
+
+-- 9. 失败任务恢复入口（默认禁用，人工触发）
+INSERT INTO task_definition (task_id, job_name, description, priority, allow_parallel, enabled)
+VALUES ('batch-restart-job', 'batchRestartJob', '批量失败任务恢复入口', 'HIGH', FALSE, FALSE)
+ON CONFLICT (task_id) DO NOTHING;
+
+-- 10. 文件导入主链路任务（processFileJob/importJob）
+INSERT INTO task_definition (task_id, job_name, description, priority, allow_parallel, enabled)
+VALUES ('process-file-main', 'processFileJob', '文件导入主链路任务：上游文件导入分区表', 'HIGH', TRUE, TRUE)
+ON CONFLICT (task_id) DO NOTHING;
+
+INSERT INTO task_trigger (task_id, trigger_type, fixed_rate_ms, enabled)
+SELECT 'process-file-main', 'FIXED_RATE', 300000, TRUE
+WHERE NOT EXISTS (
+    SELECT 1 FROM task_trigger
+    WHERE task_id = 'process-file-main'
+      AND trigger_type = 'FIXED_RATE'
+      AND fixed_rate_ms = 300000
+);
+
+INSERT INTO task_parameter (task_id, param_name, param_value, param_type, description)
+SELECT 'process-file-main', 'input.file.name', '${user.dir}/src/main/resources/data/sample.csv', 'STRING', '导入文件路径'
+WHERE NOT EXISTS (
+    SELECT 1 FROM task_parameter
+    WHERE task_id = 'process-file-main' AND param_name = 'input.file.name'
+);
+
+INSERT INTO task_parameter (task_id, param_name, param_value, param_type, description)
+SELECT 'process-file-main', 'batchDate', '', 'STRING', '批次日期（空表示当天）'
+WHERE NOT EXISTS (
+    SELECT 1 FROM task_parameter
+    WHERE task_id = 'process-file-main' AND param_name = 'batchDate'
+);
+
+INSERT INTO task_parameter (task_id, param_name, param_value, param_type, description)
+SELECT 'process-file-main', 'runMode', 'normal', 'STRING', '运行模式：normal/backfill'
+WHERE NOT EXISTS (
+    SELECT 1 FROM task_parameter
+    WHERE task_id = 'process-file-main' AND param_name = 'runMode'
+);
+
+INSERT INTO task_parameter (task_id, param_name, param_value, param_type, description)
+SELECT 'process-file-main', 'rerunId', '', 'STRING', '补跑标识'
+WHERE NOT EXISTS (
+    SELECT 1 FROM task_parameter
+    WHERE task_id = 'process-file-main' AND param_name = 'rerunId'
+);
+
+INSERT INTO task_parameter (task_id, param_name, param_value, param_type, description)
+SELECT 'process-file-main', 'priority', '5', 'INT', '任务优先级（数字越大越高）'
+WHERE NOT EXISTS (
+    SELECT 1 FROM task_parameter
+    WHERE task_id = 'process-file-main' AND param_name = 'priority'
+);
+
+-- 11. 原表导出主链路任务（dataExportJob）
+INSERT INTO task_definition (task_id, job_name, description, priority, allow_parallel, enabled)
+VALUES ('data-export-main', 'dataExportJob', '原表导出主链路任务：按批次导出给下游', 'NORMAL', FALSE, TRUE)
+ON CONFLICT (task_id) DO NOTHING;
+
+INSERT INTO task_trigger (task_id, trigger_type, cron_expression, enabled)
+SELECT 'data-export-main', 'CRON', '0 1 0 * * ?', TRUE
+WHERE NOT EXISTS (
+    SELECT 1 FROM task_trigger
+    WHERE task_id = 'data-export-main'
+      AND trigger_type = 'CRON'
+      AND cron_expression = '0 1 0 * * ?'
+);
+
+INSERT INTO task_parameter (task_id, param_name, param_value, param_type, description)
+SELECT 'data-export-main', 'export.sql', 'select id, business_key, name, description, batch_date from imported_records where batch_date = ''2026-03-01''', 'STRING', '导出查询 SQL（单条 SELECT）'
+WHERE NOT EXISTS (
+    SELECT 1 FROM task_parameter
+    WHERE task_id = 'data-export-main' AND param_name = 'export.sql'
+);
+
+INSERT INTO task_parameter (task_id, param_name, param_value, param_type, description)
+SELECT 'data-export-main', 'output.file.name', 'export/data_export_20260301.csv', 'STRING', '导出文件名'
+WHERE NOT EXISTS (
+    SELECT 1 FROM task_parameter
+    WHERE task_id = 'data-export-main' AND param_name = 'output.file.name'
+);
 
 -- ========================================================
 -- 结束

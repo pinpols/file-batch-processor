@@ -1,6 +1,6 @@
 package com.example.filebatchprocessor.batch.scheduler;
 
-import com.example.filebatchprocessor.scheduler.TaskDefinition;
+import com.example.filebatchprocessor.scheduler.OrchestrationTaskDefinition;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -10,19 +10,23 @@ import java.util.*;
 @Component
 public class TaskGraphManager {
 
-    private final Map<String, TaskDefinition> taskDefinitions = new HashMap<>();
+    private final Map<String, OrchestrationTaskDefinition> taskDefinitions = new HashMap<>();
 
-    public synchronized void register(TaskDefinition definition) {
+    public synchronized void register(OrchestrationTaskDefinition definition) {
         taskDefinitions.put(definition.getId(), definition);
         validateDag();
     }
 
-    public synchronized List<TaskDefinition> topologicallySorted() {
+    public synchronized OrchestrationTaskDefinition get(String taskId) {
+        return taskDefinitions.get(taskId);
+    }
+
+    public synchronized List<OrchestrationTaskDefinition> topologicallySorted() {
         validateDag();
         Map<String, Integer> inDegree = new HashMap<>();
         Map<String, List<String>> graph = new HashMap<>();
 
-        for (TaskDefinition def : taskDefinitions.values()) {
+        for (OrchestrationTaskDefinition def : taskDefinitions.values()) {
             inDegree.putIfAbsent(def.getId(), 0);
             for (String dep : def.getDependencies()) {
                 graph.computeIfAbsent(dep, k -> new ArrayList<>()).add(def.getId());
@@ -37,10 +41,10 @@ public class TaskGraphManager {
             }
         });
 
-        List<TaskDefinition> ordered = new ArrayList<>();
+        List<OrchestrationTaskDefinition> ordered = new ArrayList<>();
         while (!queue.isEmpty()) {
             String id = queue.poll();
-            TaskDefinition def = taskDefinitions.get(id);
+            OrchestrationTaskDefinition def = taskDefinitions.get(id);
             if (def != null) {
                 ordered.add(def);
             }
@@ -57,7 +61,7 @@ public class TaskGraphManager {
     private void validateDag() {
         Set<String> visiting = new HashSet<>();
         Set<String> visited = new HashSet<>();
-        for (TaskDefinition def : taskDefinitions.values()) {
+        for (OrchestrationTaskDefinition def : taskDefinitions.values()) {
             if (!visited.contains(def.getId())) {
                 dfs(def.getId(), visiting, visited);
             }
@@ -72,7 +76,7 @@ public class TaskGraphManager {
             return;
         }
         visiting.add(id);
-        TaskDefinition def = taskDefinitions.get(id);
+        OrchestrationTaskDefinition def = taskDefinitions.get(id);
         if (def != null) {
             for (String dep : def.getDependencies()) {
                 dfs(dep, visiting, visited);

@@ -3,6 +3,8 @@ package com.example.filebatchprocessor.repository;
 import com.example.filebatchprocessor.model.ImportedRecordPartitioned;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
@@ -17,10 +19,14 @@ public interface ImportedRecordPartitionedRepository extends JpaRepository<Impor
      */
     Optional<ImportedRecordPartitioned> findByBusinessKeyAndBatchDate(String businessKey, String batchDate);
 
+    List<ImportedRecordPartitioned> findTop50ByBusinessKeyOrderByCreatedAtDesc(String businessKey);
+
     /**
      * 按批次日期查找所有记录
      */
     List<ImportedRecordPartitioned> findByBatchDate(String batchDate);
+
+    Page<ImportedRecordPartitioned> findByBatchDateOrderByBusinessKeyAsc(String batchDate, Pageable pageable);
 
     /**
      * 按分区键查找（支持按年月分区）

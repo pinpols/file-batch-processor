@@ -1,6 +1,6 @@
 package com.example.filebatchprocessor.batch.scheduler;
 
-import com.example.filebatchprocessor.scheduler.TaskDefinition;
+import com.example.filebatchprocessor.scheduler.OrchestrationTaskDefinition;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -19,12 +19,12 @@ public class TaskMergeService {
 
     private static class MergeBucket {
         private Instant createdAt = Instant.now();
-        private final List<TaskDefinition> tasks = new ArrayList<>();
+        private final List<OrchestrationTaskDefinition> tasks = new ArrayList<>();
     }
 
     private final Map<String, MergeBucket> buckets = new ConcurrentHashMap<>();
 
-    public synchronized List<TaskDefinition> merge(String key, TaskDefinition incoming, Duration window) {
+    public synchronized List<OrchestrationTaskDefinition> merge(String key, OrchestrationTaskDefinition incoming, Duration window) {
         if (!incoming.isAllowMerge()) {
             return List.of(incoming);
         }

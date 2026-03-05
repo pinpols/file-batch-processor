@@ -8,7 +8,7 @@ import java.time.LocalDateTime;
 
 /**
  * 任务触发器表：存储任务的执行计划
- * 支持多种触发方式：CRON、FIXED_RATE、ONE_TIME
+ * 支持多种触发方式：CRON、FIXED_RATE、FIXED_DELAY、ONE_TIME
  */
 @Data
 @NoArgsConstructor
@@ -27,7 +27,7 @@ public class TaskTrigger {
     private String taskId;
 
     /**
-     * 触发器类型：CRON、FIXED_RATE、ONE_TIME
+     * 触发器类型：CRON、FIXED_RATE、FIXED_DELAY、ONE_TIME
      */
     @Column(name = "trigger_type", nullable = false, length = 50)
     private String triggerType;
@@ -45,6 +45,13 @@ public class TaskTrigger {
      */
     @Column(name = "fixed_rate_ms")
     private Long fixedRateMs;
+
+    /**
+     * 固定延迟（毫秒，当 triggerType 为 FIXED_DELAY 时使用）
+     * 示例：300000 表示上次执行完成后 5 分钟再次执行
+     */
+    @Column(name = "fixed_delay_ms")
+    private Long fixedDelayMs;
 
     /**
      * 一次性执行时间（当 triggerType 为 ONE_TIME 时使用）

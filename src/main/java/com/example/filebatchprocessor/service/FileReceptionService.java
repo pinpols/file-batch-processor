@@ -6,8 +6,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.MessageDigest;
@@ -195,8 +197,14 @@ public class FileReceptionService {
      */
     private String calculateHash(String filePath) throws IOException, NoSuchAlgorithmException {
         MessageDigest md = MessageDigest.getInstance("MD5");
-        byte[] fileBytes = Files.readAllBytes(Paths.get(filePath));
-        byte[] hashBytes = md.digest(fileBytes);
+        try (InputStream in = new BufferedInputStream(Files.newInputStream(Paths.get(filePath)))) {
+            byte[] buffer = new byte[8192];
+            int read;
+            while ((read = in.read(buffer)) != -1) {
+                md.update(buffer, 0, read);
+            }
+        }
+        byte[] hashBytes = md.digest();
 
         StringBuilder hexString = new StringBuilder();
         for (byte b : hashBytes) {
