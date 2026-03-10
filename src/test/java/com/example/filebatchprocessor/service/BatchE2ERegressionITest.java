@@ -25,7 +25,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
-class BatchE2ERegressionIT extends PostgresContainerSupport {
+class BatchE2ERegressionITest extends PostgresContainerSupport {
 
     @Autowired
     @Qualifier("asyncJobLauncher")

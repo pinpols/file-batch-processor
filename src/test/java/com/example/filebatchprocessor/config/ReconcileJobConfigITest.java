@@ -25,7 +25,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
-class ReconcileJobConfigIT extends PostgresContainerSupport {
+class ReconcileJobConfigITest extends PostgresContainerSupport {
 
     @Autowired
     @Qualifier("asyncJobLauncher")

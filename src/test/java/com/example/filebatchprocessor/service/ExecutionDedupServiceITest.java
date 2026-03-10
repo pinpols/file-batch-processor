@@ -12,7 +12,7 @@ import java.util.concurrent.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @SpringBootTest
-class ExecutionDedupServiceIT extends PostgresContainerSupport {
+class ExecutionDedupServiceITest extends PostgresContainerSupport {
 
     @Autowired
     private ExecutionDedupService executionDedupService;
