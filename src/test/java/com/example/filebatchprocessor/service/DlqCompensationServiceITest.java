@@ -15,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @SpringBootTest
-class DlqCompensationServiceIT extends PostgresContainerSupport {
+class DlqCompensationServiceITest extends PostgresContainerSupport {
 
     @Autowired
     private DlqCompensationService dlqCompensationService;
