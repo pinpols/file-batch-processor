@@ -43,7 +43,7 @@ check_environment() {
     
     # 检查数据库连接
     export PGPASSWORD="${POSTGRES_PASSWORD:-postgres}"
-    if ! psql -h "${POSTGRES_HOST:-127.0.0.1}" -p "${POSTGRES_PORT:-5432}" -U "${POSTGRES_USER:-postgres}" -d "${POSTGRES_DB:-qrtz}" -c "SELECT 1;" >/dev/null 2>&1; then
+    if ! psql -h "${POSTGRES_HOST:-127.0.0.1}" -p "${POSTGRES_PORT:-5432}" -U "${POSTGRES_USER:-postgres}" -d "${POSTGRES_DB:-file_batch}" -c "SELECT 1;" >/dev/null 2>&1; then
         log_error "无法连接到数据库，请检查数据库配置"
         exit 1
     fi
@@ -62,14 +62,14 @@ cleanup_data() {
     log_info "清理现有测试数据..."
     
     export PGPASSWORD="${POSTGRES_PASSWORD:-postgres}"
-    psql -h "${POSTGRES_HOST:-127.0.0.1}" -p "${POSTGRES_PORT:-5432}" -U "${POSTGRES_USER:-postgres}" -d "${POSTGRES_DB:-qrtz}" <<EOF
+    psql -h "${POSTGRES_HOST:-127.0.0.1}" -p "${POSTGRES_PORT:-5432}" -U "${POSTGRES_USER:-postgres}" -d "${POSTGRES_DB:-file_batch}" <<EOF
 -- 清理测试数据
 DELETE FROM quality_gate_results WHERE batch_date >= '2026-03-01';
 DELETE FROM record_trace WHERE batch_date >= '2026-03-01';
-DELETE FROM dlq_record WHERE created_at >= '2026-03-01';
-DELETE FROM batch_run_record WHERE batch_date >= '2026-03-01';
+DELETE FROM dlq_records WHERE created_at >= '2026-03-01';
+DELETE FROM batch_run_records WHERE batch_date >= '2026-03-01';
 DELETE FROM task_execution_state WHERE batch_date >= '2026-03-01';
-DELETE FROM imported_record_partitioned WHERE batch_date >= '2026-03-01';
+DELETE FROM imported_records_partition WHERE batch_date >= '2026-03-01';
 DELETE FROM imported_records WHERE batch_date >= '2026-03-01';
 DELETE FROM task_trigger WHERE task_id IN ('processFileJob', 'dataExportJob', 'reconcileJob');
 DELETE FROM task_definition WHERE task_id IN ('processFileJob', 'dataExportJob', 'reconcileJob');
@@ -83,9 +83,9 @@ load_basic_data() {
     log_info "加载基础测试数据..."
     
     export PGPASSWORD="${POSTGRES_PASSWORD:-postgres}"
-    psql -h "${POSTGRES_HOST:-127.0.0.1}" -p "${POSTGRES_PORT:-5432}" -U "${POSTGRES_USER:-postgres}" -d "${POSTGRES_DB:-qrtz}" -f "${SCRIPT_DIR}/seed_imported_records.sql" >/dev/null
-    psql -h "${POSTGRES_HOST:-127.0.0.1}" -p "${POSTGRES_PORT:-5432}" -U "${POSTGRES_USER:-postgres}" -d "${POSTGRES_DB:-qrtz}" -f "${SCRIPT_DIR}/seed_trace_and_dlq.sql" >/dev/null
-    psql -h "${POSTGRES_HOST:-127.0.0.1}" -p "${POSTGRES_PORT:-5432}" -U "${POSTGRES_USER:-postgres}" -d "${POSTGRES_DB:-qrtz}" -f "${SCRIPT_DIR}/seed_reconcile_mismatch.sql" >/dev/null
+    psql -h "${POSTGRES_HOST:-127.0.0.1}" -p "${POSTGRES_PORT:-5432}" -U "${POSTGRES_USER:-postgres}" -d "${POSTGRES_DB:-file_batch}" -f "${SCRIPT_DIR}/seed_imported_records.sql" >/dev/null
+    psql -h "${POSTGRES_HOST:-127.0.0.1}" -p "${POSTGRES_PORT:-5432}" -U "${POSTGRES_USER:-postgres}" -d "${POSTGRES_DB:-file_batch}" -f "${SCRIPT_DIR}/seed_trace_and_dlq.sql" >/dev/null
+    psql -h "${POSTGRES_HOST:-127.0.0.1}" -p "${POSTGRES_PORT:-5432}" -U "${POSTGRES_USER:-postgres}" -d "${POSTGRES_DB:-file_batch}" -f "${SCRIPT_DIR}/seed_reconcile_mismatch.sql" >/dev/null
     
     log_success "基础测试数据加载完成"
 }
@@ -95,7 +95,7 @@ load_enhanced_data() {
     log_info "加载增强测试数据..."
     
     export PGPASSWORD="${POSTGRES_PASSWORD:-postgres}"
-    psql -h "${POSTGRES_HOST:-127.0.0.1}" -p "${POSTGRES_PORT:-5432}" -U "${POSTGRES_USER:-postgres}" -d "${POSTGRES_DB:-qrtz}" -f "${SCRIPT_DIR}/seed_enhanced_test_data.sql" >/dev/null
+    psql -h "${POSTGRES_HOST:-127.0.0.1}" -p "${POSTGRES_PORT:-5432}" -U "${POSTGRES_USER:-postgres}" -d "${POSTGRES_DB:-file_batch}" -f "${SCRIPT_DIR}/seed_enhanced_test_data.sql" >/dev/null
     
     log_success "增强测试数据加载完成"
 }
@@ -107,19 +107,19 @@ verify_data() {
     export PGPASSWORD="${POSTGRES_PASSWORD:-postgres}"
     
     # 检查导入记录
-    imported_count=$(psql -h "${POSTGRES_HOST:-127.0.0.1}" -p "${POSTGRES_PORT:-5432}" -U "${POSTGRES_USER:-postgres}" -d "${POSTGRES_DB:-qrtz}" -t -c "SELECT COUNT(*) FROM imported_records WHERE batch_date = '2026-03-01';")
+    imported_count=$(psql -h "${POSTGRES_HOST:-127.0.0.1}" -p "${POSTGRES_PORT:-5432}" -U "${POSTGRES_USER:-postgres}" -d "${POSTGRES_DB:-file_batch}" -t -c "SELECT COUNT(*) FROM imported_records WHERE batch_date = '2026-03-01';")
     log_info "导入记录数: $imported_count"
     
     # 检查任务执行状态
-    task_state_count=$(psql -h "${POSTGRES_HOST:-127.0.0.1}" -p "${POSTGRES_PORT:-5432}" -U "${POSTGRES_USER:-postgres}" -d "${POSTGRES_DB:-qrtz}" -t -c "SELECT COUNT(*) FROM task_execution_state WHERE batch_date = '2026-03-01';")
+    task_state_count=$(psql -h "${POSTGRES_HOST:-127.0.0.1}" -p "${POSTGRES_PORT:-5432}" -U "${POSTGRES_USER:-postgres}" -d "${POSTGRES_DB:-file_batch}" -t -c "SELECT COUNT(*) FROM task_execution_state WHERE batch_date = '2026-03-01';")
     log_info "任务执行状态数: $task_state_count"
     
     # 检查死信队列
-    dlq_count=$(psql -h "${POSTGRES_HOST:-127.0.0.1}" -p "${POSTGRES_PORT:-5432}" -U "${POSTGRES_USER:-postgres}" -d "${POSTGRES_DB:-qrtz}" -t -c "SELECT COUNT(*) FROM dlq_record WHERE created_at >= '2026-03-01';")
+    dlq_count=$(psql -h "${POSTGRES_HOST:-127.0.0.1}" -p "${POSTGRES_PORT:-5432}" -U "${POSTGRES_USER:-postgres}" -d "${POSTGRES_DB:-file_batch}" -t -c "SELECT COUNT(*) FROM dlq_records WHERE created_at >= '2026-03-01';")
     log_info "死信队列记录数: $dlq_count"
     
     # 检查质量门禁
-    quality_count=$(psql -h "${POSTGRES_HOST:-127.0.0.1}" -p "${POSTGRES_PORT:-5432}" -U "${POSTGRES_USER:-postgres}" -d "${POSTGRES_DB:-qrtz}" -t -c "SELECT COUNT(*) FROM quality_gate_results WHERE batch_date = '2026-03-01';")
+    quality_count=$(psql -h "${POSTGRES_HOST:-127.0.0.1}" -p "${POSTGRES_PORT:-5432}" -U "${POSTGRES_USER:-postgres}" -d "${POSTGRES_DB:-file_batch}" -t -c "SELECT COUNT(*) FROM quality_gate_results WHERE batch_date = '2026-03-01';")
     log_info "质量门禁结果数: $quality_count"
     
     log_success "数据验证完成"
@@ -206,7 +206,7 @@ SELECT * FROM imported_records WHERE batch_date = '2026-03-01';
 SELECT * FROM task_execution_state WHERE batch_date = '2026-03-01';
 
 -- 查看死信队列
-SELECT * FROM dlq_record WHERE created_at >= '2026-03-01';
+SELECT * FROM dlq_records WHERE created_at >= '2026-03-01';
 \`\`\`
 
 ---

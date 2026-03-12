@@ -162,9 +162,9 @@ INSERT INTO imported_records (business_key, name, description, batch_date, creat
 
 **数据表结构**：
 - `imported_records`：导入记录主表
-- `imported_record_partitioned`：分区导入记录
+- `imported_records_partition`：分区导入记录
 - `task_execution_state`：任务执行状态
-- `dlq_record`：死信队列记录
+- `dlq_records`：死信队列记录
 - `record_trace`：记录追踪
 - `quality_gate_results`：质量门禁结果
 

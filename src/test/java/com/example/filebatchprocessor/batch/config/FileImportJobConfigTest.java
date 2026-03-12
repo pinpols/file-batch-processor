@@ -65,7 +65,7 @@ class FileImportJobConfigTest {
     void shouldCreateImportReader() throws Exception {
         // Given
         Map<String, Object> jobParameters = new HashMap<>();
-        jobParameters.put("inputFileName", "test.csv");
+        jobParameters.put("input.file.name", "test.csv");
         jobParameters.put("shardIndex", 0);
         jobParameters.put("shardTotal", 4);
         jobParameters.put("fileFormat", "CSV");
@@ -177,7 +177,7 @@ class FileImportJobConfigTest {
     void shouldHandleJobParametersValidation() {
         // Given
         Map<String, Object> jobParameters = new HashMap<>();
-        jobParameters.put("inputFileName", ""); // Empty file name
+        jobParameters.put("input.file.name", ""); // Empty file name
         
         // When & Then
         assertThrows(IllegalArgumentException.class, () -> {

@@ -20,7 +20,7 @@ check "prometheus includes import quality gate metrics" "curl -fsS --max-time $T
 if command -v psql >/dev/null 2>&1; then
   DB_HOST=${POSTGRES_HOST:-localhost}
   DB_PORT=${POSTGRES_PORT:-5432}
-  DB_NAME=${POSTGRES_DB:-postgres}
+  DB_NAME=${POSTGRES_DB:-file_batch}
   DB_USER=${POSTGRES_USER:-postgres}
   export PGPASSWORD=${POSTGRES_PASSWORD:-postgres}
   check "db connectivity" "psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -c 'select 1;' >/dev/null"

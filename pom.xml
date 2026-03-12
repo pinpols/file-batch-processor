@@ -25,6 +25,8 @@
         <commons-lang3.version>3.14.0</commons-lang3.version>
         <lombok.version>1.18.42</lombok.version>
         <testcontainers.version>1.21.3</testcontainers.version>
+        <test.includes></test.includes>
+        <test.excludes></test.excludes>
     </properties>
 
     <dependencies>
@@ -159,6 +161,19 @@
 
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.5.2</version>
+                <configuration>
+                    <includes>
+                        <include>${test.includes}</include>
+                    </includes>
+                    <excludes>
+                        <exclude>${test.excludes}</exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>

@@ -20,6 +20,7 @@ import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.batch.core.step.Step;
 import org.springframework.batch.test.context.SpringBatchTest;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -38,6 +39,7 @@ import static org.springframework.batch.core.BatchStatus.COMPLETED;
 class FileImportIntegrationTest {
 
     @Autowired
+    @Qualifier("asyncJobLauncher")
     private JobLauncher jobLauncher;
 
     @Autowired
@@ -81,7 +83,7 @@ class FileImportIntegrationTest {
         Step importStep = mock(Step.class);
         Job job = fileImportJobConfig.fileImportJob(listener, importStep);
         JobParameters jobParameters = new JobParametersBuilder()
-                .addString("inputFileName", testFile.toString())
+                .addString("input.file.name", testFile.toString())
                 .addString("batchDate", "2026-03-06")
                 .addLong("run.id", System.currentTimeMillis())
                 .toJobParameters();
@@ -115,7 +117,7 @@ class FileImportIntegrationTest {
         Step importStep = mock(Step.class);
         Job job = fileImportJobConfig.fileImportJob(listener, importStep);
         JobParameters jobParameters = new JobParametersBuilder()
-                .addString("inputFileName", testFile.toString())
+                .addString("input.file.name", testFile.toString())
                 .addString("batchDate", "2026-03-06")
                 .addLong("shardIndex", 0L)
                 .addLong("shardTotal", 2L)
@@ -147,7 +149,7 @@ class FileImportIntegrationTest {
         Step importStep = mock(Step.class);
         Job job = fileImportJobConfig.fileImportJob(listener, importStep);
         JobParameters jobParameters = new JobParametersBuilder()
-                .addString("inputFileName", errorFile.toString())
+                .addString("input.file.name", errorFile.toString())
                 .addString("batchDate", "2026-03-06")
                 .addLong("run.id", System.currentTimeMillis())
                 .toJobParameters();
@@ -178,7 +180,7 @@ class FileImportIntegrationTest {
         Step importStep = mock(Step.class);
         Job job = fileImportJobConfig.fileImportJob(listener, importStep);
         JobParameters jobParameters = new JobParametersBuilder()
-                .addString("inputFileName", excelFile.toString())
+                .addString("input.file.name", excelFile.toString())
                 .addString("batchDate", "2026-03-06")
                 .addString("fileFormat", "EXCEL")
                 .addLong("run.id", System.currentTimeMillis())
@@ -204,7 +206,7 @@ class FileImportIntegrationTest {
         Step importStep = mock(Step.class);
         Job job = fileImportJobConfig.fileImportJob(listener, importStep);
         JobParameters jobParameters = new JobParametersBuilder()
-                .addString("inputFileName", jsonFile.toString())
+                .addString("input.file.name", jsonFile.toString())
                 .addString("batchDate", "2026-03-06")
                 .addString("fileFormat", "JSON")
                 .addLong("run.id", System.currentTimeMillis())
@@ -256,7 +258,7 @@ class FileImportIntegrationTest {
         Step importStep = mock(Step.class);
         Job job = fileImportJobConfig.fileImportJob(listener, importStep);
         JobParameters jobParameters = new JobParametersBuilder()
-                .addString("inputFileName", invalidFile.toString())
+                .addString("input.file.name", invalidFile.toString())
                 .addString("batchDate", "2026-03-06")
                 .addLong("run.id", System.currentTimeMillis())
                 .toJobParameters();

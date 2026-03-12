@@ -28,13 +28,19 @@ public class JobCompletionNotificationListener implements JobExecutionListener {
     private final BatchRunRecordRepository batchRunRecordRepository;
     private final ImportedRecordRepository importedRecordRepository;
     private final QualityGateResultRepository qualityGateResultRepository;
+    private final double defaultDuplicateMaxRate;
+    private final long defaultDuplicateMinLines;
 
     public JobCompletionNotificationListener(BatchRunRecordRepository batchRunRecordRepository,
                                              ImportedRecordRepository importedRecordRepository,
-                                             QualityGateResultRepository qualityGateResultRepository) {
+                                             QualityGateResultRepository qualityGateResultRepository,
+                                             @org.springframework.beans.factory.annotation.Value("${batch.import.duplicate.max-rate:0.0}") double defaultDuplicateMaxRate,
+                                             @org.springframework.beans.factory.annotation.Value("${batch.import.duplicate.min-lines:100}") long defaultDuplicateMinLines) {
         this.batchRunRecordRepository = batchRunRecordRepository;
         this.importedRecordRepository = importedRecordRepository;
         this.qualityGateResultRepository = qualityGateResultRepository;
+        this.defaultDuplicateMaxRate = Math.max(0.0, defaultDuplicateMaxRate);
+        this.defaultDuplicateMinLines = Math.max(1L, defaultDuplicateMinLines);
     }
 
     @Override
@@ -60,6 +66,8 @@ public class JobCompletionNotificationListener implements JobExecutionListener {
             validateDataQuality(jobExecution);
             logJobStatistics(jobExecution);
             evaluatePostImportQuality(jobExecution);
+            evaluateDuplicateRate(jobExecution);
+            evaluatePostExportQuality(jobExecution);
         } else if (status == BatchStatus.FAILED) {
             handleJobFailure(jobExecution);
         }
@@ -158,6 +166,108 @@ public class JobCompletionNotificationListener implements JobExecutionListener {
                     "missing-name-rate=" + missingRate);
         } catch (Exception ex) {
             log.warn("Failed to evaluate post-import quality gate for executionId={}", jobExecution.getId(), ex);
+        }
+    }
+
+    private void evaluateDuplicateRate(JobExecution jobExecution) {
+        String jobName = jobExecution.getJobInstance().getJobName();
+        if (!"importJob".equals(jobName)) {
+            return;
+        }
+        String batchDate = null;
+        if (jobExecution.getJobParameters() != null) {
+            batchDate = jobExecution.getJobParameters().getString("batchDate");
+        }
+        if (batchDate == null || batchDate.isBlank()) {
+            return;
+        }
+        double maxRate = defaultDuplicateMaxRate;
+        long minLines = defaultDuplicateMinLines;
+        if (jobExecution.getJobParameters() != null) {
+            String maxRateStr = jobExecution.getJobParameters().getString("quality.maxDuplicateRate");
+            String minLinesStr = jobExecution.getJobParameters().getString("quality.minDuplicateLines");
+            Double parsedMax = parseDouble(maxRateStr);
+            Long parsedMin = parseLong(minLinesStr);
+            if (parsedMax != null) {
+                maxRate = Math.max(0.0, parsedMax);
+            }
+            if (parsedMin != null) {
+                minLines = Math.max(1L, parsedMin);
+            }
+        }
+        try {
+            long total = importedRecordRepository.countByBatchDate(batchDate);
+            if (total < minLines) {
+                return;
+            }
+            long duplicates = importedRecordRepository.countDuplicateBusinessKeysByBatchDate(batchDate);
+            double rate = total == 0 ? 0.0 : (double) duplicates / (double) total;
+            String status = rate <= maxRate ? "PASS" : "FAIL";
+            persistQualityGate(jobExecution, "IMPORT_DUPLICATE_RATE", batchDate, total, duplicates,
+                    rate, maxRate, minLines, status, "duplicate-rate=" + rate);
+        } catch (Exception ex) {
+            log.warn("Failed to evaluate duplicate rate gate for executionId={}", jobExecution.getId(), ex);
+        }
+    }
+
+    private void evaluatePostExportQuality(JobExecution jobExecution) {
+        String jobName = jobExecution.getJobInstance().getJobName();
+        if (!"dataExportJob".equals(jobName) && !"fileExportJob".equals(jobName)) {
+            return;
+        }
+        long writeCount = jobExecution.getStepExecutions().stream()
+                .mapToLong(StepExecution::getWriteCount)
+                .sum();
+        String batchDate = null;
+        String expectedStr = null;
+        String minStr = null;
+        if (jobExecution.getJobParameters() != null) {
+            batchDate = jobExecution.getJobParameters().getString("batchDate");
+            expectedStr = jobExecution.getJobParameters().getString("quality.expectedRows");
+            minStr = jobExecution.getJobParameters().getString("quality.minRows");
+        }
+        Long expected = parseLong(expectedStr);
+        Long min = parseLong(minStr);
+        if (expected == null && min == null) {
+            return;
+        }
+        long total = writeCount;
+        String status;
+        String message;
+        double errorRate = 0.0;
+        if (expected != null) {
+            long diff = Math.abs(expected - writeCount);
+            errorRate = expected == 0 ? (writeCount == 0 ? 0.0 : 1.0) : (double) diff / expected;
+            status = diff == 0 ? "PASS" : "FAIL";
+            message = "expectedRows=" + expected + ", actualRows=" + writeCount;
+        } else {
+            status = writeCount >= min ? "PASS" : "FAIL";
+            message = "minRows=" + min + ", actualRows=" + writeCount;
+        }
+        persistQualityGate(jobExecution, "EXPORT_ROW_COUNT", batchDate, total,
+                Math.max(0L, (expected == null ? 0L : Math.abs(expected - writeCount))), errorRate,
+                0.0, min == null ? 0L : min, status, message);
+    }
+
+    private Long parseLong(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        try {
+            return Long.parseLong(raw.trim());
+        } catch (NumberFormatException ex) {
+            return null;
+        }
+    }
+
+    private Double parseDouble(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        try {
+            return Double.parseDouble(raw.trim());
+        } catch (NumberFormatException ex) {
+            return null;
         }
     }
 

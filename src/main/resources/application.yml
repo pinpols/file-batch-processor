@@ -8,16 +8,22 @@ spring:
     job:
       enabled: false  # Disable auto-start of jobs
   quartz:
-    job-store-type: memory
-    auto-startup: true
+    job-store-type: jdbc
+    auto-startup: false
+    overwrite-existing-jobs: true
+    jdbc:
+      initialize-schema: never
     properties:
       org:
         quartz:
           scheduler:
             instanceName: fileBatchQuartzScheduler
+            instanceId: AUTO
           threadPool:
             threadCount: 8
           jobStore:
+            driverDelegateClass: org.quartz.impl.jdbcjobstore.PostgreSQLDelegate
+            tablePrefix: QRTZ_
             misfireThreshold: 60000
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/postgres}
@@ -75,6 +81,9 @@ batch:
         fileImportJob:
           max-rate: 0.1
           min-lines: 20
+    duplicate:
+      max-rate: 0.0
+      min-lines: 100
 
 orchestration:
   config-source: ${ORCHESTRATION_CONFIG_SOURCE:db}
@@ -84,6 +93,11 @@ orchestration:
     max-concurrent-launches: 4
     backpressure-threshold: 1500
     backpressure-delay-ms: 5000
+    fixed-delay:
+      min-requeue-interval-ms: 2000
+      max-requeue-per-minute: 60
+      failure-backoff-multiplier: 2.0
+      max-backoff-ms: 300000
     default-max-queue-wait-ms: 300000
     default-timeout-ms: 1800000
     default-dynamic-shard-max: 1
@@ -132,6 +146,8 @@ orchestration:
       fileImportJob: 2
       fileExportJob: 1
       fileImportJob:SFTP: 1
+    reconcile-interval-ms: 60000
+    reconcile-stale-running-ms: 3600000
     leader:
       lock-name: orchestration-scheduler
       ttl-seconds: 30

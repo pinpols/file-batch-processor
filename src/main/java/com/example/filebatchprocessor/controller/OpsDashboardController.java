@@ -4,6 +4,7 @@ import com.example.filebatchprocessor.model.BatchRunRecord;
 import com.example.filebatchprocessor.model.TaskExecutionState;
 import com.example.filebatchprocessor.repository.BatchRunRecordRepository;
 import com.example.filebatchprocessor.repository.DlqRecordRepository;
+import com.example.filebatchprocessor.repository.OpsChangeRequestRepository;
 import com.example.filebatchprocessor.repository.TaskExecutionStateRepository;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -24,13 +25,16 @@ public class OpsDashboardController {
     private final BatchRunRecordRepository batchRunRecordRepository;
     private final DlqRecordRepository dlqRecordRepository;
     private final TaskExecutionStateRepository taskExecutionStateRepository;
+    private final OpsChangeRequestRepository opsChangeRequestRepository;
 
     public OpsDashboardController(BatchRunRecordRepository batchRunRecordRepository,
                                   DlqRecordRepository dlqRecordRepository,
-                                  TaskExecutionStateRepository taskExecutionStateRepository) {
+                                  TaskExecutionStateRepository taskExecutionStateRepository,
+                                  OpsChangeRequestRepository opsChangeRequestRepository) {
         this.batchRunRecordRepository = batchRunRecordRepository;
         this.dlqRecordRepository = dlqRecordRepository;
         this.taskExecutionStateRepository = taskExecutionStateRepository;
+        this.opsChangeRequestRepository = opsChangeRequestRepository;
     }
 
     @GetMapping("/dashboard")
@@ -48,6 +52,7 @@ public class OpsDashboardController {
         long blockedCount = taskExecutionStateRepository.countByStatusIn(List.of("BLOCKED"));
         long runningCount = taskExecutionStateRepository.countByStatusIn(List.of("RUNNING"));
         long readyCount = taskExecutionStateRepository.countByStatusIn(List.of("READY"));
+        long pendingChangeRequests = opsChangeRequestRepository.countByStatus("PENDING_APPROVAL");
 
         List<BatchRunRecord> recentRuns = batchRunRecordRepository.findTop200ByOrderByCreatedAtDesc();
         double avgThroughputRps = recentRuns.stream()
@@ -65,6 +70,7 @@ public class OpsDashboardController {
         result.put("blockedTaskCount", blockedCount);
         result.put("runningTaskCount", runningCount);
         result.put("readyTaskCount", readyCount);
+        result.put("pendingChangeRequests", pendingChangeRequests);
         result.put("avgThroughputRps", avgThroughputRps);
         result.put("recentTaskStates", latestTaskStates);
         return result;

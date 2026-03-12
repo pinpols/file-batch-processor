@@ -19,6 +19,7 @@ import org.springframework.batch.core.step.Step;
 
 import org.springframework.batch.test.context.SpringBatchTest;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.test.context.support.WithMockUser;
 
@@ -47,6 +48,7 @@ import static org.springframework.batch.core.BatchStatus.COMPLETED;
 class SecurityAndBoundaryTest {
 
     @Autowired
+    @Qualifier("asyncJobLauncher")
     private JobLauncher jobLauncher;
 
     @Autowired
@@ -92,7 +94,7 @@ class SecurityAndBoundaryTest {
         Step importStep = mock(Step.class);
         Job job = fileImportJobConfig.fileImportJob(listener, importStep);
         JobParameters jobParameters = new JobParametersBuilder()
-                .addString("inputFileName", testFile.toString())
+                .addString("input.file.name", testFile.toString())
                 .addString("batchDate", "2026-03-06")
                 .addLong("run.id", System.currentTimeMillis())
                 .toJobParameters();
@@ -122,7 +124,7 @@ class SecurityAndBoundaryTest {
         Step importStep = mock(Step.class);
         Job job = fileImportJobConfig.fileImportJob(listener, importStep);
         JobParameters jobParameters = new JobParametersBuilder()
-                .addString("inputFileName", testFile.toString())
+                .addString("input.file.name", testFile.toString())
                 .addString("batchDate", "2026-03-06")
                 .addLong("run.id", System.currentTimeMillis())
                 .toJobParameters();
@@ -145,7 +147,7 @@ class SecurityAndBoundaryTest {
         Step importStep = mock(Step.class);
         Job job = fileImportJobConfig.fileImportJob(listener, importStep);
         JobParameters jobParameters = new JobParametersBuilder()
-                .addString("inputFileName", testFile.toString())
+                .addString("input.file.name", testFile.toString())
                 .addString("batchDate", "2026-03-06")
                 .addLong("run.id", System.currentTimeMillis())
                 .toJobParameters();
@@ -207,7 +209,7 @@ class SecurityAndBoundaryTest {
         Step importStep = mock(Step.class);
         Job job = fileImportJobConfig.fileImportJob(listener, importStep);
         JobParameters jobParameters = new JobParametersBuilder()
-                .addString("inputFileName", oversizedFile.toString())
+                .addString("input.file.name", oversizedFile.toString())
                 .addString("batchDate", "2026-03-06")
                 .addLong("run.id", System.currentTimeMillis())
                 .toJobParameters();
@@ -230,7 +232,7 @@ class SecurityAndBoundaryTest {
         Step importStep = mock(Step.class);
         Job job = fileImportJobConfig.fileImportJob(listener, importStep);
         JobParameters jobParameters = new JobParametersBuilder()
-                .addString("inputFileName", testFile.toString())
+                .addString("input.file.name", testFile.toString())
                 .addString("batchDate", "2026-03-06")
                 .addString("simulateNetworkFailure", "true")
                 .addLong("run.id", System.currentTimeMillis())
@@ -288,7 +290,7 @@ class SecurityAndBoundaryTest {
         Step importStep = mock(Step.class);
         Job job = fileImportJobConfig.fileImportJob(listener, importStep);
                     JobParameters jobParameters = new JobParametersBuilder()
-                            .addString("inputFileName", testFile.toString())
+                            .addString("input.file.name", testFile.toString())
                             .addString("batchDate", "2026-03-06")
                             .addString("memoryPressureTest", "true")
                             .addLong("run.id", System.currentTimeMillis() + index)
@@ -341,7 +343,7 @@ class SecurityAndBoundaryTest {
         Step importStep = mock(Step.class);
         Job job = fileImportJobConfig.fileImportJob(listener, importStep);
         JobParameters jobParameters = new JobParametersBuilder()
-                .addString("inputFileName", maliciousFile.toString())
+                .addString("input.file.name", maliciousFile.toString())
                 .addString("batchDate", "2026-03-06")
                 .addLong("run.id", System.currentTimeMillis())
                 .toJobParameters();

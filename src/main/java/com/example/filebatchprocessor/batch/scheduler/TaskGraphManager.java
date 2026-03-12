@@ -21,6 +21,30 @@ public class TaskGraphManager {
         return taskDefinitions.get(taskId);
     }
 
+    public synchronized Map<String, Object> snapshot() {
+        List<Map<String, Object>> nodes = new ArrayList<>();
+        List<Map<String, String>> edges = new ArrayList<>();
+        for (OrchestrationTaskDefinition def : taskDefinitions.values()) {
+            Map<String, Object> node = new LinkedHashMap<>();
+            node.put("taskId", def.getId());
+            node.put("jobName", def.getJobName());
+            node.put("dependencies", def.getDependencies());
+            nodes.add(node);
+            for (String dep : def.getDependencies()) {
+                Map<String, String> edge = new LinkedHashMap<>();
+                edge.put("from", dep);
+                edge.put("to", def.getId());
+                edges.add(edge);
+            }
+        }
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("nodes", nodes);
+        result.put("edges", edges);
+        result.put("nodeCount", nodes.size());
+        result.put("edgeCount", edges.size());
+        return result;
+    }
+
     public synchronized List<OrchestrationTaskDefinition> topologicallySorted() {
         validateDag();
         Map<String, Integer> inDegree = new HashMap<>();

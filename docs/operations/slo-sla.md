@@ -13,6 +13,8 @@
 - `batch_dlq_backlog`
 - `batch_avg_throughput_rps`
 - `batch_blocked_task_count`
+- `batch_sla_duration_breach_count`
+- `scheduler_queue_sla_breach_total`
 - `up{job="file-batch-processor"}`
 
 ## SLA 建议

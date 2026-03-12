@@ -19,8 +19,15 @@ BEGIN
 END
 $$;
 
--- 授权数据库
-GRANT ALL PRIVILEGES ON DATABASE qrtz TO filebatch;
+-- 授权数据库（当前初始化库）
+DO $$
+DECLARE
+    dbname text;
+BEGIN
+    SELECT current_database() INTO dbname;
+    EXECUTE format('GRANT ALL PRIVILEGES ON DATABASE %I TO filebatch', dbname);
+END
+$$;
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO filebatch;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO filebatch;
 

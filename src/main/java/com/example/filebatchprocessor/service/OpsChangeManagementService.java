@@ -49,7 +49,12 @@ public class OpsChangeManagementService {
                                           String taskId,
                                           String fieldName,
                                           String newValue,
-                                          String reason) {
+                                          String reason,
+                                          String windowStart,
+                                          String windowEnd,
+                                          String impactSummary,
+                                          String riskLevel,
+                                          String rollbackPlan) {
         validateTargetType(targetType);
         String normalizedTarget = targetType.trim().toUpperCase(Locale.ROOT);
         String oldValue = loadOldValue(normalizedTarget, taskId, fieldName);
@@ -64,9 +69,14 @@ public class OpsChangeManagementService {
         request.setReason(reason);
         request.setRequestedBy(actor);
         request.setStatus(STATUS_PENDING);
+        request.setWindowStart(parseOptionalDateTime(windowStart));
+        request.setWindowEnd(parseOptionalDateTime(windowEnd));
+        request.setImpactSummary(impactSummary);
+        request.setRiskLevel(riskLevel);
+        request.setRollbackPlan(rollbackPlan);
         OpsChangeRequest saved = opsChangeRequestRepository.save(request);
         opsAuditService.log("CHANGE_REQUEST_CREATE", actor, "OPS_CHANGE_REQUEST", saved.getRequestNo(), "SUCCESS",
-                "target=" + normalizedTarget + ", taskId=" + taskId + ", field=" + fieldName);
+                "target=" + normalizedTarget + ", taskId=" + taskId + ", field=" + fieldName + ", window=" + windowStart + "~" + windowEnd);
         return saved;
     }
 
@@ -101,6 +111,9 @@ public class OpsChangeManagementService {
         OpsChangeRequest request = getById(id);
         if (!STATUS_APPROVED.equals(request.getStatus())) {
             throw new IllegalStateException("Only approved request can be applied");
+        }
+        if (!withinWindow(request)) {
+            throw new IllegalStateException("Change request is outside allowed window");
         }
 
         applyChange(request);
@@ -198,6 +211,24 @@ public class OpsChangeManagementService {
         };
     }
 
+    private LocalDateTime parseOptionalDateTime(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return LocalDateTime.parse(value, DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+    }
+
+    private boolean withinWindow(OpsChangeRequest request) {
+        LocalDateTime now = LocalDateTime.now();
+        if (request.getWindowStart() != null && now.isBefore(request.getWindowStart())) {
+            return false;
+        }
+        if (request.getWindowEnd() != null && now.isAfter(request.getWindowEnd())) {
+            return false;
+        }
+        return true;
+    }
+
     private String loadTaskTriggerOldValue(String taskId, String fieldName) {
         TaskTrigger trigger = taskTriggerRepository.findByTaskId(taskId)
                 .orElseThrow(() -> new IllegalArgumentException("Task trigger not found: " + taskId));
@@ -239,4 +270,3 @@ public class OpsChangeManagementService {
         return value == null ? null : String.valueOf(value);
     }
 }
-

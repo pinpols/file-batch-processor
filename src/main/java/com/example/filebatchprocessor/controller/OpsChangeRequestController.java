@@ -31,7 +31,12 @@ public class OpsChangeRequestController {
                 request.taskId(),
                 request.fieldName(),
                 request.newValue(),
-                request.reason()
+                request.reason(),
+                request.windowStart(),
+                request.windowEnd(),
+                request.impactSummary(),
+                request.riskLevel(),
+                request.rollbackPlan()
         );
     }
 
@@ -57,7 +62,11 @@ public class OpsChangeRequestController {
                                       String taskId,
                                       String fieldName,
                                       String newValue,
-                                      String reason) {
+                                      String reason,
+                                      String windowStart,
+                                      String windowEnd,
+                                      String impactSummary,
+                                      String riskLevel,
+                                      String rollbackPlan) {
     }
 }
-

@@ -8,6 +8,7 @@ import com.example.filebatchprocessor.repository.ReconcileDiffRecordRepository;
 import com.example.filebatchprocessor.repository.ReconcileRunRecordRepository;
 import com.example.filebatchprocessor.support.PostgresContainerSupport;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.batch.core.BatchStatus;
 import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.JobExecution;
@@ -25,6 +26,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
+@EnabledIfEnvironmentVariable(named = "ENABLE_DOCKER_TESTS", matches = "true")
 class ReconcileJobConfigITest extends PostgresContainerSupport {
 
     @Autowired

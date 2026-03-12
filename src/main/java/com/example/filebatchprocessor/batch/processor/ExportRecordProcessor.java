@@ -31,22 +31,23 @@ public class ExportRecordProcessor implements ItemProcessor<ExportRecord, Export
 
     @Override
     public ExportRecord process(final ExportRecord record) {
+        totalProcessed++;
+
         if (record == null) {
+            totalFiltered++;
             return null;
         }
 
-        totalProcessed++;
-
         try {
-            // 1. 数据验证
-            validateExportRecord(record);
-
-            // 2. 业务逻辑过滤
+            // 1. 业务逻辑过滤
             if (shouldFilterRecord(record)) {
                 totalFiltered++;
                 log.debug("Filtered record: {}", record.getBusinessKey());
                 return null;
             }
+
+            // 1. 数据验证
+            validateExportRecord(record);
 
             // 3. 数据转换和格式化
             ExportRecord processedRecord = transformAndFormatRecord(record);
@@ -153,6 +154,8 @@ public class ExportRecordProcessor implements ItemProcessor<ExportRecord, Export
         
         // 合并多个空格
         formatted = formatted.replaceAll("\\s+", " ");
+
+        formatted = formatted.toUpperCase(java.util.Locale.ROOT);
         
         // 限制长度
         if (formatted.length() > 100) {
@@ -199,8 +202,13 @@ public class ExportRecordProcessor implements ItemProcessor<ExportRecord, Export
             LocalDate date = LocalDate.parse(batchDate);
             return date.format(EXPORT_DATE_FORMATTER);
         } catch (Exception e) {
-            // 如果解析失败，返回原始值
-            return batchDate;
+            try {
+                // 兼容 ISO 日期时间（如 2026-03-06T10:15:30）
+                return java.time.LocalDateTime.parse(batchDate).toLocalDate().format(EXPORT_DATE_FORMATTER);
+            } catch (Exception ignored) {
+                // 如果解析失败，返回原始值
+                return batchDate;
+            }
         }
     }
 
