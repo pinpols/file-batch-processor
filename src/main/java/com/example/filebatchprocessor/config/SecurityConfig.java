@@ -28,7 +28,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                         .requestMatchers("/actuator/prometheus").hasAnyRole("VIEWER", "OPERATOR", "ADMIN")
-                        .requestMatchers(HttpMethod.GET, "/ops/console", "/ops/dashboard", "/ops/tasks", "/ops/audit", "/ops/change-requests").hasAnyRole("VIEWER", "OPERATOR", "ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/ops/console", "/ops/dashboard", "/ops/scheduler", "/ops/dag", "/ops/tasks", "/ops/task-audit", "/ops/audit", "/ops/change-requests").hasAnyRole("VIEWER", "OPERATOR", "ADMIN")
                         .requestMatchers(HttpMethod.POST, "/ops/tasks/*/toggle", "/ops/change-requests").hasAnyRole("OPERATOR", "ADMIN")
                         .requestMatchers("/ops/change-requests/*/approve", "/ops/change-requests/*/reject", "/ops/change-requests/*/apply").hasRole("ADMIN")
                         .anyRequest().authenticated())

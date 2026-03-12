@@ -19,6 +19,7 @@ import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.batch.core.step.Step;
 import org.springframework.batch.test.context.SpringBatchTest;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -42,6 +43,7 @@ import static org.springframework.batch.core.BatchStatus.COMPLETED;
 class PerformanceTest {
 
     @Autowired
+    @Qualifier("asyncJobLauncher")
     private JobLauncher jobLauncher;
 
     @Autowired
@@ -81,7 +83,7 @@ class PerformanceTest {
         Step importStep = mock(Step.class);
         Job job = fileImportJobConfig.fileImportJob(listener, importStep);
         JobParameters jobParameters = new JobParametersBuilder()
-                .addString("inputFileName", largeFile.toString())
+                .addString("input.file.name", largeFile.toString())
                 .addString("batchDate", "2026-03-06")
                 .addLong("run.id", System.currentTimeMillis())
                 .toJobParameters();
@@ -141,7 +143,7 @@ class PerformanceTest {
         Step importStep = mock(Step.class);
         Job job = fileImportJobConfig.fileImportJob(listener, importStep);
                     JobParameters jobParameters = new JobParametersBuilder()
-                            .addString("inputFileName", file.toString())
+                            .addString("input.file.name", file.toString())
                             .addString("batchDate", "2026-03-06")
                             .addLong("run.id", System.currentTimeMillis() + index)
                             .toJobParameters();
@@ -261,7 +263,7 @@ class PerformanceTest {
         Step importStep = mock(Step.class);
         Job job = fileImportJobConfig.fileImportJob(listener, importStep);
         JobParameters jobParameters = new JobParametersBuilder()
-                .addString("inputFileName", memoryTestFile.toString())
+                .addString("input.file.name", memoryTestFile.toString())
                 .addString("batchDate", "2026-03-06")
                 .addLong("run.id", System.currentTimeMillis())
                 .toJobParameters();
@@ -313,7 +315,7 @@ class PerformanceTest {
                         Step importStep = mock(Step.class);
                         Job importJob = fileImportJobConfig.fileImportJob(importListener, importStep);
                         JobParameters importParams = new JobParametersBuilder()
-                                .addString("inputFileName", file.toString())
+                                .addString("input.file.name", file.toString())
                                 .addString("batchDate", "2026-03-06")
                                 .addLong("run.id", System.currentTimeMillis() + index)
                                 .toJobParameters();

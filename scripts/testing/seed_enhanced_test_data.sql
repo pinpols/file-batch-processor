@@ -2,10 +2,10 @@
 -- 包含多种业务场景的真实数据
 
 -- 清理现有数据
-DELETE FROM imported_record_partitioned WHERE batch_date >= '2026-03-01';
+DELETE FROM imported_records_partition WHERE batch_date >= '2026-03-01';
 DELETE FROM imported_records WHERE batch_date >= '2026-03-01';
 DELETE FROM task_execution_state WHERE batch_date >= '2026-03-01';
-DELETE FROM batch_run_record WHERE created_at >= '2026-03-01';
+DELETE FROM batch_run_records WHERE created_at >= '2026-03-01';
 
 -- 插入基础导入记录
 INSERT INTO imported_records (business_key, name, description, batch_date, created_at, updated_at) VALUES
@@ -16,7 +16,7 @@ INSERT INTO imported_records (business_key, name, description, batch_date, creat
     ('FIN005:2026-03-01', '钱七', '已完成交易', '2026-03-01', '2026-03-01 14:20:00', '2026-03-01 14:20:00');
 
 -- 插入分区导入记录
-INSERT INTO imported_record_partitioned (business_key, name, description, batch_date, created_at, updated_at) VALUES
+INSERT INTO imported_records_partition (business_key, name, description, batch_date, created_at, updated_at) VALUES
     ('FIN001:2026-03-01', '张三', '正常交易记录', '2026-03-01', '2026-03-01 10:30:00', '2026-03-01 10:30:00'),
     ('FIN002:2026-03-01', '李四', '高级付款记录', '2026-03-01', '2026-03-01 11:15:00', '2026-03-01 11:15:00'),
     ('FIN003:2026-03-01', '王五', '待处理交易', '2026-03-01', '2026-03-01 12:00:00', '2026-03-01 12:00:00'),
@@ -30,13 +30,13 @@ INSERT INTO task_execution_state (task_id, batch_date, rerun_id, tenant_id, biz_
     ('reconcileJob', '2026-03-01', '', 'tenant-001', 'finance', 'FAILED', 2, 3, '2026-03-01 16:30:00', '2026-03-01 16:00:00', '2026-03-01 17:00:00', '数据对账失败', 'RECONCILE_MISMATCH', '2026-03-01 16:00:00', '2026-03-01 16:15:00');
 
 -- 插入批次运行记录
-INSERT INTO batch_run_record (job_name, batch_date, run_id, status, total_records, success_records, failed_records, start_time, end_time, created_at, updated_at) VALUES
+INSERT INTO batch_run_records (job_name, batch_date, run_id, status, total_records, success_records, failed_records, start_time, end_time, created_at, updated_at) VALUES
     ('processFileJob', '2026-03-01', 'run-001', 'COMPLETED', 1000, 995, 5, '2026-03-01 09:00:00', '2026-03-01 10:30:00', '2026-03-01 09:00:00', '2026-03-01 10:30:00'),
     ('dataExportJob', '2026-03-01', 'run-002', 'RUNNING', 500, 480, 20, '2026-03-01 14:00:00', NULL, '2026-03-01 14:00:00', '2026-03-01 14:00:00'),
     ('reconcileJob', '2026-03-01', 'run-003', 'FAILED', 1000, 980, 20, '2026-03-01 16:00:00', '2026-03-01 16:15:00', '2026-03-01 16:00:00', '2026-03-01 16:15:00');
 
 -- 插入死信队列记录
-INSERT INTO dlq_record (job_name, params, error_message, error_code, handled, created_at, updated_at) VALUES
+INSERT INTO dlq_records (job_name, params, error_message, error_code, handled, created_at, updated_at) VALUES
     ('processFileJob', 'businessKey=FIN006&name=孙八&description=高级付款&batchDate=2026-03-01', '数据格式错误：金额字段包含非法字符', 'PARSE_ERROR', false, '2026-03-01 15:10:00', '2026-03-01 15:10:00'),
     ('dataExportJob', 'export.sql=SELECT * FROM imported_records WHERE batch_date=2026-03-01', '数据库连接超时', 'DB_TIMEOUT', false, '2026-03-01 14:30:00', '2026-03-01 14:30:00'),
     ('reconcileJob', 'sourceFile=financial_data_20260301.csv&targetTable=imported_records', '源文件与数据库记录不匹配', 'RECONCILE_MISMATCH', true, '2026-03-01 16:20:00', '2026-03-01 16:25:00');

@@ -33,6 +33,9 @@ public class TaskOrchestrationConfig {
     @Value("${orchestration.scheduler.pool-size:4}")
     private int schedulerPoolSize;
 
+    @Value("${orchestration.enabled:true}")
+    private boolean orchestrationEnabled;
+
     @Value("${orchestration.config-source:db}")
     private String configSource;
 
@@ -51,6 +54,10 @@ public class TaskOrchestrationConfig {
                                                      TaskConfigService taskConfigService,
                                                      Environment environment) {
         return _ -> {
+            if (!orchestrationEnabled) {
+                log.info("Orchestration registration disabled by orchestration.enabled=false");
+                return;
+            }
             String source = configSource == null ? "db" : configSource.trim().toLowerCase(Locale.ROOT);
             if ("yaml".equals(source)) {
                 boolean localProfile = java.util.Arrays.stream(environment.getActiveProfiles())

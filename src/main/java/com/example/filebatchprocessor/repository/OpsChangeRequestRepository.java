@@ -11,5 +11,6 @@ public interface OpsChangeRequestRepository extends JpaRepository<OpsChangeReque
     Optional<OpsChangeRequest> findByRequestNo(String requestNo);
 
     List<OpsChangeRequest> findTop200ByOrderByCreatedAtDesc();
-}
 
+    long countByStatus(String status);
+}

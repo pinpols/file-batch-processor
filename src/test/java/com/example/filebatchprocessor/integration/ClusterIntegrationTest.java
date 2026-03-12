@@ -21,6 +21,7 @@ import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.batch.core.step.Step;
 import org.springframework.batch.test.context.SpringBatchTest;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import org.springframework.test.context.ActiveProfiles;
@@ -49,6 +50,7 @@ import static org.mockito.ArgumentMatchers.*;
 class ClusterIntegrationTest {
 
     @Autowired
+    @Qualifier("asyncJobLauncher")
     private JobLauncher jobLauncher;
 
     @Autowired
@@ -90,7 +92,7 @@ class ClusterIntegrationTest {
         Path testFile = createTestFile();
         Job job = fileImportJobConfig.fileImportJob(jobCompletionNotificationListener, mock(Step.class));
         JobParameters jobParameters = new JobParametersBuilder()
-                .addString("inputFileName", testFile.toString())
+                .addString("input.file.name", testFile.toString())
                 .addString("batchDate", "2026-03-06")
                 .addString("clusterNodeId", "node-1")
                 .addLong("run.id", System.currentTimeMillis())
@@ -117,7 +119,7 @@ class ClusterIntegrationTest {
         Step importStep = mock(Step.class);
         Job job = fileImportJobConfig.fileImportJob(listener, importStep);
         JobParameters jobParameters = new JobParametersBuilder()
-                .addString("inputFileName", testFile.toString())
+                .addString("input.file.name", testFile.toString())
                 .addString("batchDate", "2026-03-06")
                 .addString("clusterNodeId", "node-2")
                 .addLong("run.id", System.currentTimeMillis())
@@ -143,7 +145,7 @@ class ClusterIntegrationTest {
         Step importStep = mock(Step.class);
         Job job = fileImportJobConfig.fileImportJob(jobCompletionNotificationListener, importStep);
         JobParameters jobParameters = new JobParametersBuilder()
-                .addString("inputFileName", testFile.toString())
+                .addString("input.file.name", testFile.toString())
                 .addString("batchDate", "2026-03-06")
                 .addString("clusterNodeId", "node-failover")
                 .addLong("run.id", System.currentTimeMillis())
@@ -176,7 +178,7 @@ class ClusterIntegrationTest {
                 try {
                     Job job = fileImportJobConfig.fileImportJob(jobCompletionNotificationListener, mock(Step.class));
                     JobParameters jobParameters = new JobParametersBuilder()
-                            .addString("inputFileName", testFile.toString())
+                            .addString("input.file.name", testFile.toString())
                             .addString("batchDate", "2026-03-06")
                             .addString("clusterNodeId", "node-" + nodeId)
                             .addLong("run.id", System.currentTimeMillis() + nodeId)
@@ -225,7 +227,7 @@ class ClusterIntegrationTest {
         Path testFile = createTestFile();
         Job job = fileImportJobConfig.fileImportJob(jobCompletionNotificationListener, mock(Step.class));
         JobParameters jobParameters = new JobParametersBuilder()
-                .addString("inputFileName", testFile.toString())
+                .addString("input.file.name", testFile.toString())
                 .addString("batchDate", "2026-03-06")
                 .addString("clusterNodeId", "node-failed")
                 .addLong("run.id", System.currentTimeMillis())
@@ -250,7 +252,7 @@ class ClusterIntegrationTest {
         Path testFile = createTestFile();
         Job job = fileImportJobConfig.fileImportJob(jobCompletionNotificationListener, mock(Step.class));
         JobParameters jobParameters = new JobParametersBuilder()
-                .addString("inputFileName", testFile.toString())
+                .addString("input.file.name", testFile.toString())
                 .addString("batchDate", "2026-03-06")
                 .addString("clusterNodeId", "node-coordinator")
                 .addLong("run.id", System.currentTimeMillis())

@@ -314,7 +314,7 @@ test_environment() {
     fi
     
     # 测试数据库连接
-    if docker exec file-batch-postgres-${environment} pg_isready -U postgres -d qrtz >/dev/null 2>&1; then
+    if docker exec file-batch-postgres-${environment} pg_isready -U postgres -d file_batch >/dev/null 2>&1; then
         log_success "✅ 数据库连接正常"
     else
         log_error "❌ 数据库连接失败"

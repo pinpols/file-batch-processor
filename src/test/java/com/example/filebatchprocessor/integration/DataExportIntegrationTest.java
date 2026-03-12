@@ -17,6 +17,7 @@ import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.batch.core.step.Step;
 import org.springframework.batch.test.context.SpringBatchTest;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -35,6 +36,7 @@ import static org.springframework.batch.core.BatchStatus.COMPLETED;
 class DataExportIntegrationTest {
 
     @Autowired
+    @Qualifier("asyncJobLauncher")
     private JobLauncher jobLauncher;
 
     @Autowired

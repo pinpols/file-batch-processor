@@ -96,3 +96,33 @@ groups:
         annotations:
           summary: "Quality gate failures frequent"
           description: "Quality gate failed >= 3 times in 15 minutes."
+
+      - alert: QuartzMisfireDetected
+        expr: increase(quartz_misfire_total[5m]) > 0
+        for: 2m
+        labels:
+          severity: warning
+          service: file-batch-processor
+        annotations:
+          summary: "Quartz misfire detected"
+          description: "Quartz misfire occurred within the last 5 minutes."
+
+      - alert: BatchSlaDurationBreach
+        expr: batch_sla_duration_breach_count > 0
+        for: 5m
+        labels:
+          severity: warning
+          service: file-batch-processor
+        annotations:
+          summary: "Batch SLA duration breached"
+          description: "At least one recent run exceeded SLA duration."
+
+      - alert: BatchQueueSlaBreach
+        expr: increase(scheduler_queue_sla_breach_total[5m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+          service: file-batch-processor
+        annotations:
+          summary: "Batch queue SLA breached"
+          description: "Tasks waited in queue beyond SLA in the last 5 minutes."

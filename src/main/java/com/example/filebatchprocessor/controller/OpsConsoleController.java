@@ -32,7 +32,10 @@ public class OpsConsoleController {
                     <p>认证后可直接访问以下接口：</p>
                     <ul>
                       <li><a href="/ops/dashboard">/ops/dashboard</a>：运行看板</li>
+                      <li><a href="/ops/scheduler">/ops/scheduler</a>：调度队列快照</li>
+                      <li><a href="/ops/dag">/ops/dag</a>：DAG 拓扑快照</li>
                       <li><a href="/ops/tasks">/ops/tasks</a>：任务清单</li>
+                      <li><a href="/ops/task-audit">/ops/task-audit</a>：任务执行审计</li>
                       <li><a href="/ops/change-requests">/ops/change-requests</a>：变更单</li>
                       <li><a href="/ops/audit">/ops/audit</a>：审计日志</li>
                     </ul>
@@ -43,4 +46,3 @@ public class OpsConsoleController {
                 """;
     }
 }
-

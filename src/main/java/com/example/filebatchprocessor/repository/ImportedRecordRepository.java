@@ -17,6 +17,9 @@ public interface ImportedRecordRepository extends JpaRepository<ImportedRecord, 
 
     @Query("select count(r) from ImportedRecord r where r.batchDate = :batchDate and (r.name is null or trim(r.name) = '')")
     long countMissingNameByBatchDate(String batchDate);
+
+    @Query(value = "select count(*) from (select business_key from imported_records where batch_date = :batchDate group by business_key having count(*) > 1) t", nativeQuery = true)
+    long countDuplicateBusinessKeysByBatchDate(String batchDate);
 }
 
 

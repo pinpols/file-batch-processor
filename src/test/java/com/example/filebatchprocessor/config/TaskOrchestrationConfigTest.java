@@ -22,6 +22,7 @@ class TaskOrchestrationConfigTest {
     @Test
     void shouldRegisterFromDbByDefault() throws Exception {
         TaskOrchestrationConfig config = new TaskOrchestrationConfig();
+        ReflectionTestUtils.setField(config, "orchestrationEnabled", true);
         ReflectionTestUtils.setField(config, "configSource", "db");
 
         TaskDefinitionProperties properties = new TaskDefinitionProperties();
@@ -53,6 +54,7 @@ class TaskOrchestrationConfigTest {
     @Test
     void shouldRejectYamlOutsideLocalDev() {
         TaskOrchestrationConfig config = new TaskOrchestrationConfig();
+        ReflectionTestUtils.setField(config, "orchestrationEnabled", true);
         ReflectionTestUtils.setField(config, "configSource", "yaml");
 
         TaskDefinitionProperties properties = new TaskDefinitionProperties();
@@ -70,6 +72,7 @@ class TaskOrchestrationConfigTest {
     @Test
     void shouldMapFixedDelayTriggerFromDb() throws Exception {
         TaskOrchestrationConfig config = new TaskOrchestrationConfig();
+        ReflectionTestUtils.setField(config, "orchestrationEnabled", true);
         ReflectionTestUtils.setField(config, "configSource", "db");
 
         TaskDefinitionProperties properties = new TaskDefinitionProperties();

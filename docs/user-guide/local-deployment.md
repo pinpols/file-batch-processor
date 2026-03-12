@@ -60,7 +60,7 @@
 
 ```bash
 # 数据库配置
-POSTGRES_DB=qrtz
+POSTGRES_DB=file_batch
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=postgres
 
@@ -77,7 +77,7 @@ JAVA_OPTS=--XX:+UseContainerSupport -XX:MaxRAMPercentage=75 -XX:+UseG1GC -Xdebug
 
 ```bash
 # 数据库配置
-POSTGRES_DB=qrtz
+POSTGRES_DB=file_batch
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=your_secure_password_here
 
@@ -154,13 +154,13 @@ docker-compose -f docker-compose.prod.yml down
 
 ```bash
 # 连接数据库
-docker exec -it file-batch-postgres psql -U postgres -d qrtz
+docker exec -it file-batch-postgres psql -U postgres -d file_batch
 
 # 备份数据库
-docker exec file-batch-postgres pg_dump -U postgres qrtz > backup.sql
+docker exec file-batch-postgres pg_dump -U postgres file_batch > backup.sql
 
 # 恢复数据库
-docker exec -i file-batch-postgres psql -U postgres qrtz < backup.sql
+docker exec -i file-batch-postgres psql -U postgres file_batch < backup.sql
 
 # 查看数据文件
 ls -la ~/Library/Containers/com.docker.docker/Data/volumes/file-batch*
@@ -221,7 +221,7 @@ docker logs file-batch-postgres
 #### 3. 数据库连接问题
 ```bash
 # 检查数据库状态
-docker exec file-batch-postgres pg_isready -U postgres -d qrtz
+docker exec file-batch-postgres pg_isready -U postgres -d file_batch
 
 # 重启数据库
 docker restart file-batch-postgres

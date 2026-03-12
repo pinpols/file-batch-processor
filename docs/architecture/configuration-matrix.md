@@ -25,9 +25,15 @@
 | `BATCH_INPUT_FILE` | 空 | 必填（按任务传参） | 条件必填 | 导入文件路径；默认样例文件已解耦 |
 | `BATCH_IMPORT_PARSE_ERROR_MAX_RATE` | `0.2` | `0.05~0.2` | 否 | 导入解析错误率上限（parseErrors/(read+parseErrors)）；超阈直接失败 |
 | `BATCH_IMPORT_PARSE_ERROR_MIN_LINES` | `50` | `50~200` | 否 | 质量门禁最小样本行数，小于该行数不触发失败 |
+| `BATCH_IMPORT_DUPLICATE_MAX_RATE` | `0.0` | `0.0~0.01` | 否 | 导入重复率门禁上限 |
+| `BATCH_IMPORT_DUPLICATE_MIN_LINES` | `100` | `100~500` | 否 | 导入重复率最小样本行数 |
 | `ORCHESTRATION_SCHEDULER_DEFAULT_RETRY_JITTER_RATIO` | `0.0` | `0.1~0.3` | 否 | 重试抖动比例（防雪崩），0 表示关闭 |
 | `ORCHESTRATION_SCHEDULER_BACKPRESSURE_THRESHOLD` | `1500` | `1000~5000` | 否 | 队列背压水位，超过后延迟入队 |
 | `ORCHESTRATION_SCHEDULER_BACKPRESSURE_DELAY_MS` | `5000` | `2000~10000` | 否 | 背压延迟时间 |
+| `ORCHESTRATION_SCHEDULER_FIXED_DELAY_MIN_REQUEUE_INTERVAL_MS` | `2000` | `2000~10000` | 否 | 固定延迟最小重排间隔 |
+| `ORCHESTRATION_SCHEDULER_FIXED_DELAY_MAX_REQUEUE_PER_MINUTE` | `60` | `30~120` | 否 | 固定延迟每分钟最大重排 |
+| `ORCHESTRATION_SCHEDULER_FIXED_DELAY_FAILURE_BACKOFF_MULTIPLIER` | `2.0` | `1.5~3.0` | 否 | 固定延迟失败退避倍数 |
+| `ORCHESTRATION_SCHEDULER_FIXED_DELAY_MAX_BACKOFF_MS` | `300000` | `60000~600000` | 否 | 固定延迟最大退避时间 |
 | `BATCH_DLQ_MAX_REPLAY_COUNT` | `5` | `3~10` | 否 | 单条 DLQ 最大自动重放次数 |
 | `BATCH_DLQ_RETRY_DELAY_MS` | `60000` | `30000~300000` | 否 | DLQ 重放失败后的延迟重试窗口 |
 | `ORCHESTRATION_SCHEDULER_MAX_CONCURRENT_BY_KEY` | 空 | 按业务设定 | 否 | 按 `jobName` 或 `jobName:targetSystem` 并发上限（YAML Map） |
@@ -63,6 +69,8 @@
 | `BATCH_IMPORT_PARSE_ERROR_MAX_RATE` | `0.2` | `0.05~0.2` | 全局解析错误率上限 |
 | `BATCH_IMPORT_PARSE_ERROR_MIN_LINES` | `50` | `50~200` | 质量门禁最小样本行数 |
 | `batch.import.parse-error.rules.<jobName>.max-rate/min-lines` | 空 | 按需覆盖 | 按 jobName 覆盖阈值 |
+| `BATCH_IMPORT_DUPLICATE_MAX_RATE` | `0.0` | `0.0~0.01` | 导入重复率门禁上限 |
+| `BATCH_IMPORT_DUPLICATE_MIN_LINES` | `100` | `100~500` | 导入重复率门禁最小样本 |
 | 结果落库 | 自动 | 自动 | `quality_gate_results` 表 + 查询 API |
 
 ### 熔断/降级

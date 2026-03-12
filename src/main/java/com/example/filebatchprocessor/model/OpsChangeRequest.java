@@ -58,6 +58,21 @@ public class OpsChangeRequest {
     @Column(name = "applied_at")
     private LocalDateTime appliedAt;
 
+    @Column(name = "window_start")
+    private LocalDateTime windowStart;
+
+    @Column(name = "window_end")
+    private LocalDateTime windowEnd;
+
+    @Column(name = "impact_summary")
+    private String impactSummary;
+
+    @Column(name = "risk_level", length = 32)
+    private String riskLevel;
+
+    @Column(name = "rollback_plan")
+    private String rollbackPlan;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
@@ -76,4 +91,3 @@ public class OpsChangeRequest {
         updatedAt = LocalDateTime.now();
     }
 }
-

@@ -14,7 +14,8 @@
 
 ## 3. 数据与迁移
 - [ ] 首次启动完成全部 SQL 迁移
-- [ ] 核心表存在：`task_config`、`task_execution`、`imported_records`、`dlq_records`、`batch_run_record`
+- [ ] 核心表存在：`task_definition`、`task_trigger`、`task_execution_state`、`imported_records`、`dlq_records`、`batch_run_records`
+- [ ] Quartz 表存在：`qrtz_*`（由 `V1_20__quartz_postgresql_tables.sql` 初始化）
 - [ ] 索引与唯一键有效（特别是导入幂等唯一键）
 
 ## 4. 任务与调度

@@ -31,7 +31,11 @@ POSTGRES_PASSWORD=replace_me \
 - `V1_3__task_execution_state.sql`
 - `V1_4__seed_cleanup_and_data_hardening.sql`
 - `V1_16__orchestration_governance_upgrade.sql`
+- `V1_20__quartz_postgresql_tables.sql`
+- `V1_23__task_execution_audit_and_change_window.sql`
 - `R__task_seed_data.sql`（repeatable seed）
+
+Quartz JobStore 使用 `qrtz_*` 表，首次启动会由 `V1_20__quartz_postgresql_tables.sql` 自动创建。
 
 ## 4. 升级流程
 1. 备份数据库（`scripts/db/backup.sh`）。
@@ -46,7 +50,10 @@ POSTGRES_PASSWORD=replace_me \
 \dt
 
 -- 任务配置
-select id, job_name, trigger_type, enabled from task_config order by id;
+select d.task_id, d.job_name, t.trigger_type, d.enabled
+from task_definition d
+left join task_trigger t on d.task_id = t.task_id
+order by d.task_id;
 
 -- 状态机
 select status, count(*) from task_execution_state group by status;

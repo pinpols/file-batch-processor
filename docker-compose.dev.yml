@@ -9,16 +9,17 @@ services:
     container_name: file-batch-postgres-dev
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-qrtz}
+      POSTGRES_DB: ${POSTGRES_DB:-file_batch}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     volumes:
       - postgres_dev_data:/var/lib/postgresql/data
+      - ./scripts/database/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
       - ./scripts/testdata:/docker-entrypoint-initdb.d/testdata:ro
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-qrtz}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-file_batch}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -47,7 +48,7 @@ services:
       SERVER_PORT: 8011
       
       # 数据库配置
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-qrtz}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-file_batch}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       

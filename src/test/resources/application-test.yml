@@ -1,0 +1,5 @@
+spring:
+  quartz:
+    auto-startup: false
+orchestration:
+  enabled: false

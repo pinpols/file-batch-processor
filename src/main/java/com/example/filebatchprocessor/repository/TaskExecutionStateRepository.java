@@ -12,6 +12,7 @@ import java.util.Optional;
 public interface TaskExecutionStateRepository extends JpaRepository<TaskExecutionState, Long> {
     Optional<TaskExecutionState> findByTaskIdAndBatchDateAndRerunId(String taskId, String batchDate, String rerunId);
     List<TaskExecutionState> findTop200ByOrderByUpdatedAtDesc();
+    List<TaskExecutionState> findTop200ByStatusInAndUpdatedAtBefore(List<String> statuses, LocalDateTime cutoff);
     long countByStatusIn(List<String> statuses);
     long countByStatusAndUpdatedAtAfter(String status, LocalDateTime after);
     long deleteByUpdatedAtBeforeAndStatusIn(LocalDateTime cutoffTime, List<String> statuses);
