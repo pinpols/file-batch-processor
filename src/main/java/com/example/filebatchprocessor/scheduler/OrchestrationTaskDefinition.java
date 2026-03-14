@@ -36,6 +36,7 @@ public class OrchestrationTaskDefinition {
     private String dedupKey;
     private boolean allowParallel;
     private boolean allowMerge;
+    private Boolean enabled;
     private Long slaMaxDurationMs;
     private Long slaMaxQueueDelayMs;
     private Integer rateLimitPerMinute;

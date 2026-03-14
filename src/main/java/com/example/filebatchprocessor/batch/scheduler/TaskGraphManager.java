@@ -28,6 +28,7 @@ public class TaskGraphManager {
             Map<String, Object> node = new LinkedHashMap<>();
             node.put("taskId", def.getId());
             node.put("jobName", def.getJobName());
+            node.put("enabled", def.getEnabled());
             node.put("dependencies", def.getDependencies());
             nodes.add(node);
             for (String dep : def.getDependencies()) {
@@ -45,7 +46,38 @@ public class TaskGraphManager {
         return result;
     }
 
-    public synchronized List<OrchestrationTaskDefinition> topologicallySorted() {
+    public synchronized String toMermaid() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("flowchart TD\n");
+        
+        // Define nodes with style based on enabled status
+        for (OrchestrationTaskDefinition def : taskDefinitions.values()) {
+            String status = Boolean.TRUE.equals(def.getEnabled()) ? "enabled" : "disabled";
+            sb.append("    ").append(safeId(def.getId()))
+              .append("[").append(def.getJobName()).append("]")
+              .append(":::").append(status).append("\n");
+        }
+        
+        // Define edges
+        for (OrchestrationTaskDefinition def : taskDefinitions.values()) {
+            for (String dep : def.getDependencies()) {
+                sb.append("    ").append(safeId(dep))
+                  .append(" --> ").append(safeId(def.getId())).append("\n");
+            }
+        }
+        
+        // Define styles
+        sb.append("    classDef enabled fill:#90EE90,stroke:#333,stroke-width:2px\n");
+        sb.append("    classDef disabled fill:#FFB6C1,stroke:#333,stroke-width:2px,stroke-dasharray:5 5\n");
+        
+        return sb.toString();
+    }
+
+    private String safeId(String id) {
+        return id.replaceAll("[^a-zA-Z0-9]", "_");
+    }
+
+    public synchronized Map<String, Object> topologicallySorted() {
         validateDag();
         Map<String, Integer> inDegree = new HashMap<>();
         Map<String, List<String>> graph = new HashMap<>();
@@ -65,12 +97,16 @@ public class TaskGraphManager {
             }
         });
 
-        List<OrchestrationTaskDefinition> ordered = new ArrayList<>();
+        List<Map<String, Object>> ordered = new ArrayList<>();
         while (!queue.isEmpty()) {
             String id = queue.poll();
             OrchestrationTaskDefinition def = taskDefinitions.get(id);
             if (def != null) {
-                ordered.add(def);
+                Map<String, Object> taskInfo = new LinkedHashMap<>();
+                taskInfo.put("taskId", def.getId());
+                taskInfo.put("jobName", def.getJobName());
+                taskInfo.put("enabled", def.getEnabled());
+                ordered.add(taskInfo);
             }
             for (String next : graph.getOrDefault(id, Collections.emptyList())) {
                 inDegree.put(next, inDegree.get(next) - 1);
@@ -79,7 +115,12 @@ public class TaskGraphManager {
                 }
             }
         }
-        return ordered;
+        
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("sortedTasks", ordered);
+        result.put("totalCount", ordered.size());
+        result.put("hasCycle", ordered.size() != taskDefinitions.size());
+        return result;
     }
 
     private void validateDag() {

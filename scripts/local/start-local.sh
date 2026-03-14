@@ -25,7 +25,7 @@ check_port "${APP_PORT}" "file-batch-processor"
 
 if [ "${BUILD_APP}" = "true" ]; then
   echo "[INFO] building application jar"
-  ./mvnw -q -DskipTests package
+  ./mvnw -DskipTests package || { echo "[ERROR] build failed"; exit 1; }
 fi
 
 APP_JAR="${APP_JAR:-$(ls -1 target/*.jar 2>/dev/null | grep -v 'original' | head -n 1 || true)}"

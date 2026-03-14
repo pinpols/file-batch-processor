@@ -30,12 +30,18 @@ public class SchedulerLeaderService {
     @Value("${orchestration.scheduler.leader-ttl-seconds:30}")
     private long ttlSeconds;
 
+    @Value("${orchestration.scheduler.force-leader:false}")
+    private boolean forceLeader;
+
     public SchedulerLeaderService(SchedulerLeaderLockRepository repository, BatchMetrics batchMetrics) {
         this.repository = repository;
         this.batchMetrics = batchMetrics;
     }
 
     public boolean isLeader() {
+        if (forceLeader) {
+            return true;
+        }
         return leader.get();
     }
 

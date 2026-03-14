@@ -14,8 +14,8 @@ check() {
 check "health endpoint" "curl -fsS --max-time $TIMEOUT $BASE_URL/actuator/health >/dev/null"
 check "prometheus endpoint" "curl -fsS --max-time $TIMEOUT $BASE_URL/actuator/prometheus | grep -q 'batch_'"
 check "prometheus includes scheduler metrics" "curl -fsS --max-time $TIMEOUT $BASE_URL/actuator/prometheus | grep -q 'scheduler_enqueue_total'"
-check "prometheus includes distribution metrics" "curl -fsS --max-time $TIMEOUT $BASE_URL/actuator/prometheus | grep -q 'distribution_task_total'"
 check "prometheus includes import quality gate metrics" "curl -fsS --max-time $TIMEOUT $BASE_URL/actuator/prometheus | grep -q 'import_parse_error_gate_failed_total'"
+check "prometheus includes quartz metrics" "curl -fsS --max-time $TIMEOUT $BASE_URL/actuator/prometheus | grep -q 'quartz_jobs_total'"
 
 if command -v psql >/dev/null 2>&1; then
   DB_HOST=${POSTGRES_HOST:-localhost}

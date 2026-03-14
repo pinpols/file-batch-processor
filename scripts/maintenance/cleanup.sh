@@ -32,8 +32,8 @@ find . -name "*.bak" -type f -delete 2>/dev/null || true
 
 # 清理自动生成的文档
 echo "📚 清理自动生成的文档..."
-rm -f docs/ops/dag-*-graph.generated.md 2>/dev/null || true
-rm -f docs/ops/dag-complex-template.sql 2>/dev/null || true
+rm -f docs/other/dag-*-graph.generated.md 2>/dev/null || true
+rm -f docs/other/dag-complex-template.sql 2>/dev/null || true
 
 # 清理 IDE 文件（保留配置）
 echo "💻 清理 IDE 文件..."
@@ -63,5 +63,5 @@ fi
 echo ""
 echo "💡 提示："
 echo "  - 使用 './scripts/cleanup.sh --deep' 进行深度清理"
-echo "  - 查看 PROJECT_STRUCTURE.md 了解项目结构"
+echo "  - 查看 docs/other/PROJECT_STRUCTURE.md 了解项目结构"
 echo "  - 使用 './scripts/local/start-local.sh' 启动开发环境"

@@ -250,15 +250,35 @@ public class TaskSchedulerService {
 
     private void upsertTrigger(Trigger trigger) throws SchedulerException {
         TriggerKey key = trigger.getKey();
-        if (quartzScheduler.checkExists(key)) {
-            quartzScheduler.rescheduleJob(key, trigger);
-        } else {
+        try {
+            if (quartzScheduler.checkExists(key)) {
+                try {
+                    quartzScheduler.rescheduleJob(key, trigger);
+                } catch (Exception e) {
+                    log.warn("Failed to reschedule trigger {}, removing and recreating: {}", key, e.getMessage());
+                    quartzScheduler.unscheduleJob(key);
+                    quartzScheduler.scheduleJob(trigger);
+                }
+            } else {
+                quartzScheduler.scheduleJob(trigger);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to schedule trigger {}, retrying: {}", key, e.getMessage());
+            try {
+                quartzScheduler.unscheduleJob(key);
+            } catch (Exception ignored) {}
             quartzScheduler.scheduleJob(trigger);
         }
     }
 
     private void enqueue(OrchestrationTaskDefinition definition) {
         if (!schedulerLeaderService.isLeader()) {
+            return;
+        }
+
+        // Check if task is enabled
+        if (!Boolean.TRUE.equals(definition.getEnabled())) {
+            log.info("Task is disabled, skip enqueue: taskId={}", definition.getId());
             return;
         }
 

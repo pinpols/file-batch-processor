@@ -23,11 +23,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.annotation.DirtiesContext;
+
+import org.springframework.batch.core.repository.JobRepository;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
@@ -36,6 +40,7 @@ import static org.springframework.batch.core.BatchStatus.COMPLETED;
 @SpringBootTest
 @SpringBatchTest
 @ActiveProfiles("test")
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 class FileImportIntegrationTest {
 
     @Autowired
@@ -78,14 +83,14 @@ class FileImportIntegrationTest {
 
     @Test
     void shouldCompleteFileImportJob() throws Exception {
-        // Given
+        // Given - use unique batchDate to avoid job instance conflicts
+        String uniqueBatchDate = "2026-03-14-" + UUID.randomUUID().toString().substring(0, 8);
         JobCompletionNotificationListener listener = mock(JobCompletionNotificationListener.class);
         Step importStep = mock(Step.class);
         Job job = fileImportJobConfig.fileImportJob(listener, importStep);
         JobParameters jobParameters = new JobParametersBuilder()
                 .addString("input.file.name", testFile.toString())
-                .addString("batchDate", "2026-03-06")
-                .addLong("run.id", System.currentTimeMillis())
+                .addString("batchDate", uniqueBatchDate)
                 .toJobParameters();
 
         // When
@@ -112,16 +117,16 @@ class FileImportIntegrationTest {
 
     @Test
     void shouldHandleShardedImport() throws Exception {
-        // Given
+        // Given - use unique batchDate
+        String uniqueBatchDate = "2026-03-14-" + UUID.randomUUID().toString().substring(0, 8);
         JobCompletionNotificationListener listener = mock(JobCompletionNotificationListener.class);
         Step importStep = mock(Step.class);
         Job job = fileImportJobConfig.fileImportJob(listener, importStep);
         JobParameters jobParameters = new JobParametersBuilder()
                 .addString("input.file.name", testFile.toString())
-                .addString("batchDate", "2026-03-06")
+                .addString("batchDate", uniqueBatchDate)
                 .addLong("shardIndex", 0L)
                 .addLong("shardTotal", 2L)
-                .addLong("run.id", System.currentTimeMillis())
                 .toJobParameters();
 
         // When
@@ -137,7 +142,9 @@ class FileImportIntegrationTest {
 
     @Test
     void shouldHandleFileImportWithErrors() throws Exception {
-        // Given - Create file with invalid data
+        // Given - use unique batchDate
+        String uniqueBatchDate = "2026-03-14-" + UUID.randomUUID().toString().substring(0, 8);
+        // Create file with invalid data
         Path errorFile = tempDir.resolve("error_test.csv");
         String errorContent = "id,name,description\n" +
                           "1,Valid Record,Valid Description\n" +
@@ -150,8 +157,7 @@ class FileImportIntegrationTest {
         Job job = fileImportJobConfig.fileImportJob(listener, importStep);
         JobParameters jobParameters = new JobParametersBuilder()
                 .addString("input.file.name", errorFile.toString())
-                .addString("batchDate", "2026-03-06")
-                .addLong("run.id", System.currentTimeMillis())
+                .addString("batchDate", uniqueBatchDate)
                 .toJobParameters();
 
         // When
@@ -171,7 +177,9 @@ class FileImportIntegrationTest {
 
     @Test
     void shouldHandleExcelFileImport() throws Exception {
-        // Given - Create Excel file (simulated)
+        // Given - use unique batchDate
+        String uniqueBatchDate = "2026-03-14-" + UUID.randomUUID().toString().substring(0, 8);
+        // Create Excel file (simulated)
         Path excelFile = tempDir.resolve("test_import.xlsx");
         // Note: In real test, you'd create actual Excel file
         Files.writeString(excelFile, "simulated_excel_content");
@@ -181,9 +189,8 @@ class FileImportIntegrationTest {
         Job job = fileImportJobConfig.fileImportJob(listener, importStep);
         JobParameters jobParameters = new JobParametersBuilder()
                 .addString("input.file.name", excelFile.toString())
-                .addString("batchDate", "2026-03-06")
+                .addString("batchDate", uniqueBatchDate)
                 .addString("fileFormat", "EXCEL")
-                .addLong("run.id", System.currentTimeMillis())
                 .toJobParameters();
 
         // When
@@ -196,7 +203,9 @@ class FileImportIntegrationTest {
 
     @Test
     void shouldHandleJsonFileImport() throws Exception {
-        // Given - Create JSON file
+        // Given - use unique batchDate
+        String uniqueBatchDate = "2026-03-14-" + UUID.randomUUID().toString().substring(0, 8);
+        // Create JSON file
         Path jsonFile = tempDir.resolve("test_import.json");
         String jsonContent = "[{\"id\":1,\"name\":\"Test 1\",\"description\":\"Desc 1\"}," +
                           "{\"id\":2,\"name\":\"Test 2\",\"description\":\"Desc 2\"}]";
@@ -207,9 +216,8 @@ class FileImportIntegrationTest {
         Job job = fileImportJobConfig.fileImportJob(listener, importStep);
         JobParameters jobParameters = new JobParametersBuilder()
                 .addString("input.file.name", jsonFile.toString())
-                .addString("batchDate", "2026-03-06")
+                .addString("batchDate", uniqueBatchDate)
                 .addString("fileFormat", "JSON")
-                .addLong("run.id", System.currentTimeMillis())
                 .toJobParameters();
 
         // When
@@ -222,10 +230,11 @@ class FileImportIntegrationTest {
 
     @Test
     void shouldReplayDlqRecords() throws Exception {
-        // Given - Add some DLQ records
+        // Given - Add some DLQ records with unique params
+        String uniqueBatchDate = "2026-03-14-" + UUID.randomUUID().toString().substring(0, 8);
         DlqRecord dlqRecord = new DlqRecord();
         dlqRecord.setJobName("importJob");
-        dlqRecord.setParams("{\"id\":1,\"name\":\"DLQ Test\",\"description\":\"DLQ Description\"}");
+        dlqRecord.setParams("{\"id\":1,\"name\":\"DLQ Test\",\"description\":\"DLQ Description\",\"batchDate\":\"" + uniqueBatchDate + "\"}");
         dlqRecord.setErrorMessage("Processing error");
         dlqRecordRepository.save(dlqRecord);
 
@@ -233,7 +242,7 @@ class FileImportIntegrationTest {
         Job dlqJob = fileImportJobConfig.dlqReplayJob(dlqStep);
         JobParameters jobParameters = new JobParametersBuilder()
                 .addLong("limit", 10L)
-                .addLong("run.id", System.currentTimeMillis())
+                .addString("batchDate", uniqueBatchDate)
                 .toJobParameters();
 
         // When
@@ -250,7 +259,8 @@ class FileImportIntegrationTest {
 
     @Test
     void shouldFailWithInvalidFile() throws Exception {
-        // Given
+        // Given - use unique batchDate
+        String uniqueBatchDate = "2026-03-14-" + UUID.randomUUID().toString().substring(0, 8);
         Path invalidFile = tempDir.resolve("nonexistent.csv");
         // File doesn't exist
 
@@ -259,8 +269,7 @@ class FileImportIntegrationTest {
         Job job = fileImportJobConfig.fileImportJob(listener, importStep);
         JobParameters jobParameters = new JobParametersBuilder()
                 .addString("input.file.name", invalidFile.toString())
-                .addString("batchDate", "2026-03-06")
-                .addLong("run.id", System.currentTimeMillis())
+                .addString("batchDate", uniqueBatchDate)
                 .toJobParameters();
 
         // When

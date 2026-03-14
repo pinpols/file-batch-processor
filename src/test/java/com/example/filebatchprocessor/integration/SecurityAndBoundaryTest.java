@@ -32,6 +32,7 @@ import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -76,7 +77,9 @@ class SecurityAndBoundaryTest {
     @Test
     @WithMockUser(username = "admin", roles = {"ADMIN"})
     void shouldHandleFileAccessPermissions() throws Exception {
-        // Given - Create file with restricted permissions
+        // Given - use unique batchDate
+        String uniqueBatchDate = "2026-03-14-" + UUID.randomUUID().toString().substring(0, 8);
+        // Create file with restricted permissions
         Path testFile = tempDir.resolve("restricted_file.csv");
         String content = "id,name,description\n1,Permission Test,Permission Description\n";
         Files.writeString(testFile, content);

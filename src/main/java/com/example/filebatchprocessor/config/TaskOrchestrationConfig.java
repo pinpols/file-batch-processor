@@ -134,6 +134,7 @@ public class TaskOrchestrationConfig {
         orchestrationTaskDefinition.setPriority(priority);
         orchestrationTaskDefinition.setAllowParallel(Boolean.TRUE.equals(taskDefinition.getAllowParallel()));
         orchestrationTaskDefinition.setDedupKey(taskDefinition.getDedupKey());
+        orchestrationTaskDefinition.setEnabled(taskDefinition.getEnabled());
         orchestrationTaskDefinition.setTimeoutMs(taskDefinition.getTimeoutMs());
         orchestrationTaskDefinition.setMaxQueueWaitMs(taskDefinition.getMaxQueueWaitMs());
         orchestrationTaskDefinition.setDependencyTimeoutMs(taskDefinition.getDependencyTimeoutMs());
