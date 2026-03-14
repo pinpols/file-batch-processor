@@ -10,8 +10,8 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-file_batch}
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_USER: ${POSTGRES_USER:-filebatch}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.prod}
       POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -49,8 +49,8 @@ services:
       
       # 数据库配置
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-file_batch}
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-filebatch}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.prod}
       SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.postgresql.Driver
       
       # JVM 配置
@@ -66,7 +66,7 @@ services:
       BATCH_ALERT_WEBHOOK_URL: ${BATCH_ALERT_WEBHOOK_URL:-}
       
       # 集群配置
-      CLUSTER_INSTANCE_ID: ${CLUSTER_INSTANCE_ID:-file-batch-$(hostname)}
+      CLUSTER_INSTANCE_ID: ${CLUSTER_INSTANCE_ID:-}
       ORCHESTRATION_SCHEDULER_CLUSTER_MODE: ${CLUSTER_MODE:-custom}
       
       # Misfire 策略配置
@@ -78,7 +78,15 @@ services:
       
       # 日志配置
       LOGGING_LEVEL_ROOT: ${LOG_LEVEL:-INFO}
-      LOGGING_LEVEL_COM_EXAMPLE_FILEBATCHPROCESSOR: ${APP_LOG_LEVEL:-DEBUG}
+      LOGGING_LEVEL_COM_EXAMPLE_FILEBATCHPROCESSOR: ${APP_LOG_LEVEL:-INFO}
+
+      # 运维账号配置
+      OPS_VIEWER_USERNAME: ${OPS_VIEWER_USERNAME:-viewer}
+      OPS_VIEWER_PASSWORD: ${OPS_VIEWER_PASSWORD:?set OPS_VIEWER_PASSWORD in .env.prod}
+      OPS_OPERATOR_USERNAME: ${OPS_OPERATOR_USERNAME:-operator}
+      OPS_OPERATOR_PASSWORD: ${OPS_OPERATOR_PASSWORD:?set OPS_OPERATOR_PASSWORD in .env.prod}
+      OPS_ADMIN_USERNAME: ${OPS_ADMIN_USERNAME:-admin}
+      OPS_ADMIN_PASSWORD: ${OPS_ADMIN_PASSWORD:?set OPS_ADMIN_PASSWORD in .env.prod}
     ports:
       - "8011:8011"
     volumes:
@@ -127,7 +135,7 @@ services:
       - prometheus
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin123}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:?set GRAFANA_PASSWORD in .env.prod}
       GF_USERS_ALLOW_SIGN_UP: false
       GF_INSTALL_PLUGINS: grafana-clock-panel,grafana-simple-json-datasource
     volumes:

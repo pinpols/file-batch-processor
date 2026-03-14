@@ -1,25 +1,41 @@
+# ============================================================
+# File Batch Processor - 默认配置（application.yml）
+# 中文说明：
+# 1) 本文件提供“本地可运行”的默认值
+# 2) 生产环境请使用 application-prod.yml + 环境变量覆盖
+# 3) 任务定义以 DB 为主（orchestration.config-source=db）
+# ============================================================
+
 server:
+  # 应用 HTTP 端口
   port: 8011
 
 spring:
+  # 默认激活 dev；生产请通过 --spring.profiles.active=prod 覆盖
   profiles.active: dev
   application:
     name: file-batch-processor
   batch:
     job:
-      enabled: false  # Disable auto-start of jobs
+      # 关闭 Spring Batch 启动即执行，统一由调度器触发
+      enabled: false
   quartz:
+    # Quartz 启动由编排初始化流程控制
     auto-startup: false
-    overwrite-existing-jobs: true
+    # 不覆盖 DB 中已存在的 Job/Trigger，避免误改历史调度
+    overwrite-existing-jobs: false
     properties:
       org:
         quartz:
           scheduler:
+            # Quartz 集群调度器名（对应 qrtz_* 的 sched_name）
             instanceName: fileBatchQuartzScheduler
             instanceId: AUTO
           threadPool:
+            # Quartz 调度线程数（不是业务执行线程）
             threadCount: 8
   datasource:
+    # 默认连本机 PostgreSQL；生产请使用专用库和专用账号
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/postgres}
     username: ${SPRING_DATASOURCE_USERNAME:postgres}
     password: ${SPRING_DATASOURCE_PASSWORD:postgres}
@@ -31,6 +47,7 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
   flyway:
+    # 统一用 Flyway 管理 DDL；禁止应用启动时自动建表
     enabled: true
     placeholder-replacement: false
     locations: classpath:db/migration
@@ -42,15 +59,19 @@ management:
   endpoints:
     web:
       exposure:
+        # 暴露健康检查、Prometheus 指标等端点
         include: health,info,prometheus,metrics,beans
   endpoint:
     health:
       show-details: always
+
 batch:
   schema:
     startup-bootstrap:
-      enabled: false # Fallback only; primary path should use Flyway migrations
+      # 仅兜底，主路径必须走 Flyway
+      enabled: false
   alert:
+    # 批量告警：失败率、吞吐、DLQ 积压
     enabled: true
     failure-rate-threshold: 0.2
     dlq-backlog-threshold: 100
@@ -60,6 +81,7 @@ batch:
       enabled: false
       url: ""
   retention:
+    # 数据保留策略（按天清理）
     enabled: true
     cron: "0 30 3 * * ?"
     dedup-days: 7
@@ -67,13 +89,15 @@ batch:
     dlq-handled-days: 30
     batch-run-days: 90
   dlq:
+    # DLQ 自动重放上限与重试间隔
     max-replay-count: 5
     retry-delay-ms: 60000
-  # Parse error quality gate (global defaults + per-job overrides)
   import:
+    # 导入质量门禁：解析错误率/重复率
     parse-error:
       max-rate: 0.2
       min-lines: 50
+      # 按 jobName 覆盖默认阈值
       rules:
         fileImportJob:
           max-rate: 0.1
@@ -83,18 +107,28 @@ batch:
       min-lines: 100
 
 orchestration:
+  # 配置来源：db（推荐）| yaml（仅 local/dev）
   config-source: ${ORCHESTRATION_CONFIG_SOURCE:db}
+  # 危险开关：true 时启动会清理 orchestration 组 Quartz 持久化记录
+  # 默认 false，除非需要“重建调度快照”再临时打开
+  quartz:
+    reset-on-startup: false
   scheduler:
+    # 编排线程池（非业务执行线程）
     pool-size: 4
     max-queue-size: 2000
     max-concurrent-launches: 4
+    # 队列背压：达到阈值时延迟入队
     backpressure-threshold: 1500
     backpressure-delay-ms: 5000
     fixed-delay:
+      # FIXED_DELAY 语义的最小重排间隔与最大重排速率
       min-requeue-interval-ms: 2000
       max-requeue-per-minute: 60
+      # 连续失败时退避策略
       failure-backoff-multiplier: 2.0
       max-backoff-ms: 300000
+    # 默认调度治理参数（任务级未配置时生效）
     default-max-queue-wait-ms: 300000
     default-timeout-ms: 1800000
     default-dynamic-shard-max: 1
@@ -103,20 +137,20 @@ orchestration:
     default-retry-backoff-ms: 60000
     default-retry-jitter-ratio: 0.0
     default-max-attempts: 3
-    # 集群配置
+    # 集群配置：自研 Leader 协调 / Quartz 锁模式
     cluster:
       mode: custom # custom | quartz
       instance-id: ${CLUSTER_INSTANCE_ID:}
       checkin-interval-ms: 15000
       max-failure-count: 3
-    # Misfire 策略配置
+    # Misfire 策略（错过触发点后的恢复）
     misfire:
       enabled: true
-      detection-window-ms: 300000 # 5分钟
-      recovery-delay-ms: 30000 # 30秒
+      detection-window-ms: 300000 # 5 分钟
+      recovery-delay-ms: 30000 # 30 秒
       max-recovery-attempts: 3
-      check-interval-ms: 60000 # 1分钟
-    # 日历排除配置
+      check-interval-ms: 60000 # 1 分钟
+    # 日历排除：周末/节假日/时间窗
     calendar-exclusion:
       enabled: true
       exclude-weekends: true
@@ -138,94 +172,26 @@ orchestration:
           - "12:00-13:00" # 午休时间
         business:
           - "18:00-08:00" # 非工作时间
-    # Per-job/target concurrency limits (jobName or jobName:targetSystem)
+    # 针对 jobName 或 jobName:targetSystem 的并发上限
     max-concurrent-by-key:
       fileImportJob: 2
       fileExportJob: 1
       fileImportJob:SFTP: 1
+    # 状态对账周期与僵尸 RUNNING 判定阈值
     reconcile-interval-ms: 60000
     reconcile-stale-running-ms: 3600000
     leader:
+      # 自研 Leader 锁（scheduler_leader_lock）
       lock-name: orchestration-scheduler
       ttl-seconds: 30
       refresh-ms: 5000
-  # Circuit breaker per targetSystem (window failure rate > threshold -> cooldown)
+  # 熔断器：按 targetSystem 统计失败率，达到阈值后进入冷却
   circuit-breaker:
     window-size: 10
     failure-rate-threshold: 0.5
     cooldown-duration-ms: 300000
-  tasks:
-    - id: process-file-cron
-      jobName: processFileJob
-      priority: HIGH
-      dedupKey: process-file-cron
-      allowParallel: true
-      trigger:
-        type: CRON
-        cron: "0 0/10 * * * ?"
-      parameters:
-        input.file.name: ${BATCH_INPUT_FILE:}
-    - id: process-file-fixed
-      jobName: processFileJob
-      priority: NORMAL
-      allowParallel: true
-      dynamicShardMax: 2
-      timeoutMs: 600000
-      maxQueueWaitMs: 180000
-      dependencyTimeoutMs: 300000
-      rerunWindowMs: 86400000
-      maxAttempts: 3
-      retryBackoffMs: 60000
-      trigger:
-        type: FIXED_RATE
-        fixedRateMs: 300000
-      parameters:
-        input.file.name: ${BATCH_INPUT_FILE:}
-    - id: process-file-backfill-20250101
-      jobName: processFileJob
-      priority: HIGH
-      allowParallel: true
-      trigger:
-        type: ONE_TIME
-        oneTimeAt: 2099-01-01T02:00:00Z
-      parameters:
-        input.file.name: ${BATCH_INPUT_FILE:}
-        batchDate: "2025-01-01"
-        runMode: backfill
-        rerunId: bf-20250101
-    - id: data-export-daily
-      jobName: dataExportJob
-      priority: NORMAL
-      allowParallel: true
-      trigger:
-        type: CRON
-        cron: "0 1 0 * * ?"
-      parameters:
-        export.sql: "select id, business_key, name, description, batch_date from imported_records where batch_date = '2025-01-01'"
-        output.file.name: "export/data_export_20250101.csv"
-    # ===================== 4 个核心功能任务配置 =====================
-    - id: partitioned-import-daily
-      jobName: partitionedImportJob
-      priority: HIGH
-      allowParallel: false
-      trigger:
-        type: CRON
-        cron: "0 0 1 * * ?"
-      parameters:
-        batchDate: ""
-    - id: file-export-daily
-      jobName: fileExportJob
-      priority: NORMAL
-      allowParallel: false
-      trigger:
-        type: CRON
-        cron: "0 0 2 * * ?"
-      parameters:
-        batchDate: ""
-        format: "csv"
-        outputDir: "export"
 
-# SFTP 默认示例配置（用于开发/测试）
+# SFTP 默认配置（开发/测试）
 sftp:
   host: ${SFTP_HOST:}
   port: ${SFTP_PORT:22}
@@ -235,6 +201,7 @@ sftp:
 
 ops:
   security:
+    # 运维接口基础认证（viewer/operator/admin 三角色）
     enabled: ${OPS_SECURITY_ENABLED:true}
     viewer:
       username: ${OPS_VIEWER_USERNAME:viewer}

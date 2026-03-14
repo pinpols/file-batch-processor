@@ -2,6 +2,8 @@ package com.example.filebatchprocessor.config;
 
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
 import org.springframework.batch.core.configuration.annotation.EnableJdbcJobRepository;
+import org.springframework.batch.core.configuration.JobRegistry;
+import org.springframework.batch.core.configuration.support.MapJobRegistry;
 import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.beans.factory.annotation.Value;
@@ -53,6 +55,11 @@ public class BatchConfig {
         executor.setThreadNamePrefix("batch-executor-");
         executor.initialize();
         return executor;
+    }
+
+    @Bean
+    public JobRegistry jobRegistry() {
+        return new MapJobRegistry();
     }
 
     /**

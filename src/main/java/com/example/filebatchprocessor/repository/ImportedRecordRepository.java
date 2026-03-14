@@ -5,6 +5,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
+
 @Repository
 public interface ImportedRecordRepository extends JpaRepository<ImportedRecord, Long> {
     /**
@@ -20,6 +22,8 @@ public interface ImportedRecordRepository extends JpaRepository<ImportedRecord, 
 
     @Query(value = "select count(*) from (select business_key from imported_records where batch_date = :batchDate group by business_key having count(*) > 1) t", nativeQuery = true)
     long countDuplicateBusinessKeysByBatchDate(String batchDate);
+
+    List<ImportedRecord> findByBatchDateOrderByIdAsc(String batchDate);
 }
 
 

@@ -20,6 +20,8 @@
 |------|------|
 | [系统架构](./architecture/architecture.md) | 整体架构设计 |
 | [配置矩阵](./architecture/configuration-matrix.md) | 配置项说明 |
+| [数据库表结构](./architecture/database-schema.md) | 业务表/调度表/治理表结构总览 |
+| [YAML配置说明](./architecture/yaml-configuration-guide.md) | 配置文件分层与注释说明 |
 
 ### 📡 API 参考
 | 文档 | 说明 |

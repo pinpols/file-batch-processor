@@ -9,7 +9,6 @@ import org.quartz.Scheduler;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.core.env.Environment;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
@@ -22,16 +21,62 @@ import static org.mockito.Mockito.*;
 class TaskOrchestrationConfigTest {
 
     @Test
-    void shouldRegisterFromDbByDefault() throws Exception {
+    void shouldNotResetQuartzSchedulesByDefault() throws Exception {
         TaskOrchestrationConfig config = new TaskOrchestrationConfig();
         ReflectionTestUtils.setField(config, "orchestrationEnabled", true);
         ReflectionTestUtils.setField(config, "configSource", "db");
+        ReflectionTestUtils.setField(config, "quartzResetOnStartup", false);
 
         TaskDefinitionProperties properties = new TaskDefinitionProperties();
         TaskSchedulerService schedulerService = mock(TaskSchedulerService.class);
         TaskConfigService taskConfigService = mock(TaskConfigService.class);
         Scheduler quartzScheduler = mock(Scheduler.class);
-        JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
+        Environment env = mock(Environment.class);
+
+        when(taskConfigService.getAllEnabledTasks()).thenReturn(List.of());
+        when(quartzScheduler.isStarted()).thenReturn(false);
+
+        config.registerConfiguredTasks(
+                properties, schedulerService, taskConfigService, quartzScheduler, env
+        ).run();
+
+        verify(schedulerService, never()).resetPersistedSchedules();
+    }
+
+    @Test
+    void shouldResetQuartzSchedulesWhenFlagEnabled() throws Exception {
+        TaskOrchestrationConfig config = new TaskOrchestrationConfig();
+        ReflectionTestUtils.setField(config, "orchestrationEnabled", true);
+        ReflectionTestUtils.setField(config, "configSource", "db");
+        ReflectionTestUtils.setField(config, "quartzResetOnStartup", true);
+
+        TaskDefinitionProperties properties = new TaskDefinitionProperties();
+        TaskSchedulerService schedulerService = mock(TaskSchedulerService.class);
+        TaskConfigService taskConfigService = mock(TaskConfigService.class);
+        Scheduler quartzScheduler = mock(Scheduler.class);
+        Environment env = mock(Environment.class);
+
+        when(taskConfigService.getAllEnabledTasks()).thenReturn(List.of());
+        when(quartzScheduler.isStarted()).thenReturn(false);
+
+        config.registerConfiguredTasks(
+                properties, schedulerService, taskConfigService, quartzScheduler, env
+        ).run();
+
+        verify(schedulerService, times(1)).resetPersistedSchedules();
+    }
+
+    @Test
+    void shouldRegisterFromDbByDefault() throws Exception {
+        TaskOrchestrationConfig config = new TaskOrchestrationConfig();
+        ReflectionTestUtils.setField(config, "orchestrationEnabled", true);
+        ReflectionTestUtils.setField(config, "configSource", "db");
+        ReflectionTestUtils.setField(config, "quartzResetOnStartup", false);
+
+        TaskDefinitionProperties properties = new TaskDefinitionProperties();
+        TaskSchedulerService schedulerService = mock(TaskSchedulerService.class);
+        TaskConfigService taskConfigService = mock(TaskConfigService.class);
+        Scheduler quartzScheduler = mock(Scheduler.class);
         Environment env = mock(Environment.class);
 
         TaskDefinition definition = new TaskDefinition();
@@ -51,7 +96,7 @@ class TaskOrchestrationConfigTest {
 
         when(quartzScheduler.isStarted()).thenReturn(false);
         CommandLineRunner runner = config.registerConfiguredTasks(
-                properties, schedulerService, taskConfigService, quartzScheduler, jdbcTemplate, env
+                properties, schedulerService, taskConfigService, quartzScheduler, env
         );
         runner.run();
 
@@ -63,20 +108,20 @@ class TaskOrchestrationConfigTest {
         TaskOrchestrationConfig config = new TaskOrchestrationConfig();
         ReflectionTestUtils.setField(config, "orchestrationEnabled", true);
         ReflectionTestUtils.setField(config, "configSource", "yaml");
+        ReflectionTestUtils.setField(config, "quartzResetOnStartup", false);
 
         TaskDefinitionProperties properties = new TaskDefinitionProperties();
         properties.setTasks(List.of(new OrchestrationTaskDefinition()));
         TaskSchedulerService schedulerService = mock(TaskSchedulerService.class);
         TaskConfigService taskConfigService = mock(TaskConfigService.class);
         Scheduler quartzScheduler = mock(Scheduler.class);
-        JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
         Environment env = mock(Environment.class);
         when(env.getActiveProfiles()).thenReturn(new String[]{"prod"});
         when(quartzScheduler.isStarted()).thenReturn(false);
 
         assertThrows(IllegalStateException.class, () -> {
             config.registerConfiguredTasks(
-                    properties, schedulerService, taskConfigService, quartzScheduler, jdbcTemplate, env
+                    properties, schedulerService, taskConfigService, quartzScheduler, env
             ).run();
         });
     }
@@ -86,12 +131,12 @@ class TaskOrchestrationConfigTest {
         TaskOrchestrationConfig config = new TaskOrchestrationConfig();
         ReflectionTestUtils.setField(config, "orchestrationEnabled", true);
         ReflectionTestUtils.setField(config, "configSource", "db");
+        ReflectionTestUtils.setField(config, "quartzResetOnStartup", false);
 
         TaskDefinitionProperties properties = new TaskDefinitionProperties();
         TaskSchedulerService schedulerService = mock(TaskSchedulerService.class);
         TaskConfigService taskConfigService = mock(TaskConfigService.class);
         Scheduler quartzScheduler = mock(Scheduler.class);
-        JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
         Environment env = mock(Environment.class);
 
         TaskDefinition definition = new TaskDefinition();
@@ -111,7 +156,7 @@ class TaskOrchestrationConfigTest {
 
         when(quartzScheduler.isStarted()).thenReturn(false);
         CommandLineRunner runner = config.registerConfiguredTasks(
-                properties, schedulerService, taskConfigService, quartzScheduler, jdbcTemplate, env
+                properties, schedulerService, taskConfigService, quartzScheduler, env
         );
         runner.run();
 
