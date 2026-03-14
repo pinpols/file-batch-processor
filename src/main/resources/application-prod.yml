@@ -15,6 +15,7 @@ spring:
             driverDelegateClass: org.quartz.impl.jdbcjobstore.PostgreSQLDelegate
             tablePrefix: QRTZ_
             misfireThreshold: 60000
+            acquireTriggersWithinLock: true
   jpa:
     hibernate:
       ddl-auto: validate

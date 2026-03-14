@@ -57,7 +57,7 @@ services:
       
       # 调度器配置
       ORCHESTRATION_SCHEDULER_POOL_SIZE: ${SCHEDULER_POOL_SIZE:-2}
-      ORCHESTRATION_CONFIG_SOURCE: yaml  # 开发环境使用 YAML 配置
+      ORCHESTRATION_CONFIG_SOURCE: ${CONFIG_SOURCE:-db}
       
       # 开发调试配置
       LOGGING_LEVEL_ROOT: DEBUG
@@ -80,20 +80,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
-    networks:
-      - file-batch-dev-network
-
-  # ================================
-  # Redis (开发环境缓存)
-  # ================================
-  redis:
-    image: redis:8-alpine
-    container_name: file-batch-redis-dev
-    restart: unless-stopped
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_dev_data:/data
     networks:
       - file-batch-dev-network
 
@@ -128,8 +114,6 @@ networks:
 # ================================
 volumes:
   postgres_dev_data:
-    driver: local
-  redis_dev_data:
     driver: local
   app_dev_logs:
     driver: local

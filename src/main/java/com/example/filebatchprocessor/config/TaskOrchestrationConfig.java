@@ -19,7 +19,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 
@@ -42,6 +41,9 @@ public class TaskOrchestrationConfig {
     @Value("${orchestration.config-source:db}")
     private String configSource;
 
+    @Value("${orchestration.quartz.reset-on-startup:false}")
+    private boolean quartzResetOnStartup;
+
     @Bean
     public ThreadPoolTaskScheduler taskScheduler() {
         ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
@@ -56,11 +58,9 @@ public class TaskOrchestrationConfig {
                                                      TaskSchedulerService schedulerService,
                                                      TaskConfigService taskConfigService,
                                                      Scheduler quartzScheduler,
-                                                     JdbcTemplate jdbcTemplate,
                                                      Environment environment) {
         return _ -> {
             boolean startQuartzAfterRegistration = false;
-            int expectedTriggerCount = 0;
             try {
                 if (quartzScheduler.isStarted() && !quartzScheduler.isInStandbyMode()) {
                     quartzScheduler.standby();
@@ -77,6 +77,13 @@ public class TaskOrchestrationConfig {
                 throw new IllegalStateException("Failed to prepare Quartz before task registration", e);
             }
             try {
+                if (quartzResetOnStartup) {
+                    log.warn("Quartz orchestration schedule reset is enabled; persisted orchestration rows will be cleared on startup");
+                    schedulerService.resetPersistedSchedules();
+                } else {
+                    log.info("Quartz orchestration schedule reset is disabled (orchestration.quartz.reset-on-startup=false)");
+                }
+                initializeQuartzBeforeRegistration(quartzScheduler, startQuartzAfterRegistration);
                 if (!orchestrationEnabled) {
                     log.info("Orchestration registration disabled by orchestration.enabled=false");
                     return;
@@ -90,12 +97,8 @@ public class TaskOrchestrationConfig {
                     }
                     log.info("Registering orchestration tasks from YAML");
                     for (OrchestrationTaskDefinition task : properties.getTasks()) {
-                        if (task != null && task.getTrigger() != null) {
-                            expectedTriggerCount++;
-                        }
                         schedulerService.register(task);
                     }
-                    replayYamlRegistrationIfSubtypeMissing(properties, schedulerService, quartzScheduler, jdbcTemplate);
                 } else {
                     if (!"db".equals(source)) {
                         log.warn("Unknown orchestration.config-source={}, fallback to db", configSource);
@@ -110,109 +113,43 @@ public class TaskOrchestrationConfig {
                             );
                             var dependencyConfigs = taskConfigService.getTaskDependencyConfigs(taskDefinition.getTaskId());
                             schedulerService.register(toOrchestrationTask(taskDefinition, taskTrigger, parameters, dependencyConfigs));
-                            if (taskTrigger != null) {
-                                expectedTriggerCount++;
-                            }
                         } catch (Exception ex) {
                             log.error("Skip task registration due to invalid config: taskId={}", taskDefinition.getTaskId(), ex);
                         }
                     }
                 }
             } finally {
-                resumeQuartzIfNecessary(quartzScheduler, startQuartzAfterRegistration, jdbcTemplate, expectedTriggerCount);
+                resumeQuartzIfNecessary(quartzScheduler, startQuartzAfterRegistration);
             }
         };
     }
 
-    private void replayYamlRegistrationIfSubtypeMissing(TaskDefinitionProperties properties,
-                                                        TaskSchedulerService schedulerService,
-                                                        Scheduler quartzScheduler,
-                                                        JdbcTemplate jdbcTemplate) {
-        try {
-            String schedName = quartzScheduler.getSchedulerName();
-            Integer missingCount = jdbcTemplate.queryForObject(
-                    "SELECT COUNT(*) " +
-                            "FROM qrtz_triggers t " +
-                            "LEFT JOIN qrtz_simple_triggers st ON st.sched_name=t.sched_name AND st.trigger_name=t.trigger_name AND st.trigger_group=t.trigger_group " +
-                            "LEFT JOIN qrtz_cron_triggers ct ON ct.sched_name=t.sched_name AND ct.trigger_name=t.trigger_name AND ct.trigger_group=t.trigger_group " +
-                            "WHERE t.sched_name=? AND ((t.trigger_type='SIMPLE' AND st.trigger_name IS NULL) OR (t.trigger_type='CRON' AND ct.trigger_name IS NULL))",
-                    Integer.class,
-                    schedName
-            );
-            int missing = missingCount == null ? 0 : missingCount;
-            if (missing <= 0) {
-                return;
-            }
-            log.warn("Detected {} Quartz trigger subtype missing rows before scheduler start, replaying YAML task registration", missing);
-            properties.getTasks().forEach(schedulerService::register);
-        } catch (Exception e) {
-            log.warn("Failed to validate Quartz trigger subtype consistency before start", e);
-        }
-    }
-
-    private void resumeQuartzIfNecessary(Scheduler quartzScheduler,
-                                         boolean startQuartzAfterRegistration,
-                                         JdbcTemplate jdbcTemplate,
-                                         int expectedTriggerCount) {
+    private void initializeQuartzBeforeRegistration(Scheduler quartzScheduler,
+                                                    boolean startQuartzAfterRegistration) {
         if (!startQuartzAfterRegistration) {
             return;
         }
         try {
-            waitForQuartzTriggerSubtypeConsistency(quartzScheduler, jdbcTemplate, expectedTriggerCount);
+            if (!quartzScheduler.isStarted()) {
+                quartzScheduler.start();
+                quartzScheduler.standby();
+                log.info("Quartz started once and returned to standby before orchestration task registration");
+            }
+        } catch (SchedulerException e) {
+            throw new IllegalStateException("Failed to initialize Quartz before task registration", e);
+        }
+    }
+
+    private void resumeQuartzIfNecessary(Scheduler quartzScheduler,
+                                         boolean startQuartzAfterRegistration) {
+        if (!startQuartzAfterRegistration) {
+            return;
+        }
+        try {
             quartzScheduler.start();
             log.info("Quartz resumed after orchestration task registration");
         } catch (SchedulerException e) {
             throw new IllegalStateException("Failed to resume Quartz after task registration", e);
-        }
-    }
-
-    private void waitForQuartzTriggerSubtypeConsistency(Scheduler quartzScheduler,
-                                                        JdbcTemplate jdbcTemplate,
-                                                        int expectedTriggerCount) {
-        try {
-            String schedName = quartzScheduler.getSchedulerName();
-            int stableRounds = 0;
-            for (int i = 0; i < 40; i++) {
-                Integer triggerCount = jdbcTemplate.queryForObject(
-                        "SELECT COUNT(*) FROM qrtz_triggers WHERE sched_name=?",
-                        Integer.class,
-                        schedName
-                );
-                Integer missingCount = jdbcTemplate.queryForObject(
-                        "SELECT COUNT(*) " +
-                                "FROM qrtz_triggers t " +
-                                "LEFT JOIN qrtz_simple_triggers st ON st.sched_name=t.sched_name AND st.trigger_name=t.trigger_name AND st.trigger_group=t.trigger_group " +
-                                "LEFT JOIN qrtz_cron_triggers ct ON ct.sched_name=t.sched_name AND ct.trigger_name=t.trigger_name AND ct.trigger_group=t.trigger_group " +
-                                "WHERE t.sched_name=? AND ((t.trigger_type='SIMPLE' AND st.trigger_name IS NULL) OR (t.trigger_type='CRON' AND ct.trigger_name IS NULL))",
-                        Integer.class,
-                        schedName
-                );
-                int triggerRows = triggerCount == null ? 0 : triggerCount;
-                int missing = missingCount == null ? 0 : missingCount;
-                boolean triggerReady = triggerRows >= Math.max(0, expectedTriggerCount);
-                boolean subtypeReady = missing == 0;
-                if (triggerReady && subtypeReady) {
-                    stableRounds++;
-                } else {
-                    stableRounds = 0;
-                }
-                if (stableRounds >= 3) {
-                    return;
-                }
-                if (i == 0 || i % 10 == 9 || i == 39) {
-                    log.warn(
-                            "Quartz trigger rows not ready yet (rows={}, expected>={}, missingSubType={}), waiting before scheduler start",
-                            triggerRows,
-                            Math.max(0, expectedTriggerCount),
-                            missing
-                    );
-                }
-                Thread.sleep(200L);
-            }
-        } catch (InterruptedException ie) {
-            Thread.currentThread().interrupt();
-        } catch (Exception e) {
-            log.warn("Failed to wait for Quartz trigger subtype consistency before start", e);
         }
     }
 

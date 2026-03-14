@@ -17,27 +17,26 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 @Slf4j
 @Service
-@ConditionalOnProperty(name = "orchestration.scheduler.cluster-mode", havingValue = "quartz", matchIfMissing = false)
+@ConditionalOnProperty(name = "orchestration.scheduler.cluster.mode", havingValue = "quartz", matchIfMissing = false)
 public class EnhancedClusterSchedulerService {
 
     private final Scheduler quartzScheduler;
     private final String instanceId;
+    private final long checkinIntervalMs;
+    private final int maxFailureCount;
     private final AtomicBoolean initialized = new AtomicBoolean(false);
 
-    @Value("${orchestration.scheduler.cluster.instance-id:}")
-    private String configuredInstanceId;
-
-    @Value("${orchestration.scheduler.cluster.checkin-interval-ms:15000}")
-    private long checkinIntervalMs;
-
-    @Value("${orchestration.scheduler.cluster.max-failure-count:3}")
-    private int maxFailureCount;
-
-    public EnhancedClusterSchedulerService(Scheduler quartzScheduler) {
+    public EnhancedClusterSchedulerService(
+            Scheduler quartzScheduler,
+            @Value("${orchestration.scheduler.cluster.instance-id:}") String configuredInstanceId,
+            @Value("${orchestration.scheduler.cluster.checkin-interval-ms:15000}") long checkinIntervalMs,
+            @Value("${orchestration.scheduler.cluster.max-failure-count:3}") int maxFailureCount) {
         this.quartzScheduler = quartzScheduler;
-        this.instanceId = configuredInstanceId != null && !configuredInstanceId.isBlank() 
-            ? configuredInstanceId 
-            : UUID.randomUUID().toString();
+        this.instanceId = configuredInstanceId != null && !configuredInstanceId.isBlank()
+                ? configuredInstanceId
+                : UUID.randomUUID().toString();
+        this.checkinIntervalMs = checkinIntervalMs;
+        this.maxFailureCount = maxFailureCount;
     }
 
     @PostConstruct
@@ -114,7 +113,7 @@ public class EnhancedClusterSchedulerService {
      */
     private void startClusterHealthCheck() {
         // 定期检查集群状态
-        log.info("Cluster health check started with interval: {}ms", checkinIntervalMs);
+        log.info("Cluster health check started with interval: {}ms, maxFailureCount={}", checkinIntervalMs, maxFailureCount);
     }
 
     /**

@@ -12,15 +12,14 @@ import com.example.filebatchprocessor.scheduler.OrchestrationTaskDefinition;
 import com.example.filebatchprocessor.service.ExecutionDedupService;
 import com.example.filebatchprocessor.service.SchedulerLeaderService;
 import com.example.filebatchprocessor.service.SchedulerQueueService;
+import com.example.filebatchprocessor.service.BatchJobResolver;
 import com.example.filebatchprocessor.service.TaskExecutionAuditService;
 import com.example.filebatchprocessor.service.TaskExecutionStateService;
 import com.example.filebatchprocessor.exception.ErrorCodeClassifier;
 import com.example.filebatchprocessor.util.IdempotencyKeyBuilder;
 import lombok.extern.slf4j.Slf4j;
 import org.quartz.*;
-import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.launch.JobLauncher;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -43,6 +42,7 @@ import org.springframework.stereotype.Service;
 public class TaskSchedulerService {
 
     private static final DateTimeFormatter BATCH_DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
+    private static final String ORCHESTRATION_GROUP = "orchestration";
 
     private final TaskGraphManager taskGraphManager;
     private final TaskMergeService taskMergeService;
@@ -86,7 +86,7 @@ public class TaskSchedulerService {
     private final Object quartzTriggerWriteLock = new Object();
 
     public TaskSchedulerService(@Qualifier("asyncJobLauncher") JobLauncher jobLauncher,
-                                ObjectProvider<Map<String, Job>> jobsProvider,
+                                BatchJobResolver batchJobResolver,
                                 TaskGraphManager taskGraphManager,
                                 LocalCacheService localCacheService,
                                 TaskMergeService taskMergeService,
@@ -154,7 +154,7 @@ public class TaskSchedulerService {
         this.retryPolicy = new RetryPolicy(defaultMaxAttempts, defaultRetryBackoffMs, defaultRetryJitterRatio);
         this.launchExecutor = new LaunchExecutor(
                 jobLauncher,
-                jobsProvider,
+                batchJobResolver,
                 launchPermits,
                 defaultDynamicShardMax,
                 defaultTimeoutMs
@@ -177,6 +177,22 @@ public class TaskSchedulerService {
             return;
         }
         enqueue(definition);
+    }
+
+    public void resetPersistedSchedules() {
+        if (!schedulerLeaderService.isLeader()) {
+            log.info("Skip resetting Quartz orchestration rows because current instance is not leader");
+            return;
+        }
+        try {
+            if (!quartzScheduler.getMetaData().isJobStoreSupportsPersistence()) {
+                return;
+            }
+            String schedName = quartzScheduler.getSchedulerName();
+            resetPersistedSchedules(schedName);
+        } catch (SchedulerException ex) {
+            throw new IllegalStateException("Failed to reset persisted Quartz orchestration schedules", ex);
+        }
     }
 
     private void schedule(OrchestrationTaskDefinition definition) {
@@ -204,16 +220,7 @@ public class TaskSchedulerService {
                     long fixedRateMs = definition.getTrigger().getFixedRateMs() == null
                             ? 1000L
                             : definition.getTrigger().getFixedRateMs();
-                    // Delay the first fire slightly to avoid startup-time race between trigger scan and DB writes.
-                    java.util.Date firstFireAt = java.util.Date.from(Instant.now().plusMillis(2000L));
-                    Trigger fixedRateTrigger = TriggerBuilder.newTrigger()
-                            .withIdentity(triggerKey(definition, "fixed-rate"))
-                            .forJob(jobDetail)
-                            .startAt(firstFireAt)
-                            .withSchedule(SimpleScheduleBuilder.simpleSchedule()
-                                    .withIntervalInMilliseconds(Math.max(1000L, fixedRateMs))
-                                    .repeatForever())
-                            .build();
+                    Trigger fixedRateTrigger = buildFixedRateTrigger(definition, jobDetail, fixedRateMs);
                     upsertTrigger(fixedRateTrigger);
                     break;
                 case FIXED_DELAY:
@@ -259,78 +266,32 @@ public class TaskSchedulerService {
         synchronized (quartzTriggerWriteLock) {
             try {
                 if (quartzScheduler.checkExists(key)) {
-                    quartzScheduler.unscheduleJob(key);
+                    quartzScheduler.rescheduleJob(key, trigger);
+                } else {
+                    quartzScheduler.scheduleJob(trigger);
                 }
-                quartzScheduler.scheduleJob(trigger);
-                ensureTriggerSubtypeRow(trigger);
             } catch (Exception e) {
                 log.warn("Failed to upsert trigger {}, retrying with force replace: {}", key, e.getMessage());
                 try {
                     quartzScheduler.unscheduleJob(key);
                 } catch (Exception ignored) {}
                 quartzScheduler.scheduleJob(trigger);
-                ensureTriggerSubtypeRow(trigger);
             }
         }
     }
 
-    private void ensureTriggerSubtypeRow(Trigger trigger) throws SchedulerException {
-        String schedName = quartzScheduler.getSchedulerName();
-        String triggerName = trigger.getKey().getName();
-        String triggerGroup = trigger.getKey().getGroup();
-        Integer triggerRowCount = jdbcTemplate.queryForObject(
-                "SELECT COUNT(1) FROM qrtz_triggers WHERE sched_name=? AND trigger_name=? AND trigger_group=?",
-                Integer.class,
-                schedName,
-                triggerName,
-                triggerGroup
-        );
-        if (triggerRowCount == null || triggerRowCount == 0) {
-            log.debug("Skip subtype-row repair because base qrtz_triggers row is missing: {}", trigger.getKey());
-            return;
-        }
-
-        if (trigger instanceof org.quartz.SimpleTrigger simple) {
-            jdbcTemplate.update(
-                    "DELETE FROM qrtz_cron_triggers WHERE sched_name=? AND trigger_name=? AND trigger_group=?",
-                    schedName, triggerName, triggerGroup
-            );
-            int inserted = jdbcTemplate.update(
-                    "INSERT INTO qrtz_simple_triggers " +
-                            "(sched_name, trigger_name, trigger_group, repeat_count, repeat_interval, times_triggered) " +
-                            "VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING",
-                    schedName,
-                    triggerName,
-                    triggerGroup,
-                    simple.getRepeatCount(),
-                    simple.getRepeatInterval(),
-                    Math.max(0, simple.getTimesTriggered())
-            );
-            if (inserted > 0) {
-                log.warn("Repaired missing qrtz_simple_triggers row for trigger {}", trigger.getKey());
-            }
-            return;
-        }
-
-        if (trigger instanceof org.quartz.CronTrigger cron) {
-            jdbcTemplate.update(
-                    "DELETE FROM qrtz_simple_triggers WHERE sched_name=? AND trigger_name=? AND trigger_group=?",
-                    schedName, triggerName, triggerGroup
-            );
-            int inserted = jdbcTemplate.update(
-                    "INSERT INTO qrtz_cron_triggers " +
-                            "(sched_name, trigger_name, trigger_group, cron_expression, time_zone_id) " +
-                            "VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING",
-                    schedName,
-                    triggerName,
-                    triggerGroup,
-                    cron.getCronExpression(),
-                    cron.getTimeZone() == null ? null : cron.getTimeZone().getID()
-            );
-            if (inserted > 0) {
-                log.warn("Repaired missing qrtz_cron_triggers row for trigger {}", trigger.getKey());
-            }
-        }
+    private Trigger buildFixedRateTrigger(OrchestrationTaskDefinition definition,
+                                          JobDetail jobDetail,
+                                          long fixedRateMs) {
+        java.util.Date firstFireAt = java.util.Date.from(Instant.now().plusMillis(2000L));
+        return TriggerBuilder.newTrigger()
+                .withIdentity(triggerKey(definition, "fixed-rate"))
+                .forJob(jobDetail)
+                .startAt(firstFireAt)
+                .withSchedule(SimpleScheduleBuilder.simpleSchedule()
+                        .withIntervalInMilliseconds(Math.max(1000L, fixedRateMs))
+                        .repeatForever())
+                .build();
     }
 
     private void enqueue(OrchestrationTaskDefinition definition) {
@@ -655,11 +616,11 @@ public class TaskSchedulerService {
     }
 
     private JobKey jobKey(OrchestrationTaskDefinition definition) {
-        return JobKey.jobKey("task-" + sanitize(definition.getId()), "orchestration");
+        return JobKey.jobKey("task-" + sanitize(definition.getId()), ORCHESTRATION_GROUP);
     }
 
     private TriggerKey triggerKey(OrchestrationTaskDefinition definition, String suffix) {
-        return TriggerKey.triggerKey("tr-" + sanitize(definition.getId()) + "-" + sanitize(suffix), "orchestration");
+        return TriggerKey.triggerKey("tr-" + sanitize(definition.getId()) + "-" + sanitize(suffix), ORCHESTRATION_GROUP);
     }
 
     private String sanitize(String text) {
@@ -746,6 +707,64 @@ public class TaskSchedulerService {
                 increaseAttempt,
                 nextRetryAt == null ? null : LocalDateTime.ofInstant(nextRetryAt, ZoneId.systemDefault())
         );
+    }
+
+    private void resetPersistedSchedules(String schedName) {
+        synchronized (quartzTriggerWriteLock) {
+            int firedRows = jdbcTemplate.update(
+                    "DELETE FROM qrtz_fired_triggers WHERE sched_name = ? AND (trigger_group = ? OR job_group = ?)",
+                    schedName,
+                    ORCHESTRATION_GROUP,
+                    ORCHESTRATION_GROUP
+            );
+            int pausedRows = jdbcTemplate.update(
+                    "DELETE FROM qrtz_paused_trigger_grps WHERE sched_name = ? AND trigger_group = ?",
+                    schedName,
+                    ORCHESTRATION_GROUP
+            );
+            int simpleRows = jdbcTemplate.update(
+                    "DELETE FROM qrtz_simple_triggers WHERE sched_name = ? AND trigger_group = ?",
+                    schedName,
+                    ORCHESTRATION_GROUP
+            );
+            int cronRows = jdbcTemplate.update(
+                    "DELETE FROM qrtz_cron_triggers WHERE sched_name = ? AND trigger_group = ?",
+                    schedName,
+                    ORCHESTRATION_GROUP
+            );
+            int simpropRows = jdbcTemplate.update(
+                    "DELETE FROM qrtz_simprop_triggers WHERE sched_name = ? AND trigger_group = ?",
+                    schedName,
+                    ORCHESTRATION_GROUP
+            );
+            int blobRows = jdbcTemplate.update(
+                    "DELETE FROM qrtz_blob_triggers WHERE sched_name = ? AND trigger_group = ?",
+                    schedName,
+                    ORCHESTRATION_GROUP
+            );
+            int triggerRows = jdbcTemplate.update(
+                    "DELETE FROM qrtz_triggers WHERE sched_name = ? AND trigger_group = ?",
+                    schedName,
+                    ORCHESTRATION_GROUP
+            );
+            int jobRows = jdbcTemplate.update(
+                    "DELETE FROM qrtz_job_details WHERE sched_name = ? AND job_group = ?",
+                    schedName,
+                    ORCHESTRATION_GROUP
+            );
+            log.info(
+                    "Reset persisted Quartz orchestration rows: schedName={}, jobs={}, triggers={}, simple={}, cron={}, simprop={}, blob={}, fired={}, paused={}",
+                    schedName,
+                    jobRows,
+                    triggerRows,
+                    simpleRows,
+                    cronRows,
+                    simpropRows,
+                    blobRows,
+                    firedRows,
+                    pausedRows
+            );
+        }
     }
 
     private String buildMergeKey(OrchestrationTaskDefinition def, String batchDate) {

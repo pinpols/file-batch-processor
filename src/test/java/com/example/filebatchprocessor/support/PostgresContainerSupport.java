@@ -2,8 +2,6 @@ package com.example.filebatchprocessor.support;
 
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.opentest4j.TestAbortedException;
-import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
 
 public abstract class PostgresContainerSupport {
@@ -15,9 +13,6 @@ public abstract class PostgresContainerSupport {
 
     @DynamicPropertySource
     static void register(DynamicPropertyRegistry registry) {
-        if (!isDockerAvailable()) {
-            throw new TestAbortedException("Docker not available for Testcontainers");
-        }
         if (!POSTGRES.isRunning()) {
             POSTGRES.start();
         }
@@ -28,13 +23,5 @@ public abstract class PostgresContainerSupport {
         registry.add("spring.jpa.hibernate.ddl-auto", () -> "update");
         registry.add("spring.batch.job.enabled", () -> "false");
         registry.add("batch.alert.enabled", () -> "false");
-    }
-
-    private static boolean isDockerAvailable() {
-        try {
-            return DockerClientFactory.instance().isDockerAvailable();
-        } catch (Exception ex) {
-            return false;
-        }
     }
 }

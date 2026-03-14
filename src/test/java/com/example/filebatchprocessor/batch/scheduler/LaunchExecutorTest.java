@@ -1,15 +1,15 @@
 package com.example.filebatchprocessor.batch.scheduler;
 
 import com.example.filebatchprocessor.scheduler.OrchestrationTaskDefinition;
+import com.example.filebatchprocessor.service.BatchJobResolver;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.batch.core.BatchStatus;
 import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.JobExecution;
 import org.springframework.batch.core.launch.JobLauncher;
-import org.springframework.beans.factory.ObjectProvider;
 
-import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.Semaphore;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -19,22 +19,21 @@ import static org.mockito.Mockito.*;
 class LaunchExecutorTest {
 
     private JobLauncher jobLauncher;
-    private ObjectProvider<Map<String, Job>> jobsProvider;
+    private BatchJobResolver jobResolver;
 
     @BeforeEach
     void setUp() {
         jobLauncher = mock(JobLauncher.class);
-        jobsProvider = mock(ObjectProvider.class);
+        jobResolver = mock(BatchJobResolver.class);
     }
 
     @Test
     void shouldFailWhenJobMissing() {
-        when(jobsProvider.getIfAvailable()).thenReturn(Map.of());
-        LaunchExecutor launchExecutor = new LaunchExecutor(jobLauncher, jobsProvider, new Semaphore(1), 1, 1000);
+        when(jobResolver.resolve("missingJob")).thenReturn(Optional.empty());
+        when(jobResolver.describeAvailableJobs()).thenReturn("[jobA]");
+        LaunchExecutor launchExecutor = new LaunchExecutor(jobLauncher, jobResolver, new Semaphore(1), 1, 1000);
 
-        OrchestrationTaskDefinition def = new OrchestrationTaskDefinition();
-        def.setId("t1");
-        def.setJobName("missingJob");
+        OrchestrationTaskDefinition def = definition("t1", "missingJob");
 
         LaunchExecutor.LaunchResult result = launchExecutor.launch(def, "2026-03-01", 0);
         assertFalse(result.isSuccess());
@@ -44,12 +43,10 @@ class LaunchExecutorTest {
     @Test
     void shouldRescheduleWhenNoPermit() {
         Job job = mock(Job.class);
-        when(jobsProvider.getIfAvailable()).thenReturn(Map.of("jobA", job));
-        LaunchExecutor launchExecutor = new LaunchExecutor(jobLauncher, jobsProvider, new Semaphore(0), 1, 1000);
+        when(jobResolver.resolve("jobA")).thenReturn(Optional.of(new BatchJobResolver.ResolvedJob("jobA", "jobA", job)));
+        LaunchExecutor launchExecutor = new LaunchExecutor(jobLauncher, jobResolver, new Semaphore(0), 1, 1000);
 
-        OrchestrationTaskDefinition def = new OrchestrationTaskDefinition();
-        def.setId("t1");
-        def.setJobName("jobA");
+        OrchestrationTaskDefinition def = definition("t1", "jobA");
 
         LaunchExecutor.LaunchResult result = launchExecutor.launch(def, "2026-03-01", 0);
         assertFalse(result.isSuccess());
@@ -61,15 +58,12 @@ class LaunchExecutorTest {
         Job job = mock(Job.class);
         JobExecution execution = mock(JobExecution.class);
         when(execution.getStatus()).thenReturn(BatchStatus.COMPLETED);
-        when(jobsProvider.getIfAvailable()).thenReturn(Map.of("jobA", job));
+        when(jobResolver.resolve("jobA")).thenReturn(Optional.of(new BatchJobResolver.ResolvedJob("jobA", "jobA", job)));
         when(jobLauncher.run(eq(job), any())).thenReturn(execution);
 
-        LaunchExecutor launchExecutor = new LaunchExecutor(jobLauncher, jobsProvider, new Semaphore(1), 1, 1000);
+        LaunchExecutor launchExecutor = new LaunchExecutor(jobLauncher, jobResolver, new Semaphore(1), 1, 1000);
 
-        OrchestrationTaskDefinition def = new OrchestrationTaskDefinition();
-        def.setId("t1");
-        def.setJobName("jobA");
-        def.setAllowParallel(false);
+        OrchestrationTaskDefinition def = definition("t1", "jobA");
 
         LaunchExecutor.LaunchResult result = launchExecutor.launch(def, "2026-03-01", 0);
         assertTrue(result.isSuccess());
@@ -80,15 +74,22 @@ class LaunchExecutorTest {
     void shouldNotIncreasePermitWhenAcquireFails() {
         Job job = mock(Job.class);
         Semaphore permits = new Semaphore(0);
-        when(jobsProvider.getIfAvailable()).thenReturn(Map.of("jobA", job));
-        LaunchExecutor launchExecutor = new LaunchExecutor(jobLauncher, jobsProvider, permits, 1, 1000);
+        when(jobResolver.resolve("jobA")).thenReturn(Optional.of(new BatchJobResolver.ResolvedJob("jobA", "jobA", job)));
+        LaunchExecutor launchExecutor = new LaunchExecutor(jobLauncher, jobResolver, permits, 1, 1000);
 
-        OrchestrationTaskDefinition def = new OrchestrationTaskDefinition();
-        def.setId("t1");
-        def.setJobName("jobA");
+        OrchestrationTaskDefinition def = definition("t1", "jobA");
 
         LaunchExecutor.LaunchResult result = launchExecutor.launch(def, "2026-03-01", 0);
         assertTrue(result.isShouldReschedule());
         assertEquals(0, permits.availablePermits());
+    }
+
+    private OrchestrationTaskDefinition definition(String taskId, String jobName) {
+        return OrchestrationTaskDefinition.builder()
+                .id(taskId)
+                .jobName(jobName)
+                .priority(TaskPriority.NORMAL)
+                .allowParallel(false)
+                .build();
     }
 }

@@ -1,5 +1,7 @@
 package com.example.filebatchprocessor.service;
 
+import cn.hutool.poi.excel.ExcelUtil;
+import cn.hutool.poi.excel.ExcelWriter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.opencsv.CSVWriter;
@@ -13,6 +15,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.zip.ZipEntry;
@@ -49,7 +52,12 @@ public class FileExportService {
             return exportToJSON(outputDir, fileName, data);
         }
         if ("excel".equalsIgnoreCase(format)) {
-            throw new IllegalArgumentException("Excel export is not implemented yet");
+            String[] headers = {"id", "business_key", "name", "description", "batch_date"};
+            String[][] data = {
+                    {"1", "key1", "name1", "desc1", batchDate},
+                    {"2", "key2", "name2", "desc2", batchDate}
+            };
+            return exportToExcel(outputDir, fileName, data, headers);
         }
         throw new IllegalArgumentException("Unsupported format: " + format);
     }
@@ -114,7 +122,21 @@ public class FileExportService {
         log.info("Exporting to Excel: {}", fileName);
 
         try {
-            throw new UnsupportedOperationException("Excel export is not implemented yet");
+            Files.createDirectories(Paths.get(outputDir));
+            String filePath = Paths.get(outputDir, fileName).toString();
+
+            try (ExcelWriter writer = ExcelUtil.getWriter(filePath)) {
+                if (headers != null && headers.length > 0) {
+                    writer.writeRow(Arrays.asList(headers));
+                }
+                if (data != null) {
+                    for (String[] row : data) {
+                        writer.writeRow(Arrays.asList(row));
+                    }
+                }
+                writer.flush();
+            }
+            return filePath;
         } catch (Exception e) {
             log.error("Failed to export Excel: {}", fileName, e);
             throw new RuntimeException("Failed to export Excel: " + e.getMessage(), e);

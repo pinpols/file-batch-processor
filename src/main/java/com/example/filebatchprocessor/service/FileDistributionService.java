@@ -1,5 +1,7 @@
 package com.example.filebatchprocessor.service;
 
+import cn.hutool.extra.ftp.Ftp;
+import cn.hutool.extra.ftp.FtpMode;
 import com.example.filebatchprocessor.exception.BusinessException;
 import com.example.filebatchprocessor.exception.ErrorCode;
 import com.example.filebatchprocessor.exception.SystemException;
@@ -219,6 +221,9 @@ public class FileDistributionService {
             FileDistributionTask task = fileDistributionTaskRepository.findById(taskId)
                     .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Task not found: " + taskId));
 
+            if (task.getFilePath() == null || task.getFilePath().isBlank()) {
+                throw new BusinessException(ErrorCode.INVALID_ARGUMENT, "Local file path is required");
+            }
             File localFile = new File(task.getFilePath());
             if (!localFile.exists()) {
                 throw new BusinessException(ErrorCode.NOT_FOUND, "Local file not found: " + task.getFilePath());
@@ -257,7 +262,52 @@ public class FileDistributionService {
 
     public void distributeByFTP(Long taskId, String host, int port, String username, String password, String remoteDir) {
         log.info("Distributing via FTP: taskId={}, host={}", taskId, host);
-        markAsFailed(taskId, "FTP distribution is not implemented yet");
+        Ftp ftp = null;
+        try {
+            markAsInProgress(taskId);
+            FileDistributionTask task = fileDistributionTaskRepository.findById(taskId)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Task not found: " + taskId));
+
+            if (task.getFilePath() == null || task.getFilePath().isBlank()) {
+                throw new BusinessException(ErrorCode.INVALID_ARGUMENT, "Local file path is required");
+            }
+            File localFile = new File(task.getFilePath());
+            if (!localFile.exists()) {
+                throw new BusinessException(ErrorCode.NOT_FOUND, "Local file not found: " + task.getFilePath());
+            }
+            if (host == null || host.isBlank()) {
+                throw new BusinessException(ErrorCode.INVALID_ARGUMENT, "FTP host is required");
+            }
+            if (username == null || username.isBlank()) {
+                throw new BusinessException(ErrorCode.INVALID_ARGUMENT, "FTP username is required");
+            }
+            if (password == null) {
+                throw new BusinessException(ErrorCode.INVALID_ARGUMENT, "FTP password is required");
+            }
+
+            String targetDir = (remoteDir == null || remoteDir.isBlank()) ? "/" : remoteDir;
+            ftp = new Ftp(host, port, username, password, null, null, null, FtpMode.Active);
+
+            boolean uploaded = ftp.upload(targetDir, localFile);
+            if (!uploaded) {
+                throw new SystemException(ErrorCode.INTERNAL_ERROR, "FTP upload returned false");
+            }
+            markAsSuccess(taskId);
+        } catch (BusinessException e) {
+            log.warn("FTP distribution failed (business) for task: {}", taskId, e);
+            markAsFailed(taskId, "FTP transfer failed: " + e.getMessage());
+        } catch (Exception e) {
+            log.error("FTP distribution failed for task: {}", taskId, e);
+            markAsFailed(taskId, "FTP transfer failed: " + e.getMessage());
+        } finally {
+            if (ftp != null) {
+                try {
+                    ftp.close();
+                } catch (IOException e) {
+                    log.warn("Failed to close FTP client for taskId={}", taskId, e);
+                }
+            }
+        }
     }
 
     @Transactional

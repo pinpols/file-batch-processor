@@ -42,13 +42,6 @@ public class OpsNoopJobConfig {
     // Compatibility aliases for task_definition jobName values that are not wired yet.
     @Bean(name = {
             "opsNoopJob",
-            "partitionedImportJob",
-            "fileExportJob",
-            "fileReceptionJob",
-            "fileReceptionTimeoutJob",
-            "fileDistributionJob",
-            "fileDistributionRetryJob",
-            "fileDistributionTimeoutJob",
             "batchRestartJob"
     })
     public Job opsNoopJob(@Qualifier("opsNoopStep") Step opsNoopStep) {

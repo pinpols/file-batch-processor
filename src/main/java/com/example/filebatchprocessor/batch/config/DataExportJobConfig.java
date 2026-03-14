@@ -20,6 +20,7 @@ import org.springframework.batch.infrastructure.item.file.builder.FlatFileItemWr
 import org.springframework.batch.infrastructure.item.file.transform.DelimitedLineAggregator;
 import org.springframework.batch.infrastructure.item.file.transform.FieldExtractor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -141,7 +142,8 @@ public class DataExportJobConfig {
     }
 
     @Bean
-    public Job dataExportJob(JobCompletionNotificationListener listener, Step exportStep) {
+    public Job dataExportJob(JobCompletionNotificationListener listener,
+                             @Qualifier("exportStep") Step exportStep) {
         return new JobBuilder("dataExportJob", jobRepository)
                 .incrementer(new RunIdIncrementer())
                 .listener(listener)

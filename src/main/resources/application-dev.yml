@@ -14,6 +14,7 @@ spring:
             driverDelegateClass: org.quartz.impl.jdbcjobstore.PostgreSQLDelegate
             tablePrefix: QRTZ_
             misfireThreshold: 60000
+            acquireTriggersWithinLock: true
 
 batch:
   dedup:
@@ -33,90 +34,90 @@ orchestration:
     leader-ttl-seconds: 300
     max-concurrent-launches: 1
   # 开发环境任务配置 - 提高调度频率便于测试 (每1分钟执行)
-  tasks:
-    - id: process-file-main
-      jobName: processFileJob
-      priority: HIGH
-      allowParallel: true
-      trigger:
-        type: FIXED_RATE
-        fixedRateMs: 60000
-      parameters:
-        input.file.name: "src/main/resources/data/sample.csv"
-    - id: data-export-main
-      jobName: dataExportJob
-      priority: NORMAL
-      allowParallel: true
-      trigger:
-        type: FIXED_RATE
-        fixedRateMs: 60000
-      parameters:
-        export.sql: "select id, business_key, name, description, batch_date from imported_records"
-        output.file.name: ""
-    - id: dlq-replay-job
-      jobName: dlqReplayJob
-      priority: NORMAL
-      allowParallel: true
-      trigger:
-        type: FIXED_RATE
-        fixedRateMs: 60000
-      parameters:
-        limit: 10
-    - id: file-distribution-pending
-      jobName: opsNoopJob
-      priority: NORMAL
-      allowParallel: true
-      trigger:
-        type: FIXED_RATE
-        fixedRateMs: 60000
-      parameters: {}
-    - id: file-distribution-retry
-      jobName: opsNoopJob
-      priority: NORMAL
-      allowParallel: true
-      trigger:
-        type: FIXED_RATE
-        fixedRateMs: 60000
-      parameters: {}
-    - id: file-distribution-timeout
-      jobName: opsNoopJob
-      priority: NORMAL
-      allowParallel: true
-      trigger:
-        type: FIXED_RATE
-        fixedRateMs: 60000
-      parameters: {}
-    - id: partitioned-import-daily
-      jobName: opsNoopJob
-      priority: HIGH
-      allowParallel: false
-      trigger:
-        type: FIXED_RATE
-        fixedRateMs: 60000
-      parameters:
-        batchDate: ""
-    - id: file-export-daily
-      jobName: opsNoopJob
-      priority: NORMAL
-      allowParallel: false
-      trigger:
-        type: FIXED_RATE
-        fixedRateMs: 60000
-      parameters:
-        batchDate: ""
-    - id: file-reception-monitor
-      jobName: opsNoopJob
-      priority: NORMAL
-      allowParallel: true
-      trigger:
-        type: FIXED_RATE
-        fixedRateMs: 60000
-      parameters: {}
-    - id: file-reception-timeout-check
-      jobName: opsNoopJob
-      priority: NORMAL
-      allowParallel: true
-      trigger:
-        type: FIXED_RATE
-        fixedRateMs: 60000
-      parameters: {}
+#  tasks:
+#    - id: process-file-main
+#      jobName: processFileJob
+#      priority: HIGH
+#      allowParallel: true
+#      trigger:
+#        type: FIXED_RATE
+#        fixedRateMs: 60000
+#      parameters:
+#        input.file.name: "src/main/resources/data/sample.csv"
+#    - id: data-export-main
+#      jobName: dataExportJob
+#      priority: NORMAL
+#      allowParallel: true
+#      trigger:
+#        type: FIXED_RATE
+#        fixedRateMs: 60000
+#      parameters:
+#        export.sql: "select id, business_key, name, description, batch_date from imported_records"
+#        output.file.name: ""
+#    - id: dlq-replay-job
+#      jobName: dlqReplayJob
+#      priority: NORMAL
+#      allowParallel: true
+#      trigger:
+#        type: FIXED_RATE
+#        fixedRateMs: 60000
+#      parameters:
+#        limit: 10
+#    - id: file-distribution-pending
+#      jobName: opsNoopJob
+#      priority: NORMAL
+#      allowParallel: true
+#      trigger:
+#        type: FIXED_RATE
+#        fixedRateMs: 60000
+#      parameters: {}
+#    - id: file-distribution-retry
+#      jobName: opsNoopJob
+#      priority: NORMAL
+#      allowParallel: true
+#      trigger:
+#        type: FIXED_RATE
+#        fixedRateMs: 60000
+#      parameters: {}
+#    - id: file-distribution-timeout
+#      jobName: opsNoopJob
+#      priority: NORMAL
+#      allowParallel: true
+#      trigger:
+#        type: FIXED_RATE
+#        fixedRateMs: 60000
+#      parameters: {}
+#    - id: partitioned-import-daily
+#      jobName: opsNoopJob
+#      priority: HIGH
+#      allowParallel: false
+#      trigger:
+#        type: FIXED_RATE
+#        fixedRateMs: 60000
+#      parameters:
+#        batchDate: ""
+#    - id: file-export-daily
+#      jobName: opsNoopJob
+#      priority: NORMAL
+#      allowParallel: false
+#      trigger:
+#        type: FIXED_RATE
+#        fixedRateMs: 60000
+#      parameters:
+#        batchDate: ""
+#    - id: file-reception-monitor
+#      jobName: opsNoopJob
+#      priority: NORMAL
+#      allowParallel: true
+#      trigger:
+#        type: FIXED_RATE
+#        fixedRateMs: 60000
+#      parameters: {}
+#    - id: file-reception-timeout-check
+#      jobName: opsNoopJob
+#      priority: NORMAL
+#      allowParallel: true
+#      trigger:
+#        type: FIXED_RATE
+#        fixedRateMs: 60000
+#      parameters: {}

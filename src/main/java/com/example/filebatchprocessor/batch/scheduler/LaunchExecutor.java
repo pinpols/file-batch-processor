@@ -1,6 +1,7 @@
 package com.example.filebatchprocessor.batch.scheduler;
 
 import com.example.filebatchprocessor.scheduler.OrchestrationTaskDefinition;
+import com.example.filebatchprocessor.service.BatchJobResolver;
 import lombok.Builder;
 import lombok.Getter;
 import org.springframework.batch.core.BatchStatus;
@@ -9,7 +10,6 @@ import org.springframework.batch.core.job.JobExecution;
 import org.springframework.batch.core.job.parameters.JobParameters;
 import org.springframework.batch.core.job.parameters.JobParametersBuilder;
 import org.springframework.batch.core.launch.JobLauncher;
-import org.springframework.beans.factory.ObjectProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,30 +34,31 @@ class LaunchExecutor {
     );
 
     private final JobLauncher jobLauncher;
-    private final ObjectProvider<Map<String, Job>> jobsProvider;
+    private final BatchJobResolver jobResolver;
     private final Semaphore launchPermits;
     private final Map<String, Semaphore> jobLaunchLocks = new ConcurrentHashMap<>();
     private final int defaultDynamicShardMax;
     private final long defaultTimeoutMs;
 
     LaunchExecutor(JobLauncher jobLauncher,
-                   ObjectProvider<Map<String, Job>> jobsProvider,
+                   BatchJobResolver jobResolver,
                    Semaphore launchPermits,
                    int defaultDynamicShardMax,
                    long defaultTimeoutMs) {
         this.jobLauncher = jobLauncher;
-        this.jobsProvider = jobsProvider;
+        this.jobResolver = jobResolver;
         this.launchPermits = launchPermits;
         this.defaultDynamicShardMax = Math.max(1, defaultDynamicShardMax);
         this.defaultTimeoutMs = Math.max(1000, defaultTimeoutMs);
     }
 
     LaunchResult launch(OrchestrationTaskDefinition def, String batchDate, int queueSize) {
-        Map<String, Job> jobs = jobsProvider.getIfAvailable();
-        if (jobs == null || !jobs.containsKey(def.getJobName())) {
-            return LaunchResult.failed("No job found for name " + def.getJobName());
+        BatchJobResolver.ResolvedJob resolvedJob = jobResolver.resolve(def.getJobName()).orElse(null);
+        if (resolvedJob == null) {
+            return LaunchResult.failed("No job found for name " + def.getJobName()
+                    + ", available=" + jobResolver.describeAvailableJobs());
         }
-        Job job = jobs.get(def.getJobName());
+        Job job = resolvedJob.job();
         Semaphore jobLaunchLock = jobLaunchLocks.computeIfAbsent(def.getJobName(), _k -> new Semaphore(1));
 
         Map<String, String> taskParameters = snapshotTaskParameters(def);
