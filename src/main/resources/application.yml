@@ -9,11 +9,8 @@ spring:
     job:
       enabled: false  # Disable auto-start of jobs
   quartz:
-    job-store-type: jdbc
-    auto-startup: true
+    auto-startup: false
     overwrite-existing-jobs: true
-    jdbc:
-      initialize-schema: never
     properties:
       org:
         quartz:
@@ -22,10 +19,6 @@ spring:
             instanceId: AUTO
           threadPool:
             threadCount: 8
-          jobStore:
-            driverDelegateClass: org.quartz.impl.jdbcjobstore.PostgreSQLDelegate
-            tablePrefix: QRTZ_
-            misfireThreshold: 60000
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/postgres}
     username: ${SPRING_DATASOURCE_USERNAME:postgres}
@@ -33,7 +26,7 @@ spring:
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
@@ -54,6 +47,9 @@ management:
     health:
       show-details: always
 batch:
+  schema:
+    startup-bootstrap:
+      enabled: false # Fallback only; primary path should use Flyway migrations
   alert:
     enabled: true
     failure-rate-threshold: 0.2
@@ -242,10 +238,10 @@ ops:
     enabled: ${OPS_SECURITY_ENABLED:true}
     viewer:
       username: ${OPS_VIEWER_USERNAME:viewer}
-      password: ${OPS_VIEWER_PASSWORD:{noop}viewer123}
+      password: ${OPS_VIEWER_PASSWORD:{noop}change_me_viewer}
     operator:
       username: ${OPS_OPERATOR_USERNAME:operator}
-      password: ${OPS_OPERATOR_PASSWORD:{noop}operator123}
+      password: ${OPS_OPERATOR_PASSWORD:{noop}change_me_operator}
     admin:
       username: ${OPS_ADMIN_USERNAME:admin}
-      password: ${OPS_ADMIN_PASSWORD:{noop}admin123}
+      password: ${OPS_ADMIN_PASSWORD:{noop}change_me_admin}

@@ -6,9 +6,9 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class OpsSecurityProperties {
 
     private boolean enabled = true;
-    private User viewer = new User("viewer", "{noop}viewer123");
-    private User operator = new User("operator", "{noop}operator123");
-    private User admin = new User("admin", "{noop}admin123");
+    private User viewer = new User("viewer", "{noop}change_me_viewer");
+    private User operator = new User("operator", "{noop}change_me_operator");
+    private User admin = new User("admin", "{noop}change_me_admin");
 
     public boolean isEnabled() {
         return enabled;
@@ -71,4 +71,3 @@ public class OpsSecurityProperties {
         }
     }
 }
-

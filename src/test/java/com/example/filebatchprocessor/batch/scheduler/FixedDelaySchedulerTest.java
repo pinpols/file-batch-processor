@@ -1,11 +1,10 @@
 package com.example.filebatchprocessor.batch.scheduler;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -20,16 +19,18 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class FixedDelaySchedulerTest {
 
-    @Mock
     private FixedDelayScheduler fixedDelayScheduler;
 
     private String testTaskId = "test-task";
 
     @BeforeEach
     void setUp() {
-// 使用反射设置私有字段进行测试
-//        ReflectionTestUtils.setField(fixedDelayScheduler, "runningTasks",
-//            new java.util.concurrent.ConcurrentHashMap<String, FixedDelayScheduler.FixedDelayTask>());
+        fixedDelayScheduler = new FixedDelayScheduler();
+    }
+
+    @AfterEach
+    void tearDown() {
+        fixedDelayScheduler.shutdown();
     }
 
     @Test

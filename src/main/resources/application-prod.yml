@@ -4,6 +4,17 @@ spring:
     username: ${SPRING_DATASOURCE_USERNAME:filebatch}
     password: ${SPRING_DATASOURCE_PASSWORD:}
     driver-class-name: org.postgresql.Driver
+  quartz:
+    job-store-type: jdbc
+    jdbc:
+      initialize-schema: never
+    properties:
+      org:
+        quartz:
+          jobStore:
+            driverDelegateClass: org.quartz.impl.jdbcjobstore.PostgreSQLDelegate
+            tablePrefix: QRTZ_
+            misfireThreshold: 60000
   jpa:
     hibernate:
       ddl-auto: validate
