@@ -12,12 +12,18 @@
 - 关键批处理链路必须有至少 1 条端到端回归用例。
 
 ## 3. 执行策略
-- 本地开发：`./mvnw -q test`
+- 本地开发（fast-test，仅 Unit）：`./mvnw -q test`
+- 集成测试：`./mvnw -q -Pintegration-test test`
+- 端到端回归：`./mvnw -q -Pe2e-test test`
+- 全量测试：`./mvnw -q -Pfull-test test`
+- 仅数据一致性：`./mvnw -q -Pdata-consistency-only test`
+- Docker 相关集成测试开关：`ENABLE_DOCKER_TESTS=true`
 - CI 合并门禁：
   1. `compile`
-  2. `*Test` 单测
-  3. `*IT` 集成测试（有 Docker 时执行）
-  4. 安全扫描
+  2. `fast-test`（`*Test`，排除 `*IT/*ITest/*E2E`）
+  3. `integration-test`（有 Docker 时执行）
+  4. `e2e-test`（夜间/发布前）
+  5. 安全扫描
 
 ## 4. 稳定性要求
 - 用例必须可重复执行，不依赖外部不稳定环境。

@@ -3,14 +3,35 @@ spring:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/postgres}
     username: ${SPRING_DATASOURCE_USERNAME:postgres}
     password: ${SPRING_DATASOURCE_PASSWORD:postgres}
+  quartz:
+    job-store-type: jdbc
+    jdbc:
+      initialize-schema: never
+    properties:
+      org:
+        quartz:
+          jobStore:
+            driverDelegateClass: org.quartz.impl.jdbcjobstore.PostgreSQLDelegate
+            tablePrefix: QRTZ_
+            misfireThreshold: 60000
+
+batch:
+  dedup:
+    window:
+      seconds: 1
+  executor:
+    core-pool-size: 20
+    max-pool-size: 40
+    queue-capacity: 500
 
 # 开发环境配置 - 强制当前实例为 Leader
 orchestration:
-  config-source: yaml
+  config-source: db
   scheduler:
     force-leader: true
     leader-lock-name: orchestration-scheduler
     leader-ttl-seconds: 300
+    max-concurrent-launches: 1
   # 开发环境任务配置 - 提高调度频率便于测试 (每1分钟执行)
   tasks:
     - id: process-file-main
@@ -21,7 +42,7 @@ orchestration:
         type: FIXED_RATE
         fixedRateMs: 60000
       parameters:
-        input.file.name: ""
+        input.file.name: "src/main/resources/data/sample.csv"
     - id: data-export-main
       jobName: dataExportJob
       priority: NORMAL
@@ -30,7 +51,7 @@ orchestration:
         type: FIXED_RATE
         fixedRateMs: 60000
       parameters:
-        export.sql: "SELECT 1 as id"
+        export.sql: "select id, business_key, name, description, batch_date from imported_records"
         output.file.name: ""
     - id: dlq-replay-job
       jobName: dlqReplayJob
@@ -42,7 +63,7 @@ orchestration:
       parameters:
         limit: 10
     - id: file-distribution-pending
-      jobName: fileDistributionJob
+      jobName: opsNoopJob
       priority: NORMAL
       allowParallel: true
       trigger:
@@ -50,7 +71,7 @@ orchestration:
         fixedRateMs: 60000
       parameters: {}
     - id: file-distribution-retry
-      jobName: fileDistributionRetryJob
+      jobName: opsNoopJob
       priority: NORMAL
       allowParallel: true
       trigger:
@@ -58,7 +79,7 @@ orchestration:
         fixedRateMs: 60000
       parameters: {}
     - id: file-distribution-timeout
-      jobName: fileDistributionTimeoutJob
+      jobName: opsNoopJob
       priority: NORMAL
       allowParallel: true
       trigger:
@@ -66,7 +87,7 @@ orchestration:
         fixedRateMs: 60000
       parameters: {}
     - id: partitioned-import-daily
-      jobName: partitionedImportJob
+      jobName: opsNoopJob
       priority: HIGH
       allowParallel: false
       trigger:
@@ -75,7 +96,7 @@ orchestration:
       parameters:
         batchDate: ""
     - id: file-export-daily
-      jobName: fileExportJob
+      jobName: opsNoopJob
       priority: NORMAL
       allowParallel: false
       trigger:
@@ -84,7 +105,7 @@ orchestration:
       parameters:
         batchDate: ""
     - id: file-reception-monitor
-      jobName: fileReceptionJob
+      jobName: opsNoopJob
       priority: NORMAL
       allowParallel: true
       trigger:
@@ -92,7 +113,7 @@ orchestration:
         fixedRateMs: 60000
       parameters: {}
     - id: file-reception-timeout-check
-      jobName: fileReceptionTimeoutJob
+      jobName: opsNoopJob
       priority: NORMAL
       allowParallel: true
       trigger:

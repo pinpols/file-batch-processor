@@ -11,12 +11,15 @@ import com.example.filebatchprocessor.scheduler.OrchestrationTaskDefinition;
 import com.example.filebatchprocessor.scheduler.OrchestrationTaskTrigger;
 import com.example.filebatchprocessor.service.TaskConfigService;
 import lombok.extern.slf4j.Slf4j;
+import org.quartz.Scheduler;
+import org.quartz.SchedulerException;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 
@@ -52,41 +55,165 @@ public class TaskOrchestrationConfig {
     public CommandLineRunner registerConfiguredTasks(TaskDefinitionProperties properties,
                                                      TaskSchedulerService schedulerService,
                                                      TaskConfigService taskConfigService,
+                                                     Scheduler quartzScheduler,
+                                                     JdbcTemplate jdbcTemplate,
                                                      Environment environment) {
         return _ -> {
-            if (!orchestrationEnabled) {
-                log.info("Orchestration registration disabled by orchestration.enabled=false");
-                return;
-            }
-            String source = configSource == null ? "db" : configSource.trim().toLowerCase(Locale.ROOT);
-            if ("yaml".equals(source)) {
-                boolean localProfile = java.util.Arrays.stream(environment.getActiveProfiles())
-                        .anyMatch(p -> "local".equalsIgnoreCase(p) || "dev".equalsIgnoreCase(p));
-                if (!localProfile) {
-                    throw new IllegalStateException("orchestration.config-source=yaml is allowed only for local/dev profile");
+            boolean startQuartzAfterRegistration = false;
+            int expectedTriggerCount = 0;
+            try {
+                if (quartzScheduler.isStarted() && !quartzScheduler.isInStandbyMode()) {
+                    quartzScheduler.standby();
+                    startQuartzAfterRegistration = true;
+                    log.info("Quartz put into standby before orchestration task registration");
+                } else if (quartzScheduler.isStarted()) {
+                    startQuartzAfterRegistration = true;
+                    log.info("Quartz already in standby before orchestration task registration");
+                } else {
+                    startQuartzAfterRegistration = true;
+                    log.info("Quartz is not started yet; will start after orchestration task registration");
                 }
-                log.info("Registering orchestration tasks from YAML");
-                properties.getTasks().forEach(schedulerService::register);
-                return;
+            } catch (SchedulerException e) {
+                throw new IllegalStateException("Failed to prepare Quartz before task registration", e);
             }
-            if (!"db".equals(source)) {
-                log.warn("Unknown orchestration.config-source={}, fallback to db", configSource);
-            }
-            log.info("Registering orchestration tasks from database");
-            for (TaskDefinition taskDefinition : taskConfigService.getAllEnabledTasks()) {
-                try {
-                    TaskTrigger taskTrigger = taskConfigService.getTaskTrigger(taskDefinition.getTaskId());
-                    Map<String, String> parameters = resolveTaskParameters(
-                            taskConfigService.getTaskParametersAsMap(taskDefinition.getTaskId()),
-                            environment
-                    );
-                    var dependencyConfigs = taskConfigService.getTaskDependencyConfigs(taskDefinition.getTaskId());
-                    schedulerService.register(toOrchestrationTask(taskDefinition, taskTrigger, parameters, dependencyConfigs));
-                } catch (Exception ex) {
-                    log.error("Skip task registration due to invalid config: taskId={}", taskDefinition.getTaskId(), ex);
+            try {
+                if (!orchestrationEnabled) {
+                    log.info("Orchestration registration disabled by orchestration.enabled=false");
+                    return;
                 }
+                String source = configSource == null ? "db" : configSource.trim().toLowerCase(Locale.ROOT);
+                if ("yaml".equals(source)) {
+                    boolean localProfile = java.util.Arrays.stream(environment.getActiveProfiles())
+                            .anyMatch(p -> "local".equalsIgnoreCase(p) || "dev".equalsIgnoreCase(p));
+                    if (!localProfile) {
+                        throw new IllegalStateException("orchestration.config-source=yaml is allowed only for local/dev profile");
+                    }
+                    log.info("Registering orchestration tasks from YAML");
+                    for (OrchestrationTaskDefinition task : properties.getTasks()) {
+                        if (task != null && task.getTrigger() != null) {
+                            expectedTriggerCount++;
+                        }
+                        schedulerService.register(task);
+                    }
+                    replayYamlRegistrationIfSubtypeMissing(properties, schedulerService, quartzScheduler, jdbcTemplate);
+                } else {
+                    if (!"db".equals(source)) {
+                        log.warn("Unknown orchestration.config-source={}, fallback to db", configSource);
+                    }
+                    log.info("Registering orchestration tasks from database");
+                    for (TaskDefinition taskDefinition : taskConfigService.getAllEnabledTasks()) {
+                        try {
+                            TaskTrigger taskTrigger = taskConfigService.getTaskTrigger(taskDefinition.getTaskId());
+                            Map<String, String> parameters = resolveTaskParameters(
+                                    taskConfigService.getTaskParametersAsMap(taskDefinition.getTaskId()),
+                                    environment
+                            );
+                            var dependencyConfigs = taskConfigService.getTaskDependencyConfigs(taskDefinition.getTaskId());
+                            schedulerService.register(toOrchestrationTask(taskDefinition, taskTrigger, parameters, dependencyConfigs));
+                            if (taskTrigger != null) {
+                                expectedTriggerCount++;
+                            }
+                        } catch (Exception ex) {
+                            log.error("Skip task registration due to invalid config: taskId={}", taskDefinition.getTaskId(), ex);
+                        }
+                    }
+                }
+            } finally {
+                resumeQuartzIfNecessary(quartzScheduler, startQuartzAfterRegistration, jdbcTemplate, expectedTriggerCount);
             }
         };
+    }
+
+    private void replayYamlRegistrationIfSubtypeMissing(TaskDefinitionProperties properties,
+                                                        TaskSchedulerService schedulerService,
+                                                        Scheduler quartzScheduler,
+                                                        JdbcTemplate jdbcTemplate) {
+        try {
+            String schedName = quartzScheduler.getSchedulerName();
+            Integer missingCount = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) " +
+                            "FROM qrtz_triggers t " +
+                            "LEFT JOIN qrtz_simple_triggers st ON st.sched_name=t.sched_name AND st.trigger_name=t.trigger_name AND st.trigger_group=t.trigger_group " +
+                            "LEFT JOIN qrtz_cron_triggers ct ON ct.sched_name=t.sched_name AND ct.trigger_name=t.trigger_name AND ct.trigger_group=t.trigger_group " +
+                            "WHERE t.sched_name=? AND ((t.trigger_type='SIMPLE' AND st.trigger_name IS NULL) OR (t.trigger_type='CRON' AND ct.trigger_name IS NULL))",
+                    Integer.class,
+                    schedName
+            );
+            int missing = missingCount == null ? 0 : missingCount;
+            if (missing <= 0) {
+                return;
+            }
+            log.warn("Detected {} Quartz trigger subtype missing rows before scheduler start, replaying YAML task registration", missing);
+            properties.getTasks().forEach(schedulerService::register);
+        } catch (Exception e) {
+            log.warn("Failed to validate Quartz trigger subtype consistency before start", e);
+        }
+    }
+
+    private void resumeQuartzIfNecessary(Scheduler quartzScheduler,
+                                         boolean startQuartzAfterRegistration,
+                                         JdbcTemplate jdbcTemplate,
+                                         int expectedTriggerCount) {
+        if (!startQuartzAfterRegistration) {
+            return;
+        }
+        try {
+            waitForQuartzTriggerSubtypeConsistency(quartzScheduler, jdbcTemplate, expectedTriggerCount);
+            quartzScheduler.start();
+            log.info("Quartz resumed after orchestration task registration");
+        } catch (SchedulerException e) {
+            throw new IllegalStateException("Failed to resume Quartz after task registration", e);
+        }
+    }
+
+    private void waitForQuartzTriggerSubtypeConsistency(Scheduler quartzScheduler,
+                                                        JdbcTemplate jdbcTemplate,
+                                                        int expectedTriggerCount) {
+        try {
+            String schedName = quartzScheduler.getSchedulerName();
+            int stableRounds = 0;
+            for (int i = 0; i < 40; i++) {
+                Integer triggerCount = jdbcTemplate.queryForObject(
+                        "SELECT COUNT(*) FROM qrtz_triggers WHERE sched_name=?",
+                        Integer.class,
+                        schedName
+                );
+                Integer missingCount = jdbcTemplate.queryForObject(
+                        "SELECT COUNT(*) " +
+                                "FROM qrtz_triggers t " +
+                                "LEFT JOIN qrtz_simple_triggers st ON st.sched_name=t.sched_name AND st.trigger_name=t.trigger_name AND st.trigger_group=t.trigger_group " +
+                                "LEFT JOIN qrtz_cron_triggers ct ON ct.sched_name=t.sched_name AND ct.trigger_name=t.trigger_name AND ct.trigger_group=t.trigger_group " +
+                                "WHERE t.sched_name=? AND ((t.trigger_type='SIMPLE' AND st.trigger_name IS NULL) OR (t.trigger_type='CRON' AND ct.trigger_name IS NULL))",
+                        Integer.class,
+                        schedName
+                );
+                int triggerRows = triggerCount == null ? 0 : triggerCount;
+                int missing = missingCount == null ? 0 : missingCount;
+                boolean triggerReady = triggerRows >= Math.max(0, expectedTriggerCount);
+                boolean subtypeReady = missing == 0;
+                if (triggerReady && subtypeReady) {
+                    stableRounds++;
+                } else {
+                    stableRounds = 0;
+                }
+                if (stableRounds >= 3) {
+                    return;
+                }
+                if (i == 0 || i % 10 == 9 || i == 39) {
+                    log.warn(
+                            "Quartz trigger rows not ready yet (rows={}, expected>={}, missingSubType={}), waiting before scheduler start",
+                            triggerRows,
+                            Math.max(0, expectedTriggerCount),
+                            missing
+                    );
+                }
+                Thread.sleep(200L);
+            }
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+        } catch (Exception e) {
+            log.warn("Failed to wait for Quartz trigger subtype consistency before start", e);
+        }
     }
 
     private Map<String, String> resolveTaskParameters(Map<String, String> rawParameters, Environment environment) {

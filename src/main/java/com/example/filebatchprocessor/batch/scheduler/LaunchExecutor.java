@@ -6,36 +6,47 @@ import lombok.Getter;
 import org.springframework.batch.core.BatchStatus;
 import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.JobExecution;
+import org.springframework.batch.core.job.parameters.JobParameters;
 import org.springframework.batch.core.job.parameters.JobParametersBuilder;
 import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
 class LaunchExecutor {
+    private static final Logger log = LoggerFactory.getLogger(LaunchExecutor.class);
+    private static final Set<String> RESERVED_PARAMETERS = Set.of(
+            "execution.id",
+            "time",
+            "task.id",
+            "priority",
+            "shard.index",
+            "shard.total"
+    );
 
     private final JobLauncher jobLauncher;
     private final ObjectProvider<Map<String, Job>> jobsProvider;
-    private final ThreadPoolTaskExecutor batchTaskExecutor;
     private final Semaphore launchPermits;
+    private final Map<String, Semaphore> jobLaunchLocks = new ConcurrentHashMap<>();
     private final int defaultDynamicShardMax;
     private final long defaultTimeoutMs;
 
     LaunchExecutor(JobLauncher jobLauncher,
                    ObjectProvider<Map<String, Job>> jobsProvider,
-                   ThreadPoolTaskExecutor batchTaskExecutor,
                    Semaphore launchPermits,
                    int defaultDynamicShardMax,
                    long defaultTimeoutMs) {
         this.jobLauncher = jobLauncher;
         this.jobsProvider = jobsProvider;
-        this.batchTaskExecutor = batchTaskExecutor;
         this.launchPermits = launchPermits;
         this.defaultDynamicShardMax = Math.max(1, defaultDynamicShardMax);
         this.defaultTimeoutMs = Math.max(1000, defaultTimeoutMs);
@@ -47,8 +58,10 @@ class LaunchExecutor {
             return LaunchResult.failed("No job found for name " + def.getJobName());
         }
         Job job = jobs.get(def.getJobName());
+        Semaphore jobLaunchLock = jobLaunchLocks.computeIfAbsent(def.getJobName(), _k -> new Semaphore(1));
 
-        String rerunId = def.getParameters().getOrDefault("rerunId", "");
+        Map<String, String> taskParameters = snapshotTaskParameters(def);
+        String rerunId = taskParameters.getOrDefault("rerunId", "");
         long timeoutMs = resolveTimeoutMs(def);
         int shardTotal = resolveShardTotal(def, queueSize);
 
@@ -69,32 +82,36 @@ class LaunchExecutor {
                     + "-s" + shardIndex
                     + "-of" + shardTotal
                     + "-" + System.nanoTime();
-            JobParametersBuilder builder = new JobParametersBuilder()
-                    .addString("execution.id", executionId)
-                    .addLong("time", System.currentTimeMillis())
-                    .addString("task.id", def.getId())
-                    .addLong("priority", (long) def.getPriority().weight())
-                    .addLong("shard.index", shardIndex.longValue())
-                    .addLong("shard.total", (long) shardTotal);
-            def.getParameters().forEach(builder::addString);
-            if (!def.getParameters().containsKey("batchDate") || def.getParameters().get("batchDate").isBlank()) {
-                builder.addString("batchDate", batchDate);
-            }
+            JobParameters parameters = buildJobParameters(def, taskParameters, batchDate, executionId, shardIndex, shardTotal);
 
+            boolean permitAcquired = false;
+            boolean jobLockAcquired = false;
             try {
-                if (!launchPermits.tryAcquire(1, TimeUnit.SECONDS)) {
+                permitAcquired = launchPermits.tryAcquire(1, TimeUnit.SECONDS);
+                if (!permitAcquired) {
                     return LaunchResult.reschedule();
                 }
-                JobExecution execution = runWithTimeout(job, builder, timeoutMs);
+                jobLockAcquired = jobLaunchLock.tryAcquire(1, TimeUnit.SECONDS);
+                if (!jobLockAcquired) {
+                    return LaunchResult.reschedule();
+                }
+                JobExecution execution = runWithTimeout(job, parameters, timeoutMs);
                 if (execution != null && execution.getStatus() == BatchStatus.FAILED) {
                     failedShards++;
                 } else {
                     successShards++;
                 }
             } catch (Exception e) {
+                log.warn("Launch failed: taskId={} jobName={} shardIndex={} reason={}",
+                        def.getId(), def.getJobName(), shardIndex, e.toString(), e);
                 failedShards++;
             } finally {
-                launchPermits.release();
+                if (jobLockAcquired) {
+                    jobLaunchLock.release();
+                }
+                if (permitAcquired) {
+                    launchPermits.release();
+                }
             }
         }
 
@@ -129,18 +146,50 @@ class LaunchExecutor {
         return defaultTimeoutMs;
     }
 
-    private JobExecution runWithTimeout(Job job, JobParametersBuilder builder, long timeoutMs) throws Exception {
-        if (timeoutMs <= 0) {
-            return jobLauncher.run(job, builder.toJobParameters());
-        }
-        CompletableFuture<JobExecution> future = CompletableFuture.supplyAsync(() -> {
-            try {
-                return jobLauncher.run(job, builder.toJobParameters());
-            } catch (Exception e) {
-                throw new RuntimeException(e);
+    private JobExecution runWithTimeout(Job job, JobParameters parameters, long timeoutMs) throws Exception {
+        long startedAtMs = System.currentTimeMillis();
+        JobExecution execution = jobLauncher.run(job, parameters);
+        if (timeoutMs > 0) {
+            long elapsedMs = System.currentTimeMillis() - startedAtMs;
+            if (elapsedMs > timeoutMs) {
+                log.warn("Job launcher call exceeded timeout: jobName={} elapsedMs={} timeoutMs={}",
+                        job.getName(), elapsedMs, timeoutMs);
             }
-        }, batchTaskExecutor);
-        return future.get(timeoutMs, TimeUnit.MILLISECONDS);
+        }
+        return execution;
+    }
+
+    private Map<String, String> snapshotTaskParameters(OrchestrationTaskDefinition def) {
+        if (def.getParameters() == null || def.getParameters().isEmpty()) {
+            return Map.of();
+        }
+        return new HashMap<>(def.getParameters());
+    }
+
+    private JobParameters buildJobParameters(OrchestrationTaskDefinition def,
+                                             Map<String, String> taskParameters,
+                                             String batchDate,
+                                             String executionId,
+                                             int shardIndex,
+                                             int shardTotal) {
+        JobParametersBuilder builder = new JobParametersBuilder()
+                .addString("execution.id", executionId)
+                .addLong("time", System.currentTimeMillis())
+                .addString("task.id", def.getId())
+                .addLong("priority", (long) def.getPriority().weight())
+                .addLong("shard.index", (long) shardIndex)
+                .addLong("shard.total", (long) shardTotal);
+        taskParameters.forEach((k, v) -> {
+            if (k == null || RESERVED_PARAMETERS.contains(k) || v == null) {
+                return;
+            }
+            builder.addString(k, v);
+        });
+        String configuredBatchDate = taskParameters.get("batchDate");
+        if (configuredBatchDate == null || configuredBatchDate.isBlank()) {
+            builder.addString("batchDate", batchDate);
+        }
+        return builder.toJobParameters();
     }
 
     @Getter

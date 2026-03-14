@@ -23,6 +23,7 @@ import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import java.time.*;
@@ -62,6 +63,7 @@ public class TaskSchedulerService {
     private final DependencyResolver dependencyResolver;
     private final RetryPolicy retryPolicy;
     private final LaunchExecutor launchExecutor;
+    private final JdbcTemplate jdbcTemplate;
 
     private final SchedulerConcurrencyLimiter schedulerConcurrencyLimiter;
     private final TargetSystemCircuitBreaker circuitBreaker;
@@ -81,6 +83,7 @@ public class TaskSchedulerService {
     private final ConcurrentMap<String, Instant> dedupMap = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, FixedDelayBackoffState> fixedDelayState = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, Boolean> queueSlaBreached = new ConcurrentHashMap<>();
+    private final Object quartzTriggerWriteLock = new Object();
 
     public TaskSchedulerService(@Qualifier("asyncJobLauncher") JobLauncher jobLauncher,
                                 ObjectProvider<Map<String, Job>> jobsProvider,
@@ -96,6 +99,7 @@ public class TaskSchedulerService {
                                 DlqRecordRepository dlqRecordRepository,
                                 Scheduler quartzScheduler,
                                 ThreadPoolTaskExecutor batchTaskExecutor,
+                                JdbcTemplate jdbcTemplate,
                                 SchedulerConcurrencyLimiter schedulerConcurrencyLimiter,
                                 TargetSystemCircuitBreaker circuitBreaker,
                                 BatchMetrics batchMetrics,
@@ -127,6 +131,7 @@ public class TaskSchedulerService {
         this.dlqRecordRepository = dlqRecordRepository;
         this.quartzScheduler = quartzScheduler;
         this.batchTaskExecutor = batchTaskExecutor;
+        this.jdbcTemplate = jdbcTemplate;
         this.schedulerConcurrencyLimiter = schedulerConcurrencyLimiter;
         this.circuitBreaker = circuitBreaker;
         this.batchMetrics = batchMetrics;
@@ -150,7 +155,6 @@ public class TaskSchedulerService {
         this.launchExecutor = new LaunchExecutor(
                 jobLauncher,
                 jobsProvider,
-                batchTaskExecutor,
                 launchPermits,
                 defaultDynamicShardMax,
                 defaultTimeoutMs
@@ -200,10 +204,12 @@ public class TaskSchedulerService {
                     long fixedRateMs = definition.getTrigger().getFixedRateMs() == null
                             ? 1000L
                             : definition.getTrigger().getFixedRateMs();
+                    // Delay the first fire slightly to avoid startup-time race between trigger scan and DB writes.
+                    java.util.Date firstFireAt = java.util.Date.from(Instant.now().plusMillis(2000L));
                     Trigger fixedRateTrigger = TriggerBuilder.newTrigger()
                             .withIdentity(triggerKey(definition, "fixed-rate"))
                             .forJob(jobDetail)
-                            .startNow()
+                            .startAt(firstFireAt)
                             .withSchedule(SimpleScheduleBuilder.simpleSchedule()
                                     .withIntervalInMilliseconds(Math.max(1000L, fixedRateMs))
                                     .repeatForever())
@@ -250,24 +256,80 @@ public class TaskSchedulerService {
 
     private void upsertTrigger(Trigger trigger) throws SchedulerException {
         TriggerKey key = trigger.getKey();
-        try {
-            if (quartzScheduler.checkExists(key)) {
-                try {
-                    quartzScheduler.rescheduleJob(key, trigger);
-                } catch (Exception e) {
-                    log.warn("Failed to reschedule trigger {}, removing and recreating: {}", key, e.getMessage());
-                    quartzScheduler.unscheduleJob(key);
-                    quartzScheduler.scheduleJob(trigger);
-                }
-            } else {
-                quartzScheduler.scheduleJob(trigger);
-            }
-        } catch (Exception e) {
-            log.warn("Failed to schedule trigger {}, retrying: {}", key, e.getMessage());
+        synchronized (quartzTriggerWriteLock) {
             try {
-                quartzScheduler.unscheduleJob(key);
-            } catch (Exception ignored) {}
-            quartzScheduler.scheduleJob(trigger);
+                if (quartzScheduler.checkExists(key)) {
+                    quartzScheduler.unscheduleJob(key);
+                }
+                quartzScheduler.scheduleJob(trigger);
+                ensureTriggerSubtypeRow(trigger);
+            } catch (Exception e) {
+                log.warn("Failed to upsert trigger {}, retrying with force replace: {}", key, e.getMessage());
+                try {
+                    quartzScheduler.unscheduleJob(key);
+                } catch (Exception ignored) {}
+                quartzScheduler.scheduleJob(trigger);
+                ensureTriggerSubtypeRow(trigger);
+            }
+        }
+    }
+
+    private void ensureTriggerSubtypeRow(Trigger trigger) throws SchedulerException {
+        String schedName = quartzScheduler.getSchedulerName();
+        String triggerName = trigger.getKey().getName();
+        String triggerGroup = trigger.getKey().getGroup();
+        Integer triggerRowCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(1) FROM qrtz_triggers WHERE sched_name=? AND trigger_name=? AND trigger_group=?",
+                Integer.class,
+                schedName,
+                triggerName,
+                triggerGroup
+        );
+        if (triggerRowCount == null || triggerRowCount == 0) {
+            log.debug("Skip subtype-row repair because base qrtz_triggers row is missing: {}", trigger.getKey());
+            return;
+        }
+
+        if (trigger instanceof org.quartz.SimpleTrigger simple) {
+            jdbcTemplate.update(
+                    "DELETE FROM qrtz_cron_triggers WHERE sched_name=? AND trigger_name=? AND trigger_group=?",
+                    schedName, triggerName, triggerGroup
+            );
+            int inserted = jdbcTemplate.update(
+                    "INSERT INTO qrtz_simple_triggers " +
+                            "(sched_name, trigger_name, trigger_group, repeat_count, repeat_interval, times_triggered) " +
+                            "VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING",
+                    schedName,
+                    triggerName,
+                    triggerGroup,
+                    simple.getRepeatCount(),
+                    simple.getRepeatInterval(),
+                    Math.max(0, simple.getTimesTriggered())
+            );
+            if (inserted > 0) {
+                log.warn("Repaired missing qrtz_simple_triggers row for trigger {}", trigger.getKey());
+            }
+            return;
+        }
+
+        if (trigger instanceof org.quartz.CronTrigger cron) {
+            jdbcTemplate.update(
+                    "DELETE FROM qrtz_simple_triggers WHERE sched_name=? AND trigger_name=? AND trigger_group=?",
+                    schedName, triggerName, triggerGroup
+            );
+            int inserted = jdbcTemplate.update(
+                    "INSERT INTO qrtz_cron_triggers " +
+                            "(sched_name, trigger_name, trigger_group, cron_expression, time_zone_id) " +
+                            "VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING",
+                    schedName,
+                    triggerName,
+                    triggerGroup,
+                    cron.getCronExpression(),
+                    cron.getTimeZone() == null ? null : cron.getTimeZone().getID()
+            );
+            if (inserted > 0) {
+                log.warn("Repaired missing qrtz_cron_triggers row for trigger {}", trigger.getKey());
+            }
         }
     }
 

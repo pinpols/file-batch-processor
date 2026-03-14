@@ -8,7 +8,6 @@ import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.JobExecution;
 import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import java.util.Map;
 import java.util.concurrent.Semaphore;
@@ -21,22 +20,17 @@ class LaunchExecutorTest {
 
     private JobLauncher jobLauncher;
     private ObjectProvider<Map<String, Job>> jobsProvider;
-    private ThreadPoolTaskExecutor executor;
 
     @BeforeEach
     void setUp() {
         jobLauncher = mock(JobLauncher.class);
         jobsProvider = mock(ObjectProvider.class);
-        executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(1);
-        executor.setMaxPoolSize(1);
-        executor.initialize();
     }
 
     @Test
     void shouldFailWhenJobMissing() {
         when(jobsProvider.getIfAvailable()).thenReturn(Map.of());
-        LaunchExecutor launchExecutor = new LaunchExecutor(jobLauncher, jobsProvider, executor, new Semaphore(1), 1, 1000);
+        LaunchExecutor launchExecutor = new LaunchExecutor(jobLauncher, jobsProvider, new Semaphore(1), 1, 1000);
 
         OrchestrationTaskDefinition def = new OrchestrationTaskDefinition();
         def.setId("t1");
@@ -51,7 +45,7 @@ class LaunchExecutorTest {
     void shouldRescheduleWhenNoPermit() {
         Job job = mock(Job.class);
         when(jobsProvider.getIfAvailable()).thenReturn(Map.of("jobA", job));
-        LaunchExecutor launchExecutor = new LaunchExecutor(jobLauncher, jobsProvider, executor, new Semaphore(0), 1, 1000);
+        LaunchExecutor launchExecutor = new LaunchExecutor(jobLauncher, jobsProvider, new Semaphore(0), 1, 1000);
 
         OrchestrationTaskDefinition def = new OrchestrationTaskDefinition();
         def.setId("t1");
@@ -70,7 +64,7 @@ class LaunchExecutorTest {
         when(jobsProvider.getIfAvailable()).thenReturn(Map.of("jobA", job));
         when(jobLauncher.run(eq(job), any())).thenReturn(execution);
 
-        LaunchExecutor launchExecutor = new LaunchExecutor(jobLauncher, jobsProvider, executor, new Semaphore(1), 1, 1000);
+        LaunchExecutor launchExecutor = new LaunchExecutor(jobLauncher, jobsProvider, new Semaphore(1), 1, 1000);
 
         OrchestrationTaskDefinition def = new OrchestrationTaskDefinition();
         def.setId("t1");
@@ -80,5 +74,21 @@ class LaunchExecutorTest {
         LaunchExecutor.LaunchResult result = launchExecutor.launch(def, "2026-03-01", 0);
         assertTrue(result.isSuccess());
         verify(jobLauncher, atLeastOnce()).run(eq(job), any());
+    }
+
+    @Test
+    void shouldNotIncreasePermitWhenAcquireFails() {
+        Job job = mock(Job.class);
+        Semaphore permits = new Semaphore(0);
+        when(jobsProvider.getIfAvailable()).thenReturn(Map.of("jobA", job));
+        LaunchExecutor launchExecutor = new LaunchExecutor(jobLauncher, jobsProvider, permits, 1, 1000);
+
+        OrchestrationTaskDefinition def = new OrchestrationTaskDefinition();
+        def.setId("t1");
+        def.setJobName("jobA");
+
+        LaunchExecutor.LaunchResult result = launchExecutor.launch(def, "2026-03-01", 0);
+        assertTrue(result.isShouldReschedule());
+        assertEquals(0, permits.availablePermits());
     }
 }

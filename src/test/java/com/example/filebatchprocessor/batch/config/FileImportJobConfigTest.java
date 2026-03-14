@@ -19,8 +19,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.Step;
-import org.springframework.batch.test.context.SpringBatchTest;
-import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -29,8 +27,6 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-@SpringBatchTest
-@SpringJUnitConfig(FileImportJobConfig.class)
 class FileImportJobConfigTest {
 
     @Mock
@@ -138,7 +134,6 @@ class FileImportJobConfigTest {
     void shouldCreateDlqReplayTasklet() {
         // Given
         DlqCompensationService dlqCompensationService = mock(DlqCompensationService.class);
-        when(dlqCompensationService.replayPending(anyInt())).thenReturn(10);
         
         // When
         org.springframework.batch.core.step.tasklet.Tasklet tasklet = fileImportJobConfig.dlqReplayTasklet(dlqCompensationService, 50);

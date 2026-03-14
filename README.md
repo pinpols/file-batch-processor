@@ -33,10 +33,20 @@ input=/data/input.csv&batchDate=2025-01-01&runMode=backfill&rerunId=bf-20250101&
 ```
 
 ### 启动与运行
-1) 构建/启动：`mvn spring-boot:run`（内置 H2，h2-console 开启）。  
-2) H2 控制台：`/h2-console`，JDBC URL `jdbc:h2:mem:filebatch`.  
-3) 调度：
+1) 准备 PostgreSQL（本地默认：`jdbc:postgresql://localhost:5432/postgres`，用户/密码见 `application-dev.yml`）。  
+2) 构建/启动：`./mvnw spring-boot:run`。  
+3) Flyway 会自动执行 `db/migration`，Quartz 使用 `QRTZ_*` 表（JDBC JobStore）。  
+4) 调度：
    - 本地编排：在 `application.yml` 的 `orchestration.tasks` 定义触发器和参数，应用启动后自动注册。
+5) 监控接口：
+   - 健康检查：`/actuator/health`
+   - 指标：`/actuator/metrics`
+   - Prometheus：`/actuator/prometheus`
+
+### 测试执行（分层）
+- 默认快速测试：`./mvnw test`（跳过 integration/e2e/performance）。
+- 全量测试：`./mvnw -Pfull-test test`。
+- 仅一致性测试：`./mvnw -Pdata-consistency-only test`。
 
 ### 扩展点
 - Writer 落地真实数据库时，可按业务键/多字段自定义 `business_key` 生成逻辑。

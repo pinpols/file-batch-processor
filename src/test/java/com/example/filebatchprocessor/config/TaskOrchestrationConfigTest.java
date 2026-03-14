@@ -5,9 +5,11 @@ import com.example.filebatchprocessor.model.TaskDefinition;
 import com.example.filebatchprocessor.model.TaskTrigger;
 import com.example.filebatchprocessor.scheduler.OrchestrationTaskDefinition;
 import com.example.filebatchprocessor.service.TaskConfigService;
+import org.quartz.Scheduler;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.core.env.Environment;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
@@ -28,6 +30,8 @@ class TaskOrchestrationConfigTest {
         TaskDefinitionProperties properties = new TaskDefinitionProperties();
         TaskSchedulerService schedulerService = mock(TaskSchedulerService.class);
         TaskConfigService taskConfigService = mock(TaskConfigService.class);
+        Scheduler quartzScheduler = mock(Scheduler.class);
+        JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
         Environment env = mock(Environment.class);
 
         TaskDefinition definition = new TaskDefinition();
@@ -45,14 +49,17 @@ class TaskOrchestrationConfigTest {
         when(taskConfigService.getTaskParametersAsMap("t1")).thenReturn(Map.of("k", "v"));
         when(taskConfigService.getTaskDependencyConfigs("t1")).thenReturn(List.of());
 
-        CommandLineRunner runner = config.registerConfiguredTasks(properties, schedulerService, taskConfigService, env);
+        when(quartzScheduler.isStarted()).thenReturn(false);
+        CommandLineRunner runner = config.registerConfiguredTasks(
+                properties, schedulerService, taskConfigService, quartzScheduler, jdbcTemplate, env
+        );
         runner.run();
 
         verify(schedulerService, times(1)).register(any(OrchestrationTaskDefinition.class));
     }
 
     @Test
-    void shouldRejectYamlOutsideLocalDev() {
+    void shouldRejectYamlOutsideLocalDev() throws Exception {
         TaskOrchestrationConfig config = new TaskOrchestrationConfig();
         ReflectionTestUtils.setField(config, "orchestrationEnabled", true);
         ReflectionTestUtils.setField(config, "configSource", "yaml");
@@ -61,11 +68,16 @@ class TaskOrchestrationConfigTest {
         properties.setTasks(List.of(new OrchestrationTaskDefinition()));
         TaskSchedulerService schedulerService = mock(TaskSchedulerService.class);
         TaskConfigService taskConfigService = mock(TaskConfigService.class);
+        Scheduler quartzScheduler = mock(Scheduler.class);
+        JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
         Environment env = mock(Environment.class);
         when(env.getActiveProfiles()).thenReturn(new String[]{"prod"});
+        when(quartzScheduler.isStarted()).thenReturn(false);
 
         assertThrows(IllegalStateException.class, () -> {
-            config.registerConfiguredTasks(properties, schedulerService, taskConfigService, env).run();
+            config.registerConfiguredTasks(
+                    properties, schedulerService, taskConfigService, quartzScheduler, jdbcTemplate, env
+            ).run();
         });
     }
 
@@ -78,6 +90,8 @@ class TaskOrchestrationConfigTest {
         TaskDefinitionProperties properties = new TaskDefinitionProperties();
         TaskSchedulerService schedulerService = mock(TaskSchedulerService.class);
         TaskConfigService taskConfigService = mock(TaskConfigService.class);
+        Scheduler quartzScheduler = mock(Scheduler.class);
+        JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
         Environment env = mock(Environment.class);
 
         TaskDefinition definition = new TaskDefinition();
@@ -95,7 +109,10 @@ class TaskOrchestrationConfigTest {
         when(taskConfigService.getTaskParametersAsMap("t-delay")).thenReturn(Map.of());
         when(taskConfigService.getTaskDependencyConfigs("t-delay")).thenReturn(List.of());
 
-        CommandLineRunner runner = config.registerConfiguredTasks(properties, schedulerService, taskConfigService, env);
+        when(quartzScheduler.isStarted()).thenReturn(false);
+        CommandLineRunner runner = config.registerConfiguredTasks(
+                properties, schedulerService, taskConfigService, quartzScheduler, jdbcTemplate, env
+        );
         runner.run();
 
         var captor = org.mockito.ArgumentCaptor.forClass(OrchestrationTaskDefinition.class);
