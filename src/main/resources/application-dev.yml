@@ -3,3 +3,99 @@ spring:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/postgres}
     username: ${SPRING_DATASOURCE_USERNAME:postgres}
     password: ${SPRING_DATASOURCE_PASSWORD:postgres}
+
+# 开发环境配置 - 强制当前实例为 Leader
+orchestration:
+  config-source: yaml
+  scheduler:
+    force-leader: true
+    leader-lock-name: orchestration-scheduler
+    leader-ttl-seconds: 300
+  # 开发环境任务配置 - 提高调度频率便于测试 (每1分钟执行)
+  tasks:
+    - id: process-file-main
+      jobName: processFileJob
+      priority: HIGH
+      allowParallel: true
+      trigger:
+        type: FIXED_RATE
+        fixedRateMs: 60000
+      parameters:
+        input.file.name: ""
+    - id: data-export-main
+      jobName: dataExportJob
+      priority: NORMAL
+      allowParallel: true
+      trigger:
+        type: FIXED_RATE
+        fixedRateMs: 60000
+      parameters:
+        export.sql: "SELECT 1 as id"
+        output.file.name: ""
+    - id: dlq-replay-job
+      jobName: dlqReplayJob
+      priority: NORMAL
+      allowParallel: true
+      trigger:
+        type: FIXED_RATE
+        fixedRateMs: 60000
+      parameters:
+        limit: 10
+    - id: file-distribution-pending
+      jobName: fileDistributionJob
+      priority: NORMAL
+      allowParallel: true
+      trigger:
+        type: FIXED_RATE
+        fixedRateMs: 60000
+      parameters: {}
+    - id: file-distribution-retry
+      jobName: fileDistributionRetryJob
+      priority: NORMAL
+      allowParallel: true
+      trigger:
+        type: FIXED_RATE
+        fixedRateMs: 60000
+      parameters: {}
+    - id: file-distribution-timeout
+      jobName: fileDistributionTimeoutJob
+      priority: NORMAL
+      allowParallel: true
+      trigger:
+        type: FIXED_RATE
+        fixedRateMs: 60000
+      parameters: {}
+    - id: partitioned-import-daily
+      jobName: partitionedImportJob
+      priority: HIGH
+      allowParallel: false
+      trigger:
+        type: FIXED_RATE
+        fixedRateMs: 60000
+      parameters:
+        batchDate: ""
+    - id: file-export-daily
+      jobName: fileExportJob
+      priority: NORMAL
+      allowParallel: false
+      trigger:
+        type: FIXED_RATE
+        fixedRateMs: 60000
+      parameters:
+        batchDate: ""
+    - id: file-reception-monitor
+      jobName: fileReceptionJob
+      priority: NORMAL
+      allowParallel: true
+      trigger:
+        type: FIXED_RATE
+        fixedRateMs: 60000
+      parameters: {}
+    - id: file-reception-timeout-check
+      jobName: fileReceptionTimeoutJob
+      priority: NORMAL
+      allowParallel: true
+      trigger:
+        type: FIXED_RATE
+        fixedRateMs: 60000
+      parameters: {}

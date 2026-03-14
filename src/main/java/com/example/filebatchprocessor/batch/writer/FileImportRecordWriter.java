@@ -79,7 +79,8 @@ public class FileImportRecordWriter implements ItemWriter<FileRecord>, StepExecu
         this.jobExecutionId = stepExecution.getJobExecutionId();
         try {
             this.inputFileName = stepExecution.getJobParameters().getString("input.file.name");
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            log.warn("Failed to get input.file.name from job parameters", e);
             this.inputFileName = null;
         }
     }

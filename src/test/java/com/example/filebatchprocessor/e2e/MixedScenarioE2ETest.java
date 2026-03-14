@@ -66,7 +66,8 @@ class MixedScenarioE2ETest {
 
     @Test
     void shouldHandleConcurrentImports() throws Exception {
-        String batchDate = LocalDate.now().toString();
+        // Use unique batchDate to avoid conflicts
+        String batchDate = LocalDate.now().toString() + "-" + UUID.randomUUID().toString().substring(0, 8);
         ExecutorService executor = Executors.newFixedThreadPool(2);
 
         Path fileA = tempDir.resolve("concurrent_a.csv");
@@ -100,7 +101,8 @@ class MixedScenarioE2ETest {
 
     @Test
     void shouldBeIdempotentForSameBusinessKeys() throws Exception {
-        String batchDate = LocalDate.now().toString();
+        // Use unique batchDate to avoid conflicts
+        String batchDate = LocalDate.now().toString() + "-" + UUID.randomUUID().toString().substring(0, 8);
         Path inputFile = tempDir.resolve("idempotent.csv");
         String content = "id,name,description\n"
                 + "1,Idempotent 1,Desc 1\n"

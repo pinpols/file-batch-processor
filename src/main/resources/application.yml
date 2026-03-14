@@ -2,6 +2,7 @@ server:
   port: 8011
 
 spring:
+  profiles.active: dev
   application:
     name: file-batch-processor
   batch:
@@ -9,7 +10,7 @@ spring:
       enabled: false  # Disable auto-start of jobs
   quartz:
     job-store-type: jdbc
-    auto-startup: false
+    auto-startup: true
     overwrite-existing-jobs: true
     jdbc:
       initialize-schema: never

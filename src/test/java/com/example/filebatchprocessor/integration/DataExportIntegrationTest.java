@@ -20,11 +20,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.annotation.DirtiesContext;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
@@ -33,6 +35,7 @@ import static org.springframework.batch.core.BatchStatus.COMPLETED;
 @SpringBootTest
 @SpringBatchTest
 @ActiveProfiles("test")
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 class DataExportIntegrationTest {
 
     @Autowired
@@ -61,14 +64,15 @@ class DataExportIntegrationTest {
 
     @Test
     void shouldCompleteDataExportJob() throws Exception {
-        // Given
+        // Given - use unique batchDate
+        String uniqueBatchDate = "2026-03-14-" + UUID.randomUUID().toString().substring(0, 8);
         JobCompletionNotificationListener listener = mock(JobCompletionNotificationListener.class);
         Step exportStep = mock(Step.class);
         Job job = dataExportJobConfig.dataExportJob(listener, exportStep);
         JobParameters jobParameters = new JobParametersBuilder()
-                .addString("export.sql", "SELECT 1 as id, 'TEST_KEY_001' as business_key, 'Test Name' as name, 'Test Description' as description, '2026-03-06' as batch_date")
+                .addString("export.sql", "SELECT 1 as id, 'TEST_KEY_001' as business_key, 'Test Name' as name, 'Test Description' as description, '" + uniqueBatchDate + "' as batch_date")
                 .addString("output.file.name", outputFile.toString())
-                .addLong("run.id", System.currentTimeMillis())
+                .addString("batchDate", uniqueBatchDate)
                 .toJobParameters();
 
         // When
@@ -93,15 +97,16 @@ class DataExportIntegrationTest {
 
     @Test
     void shouldHandleCustomSqlExport() throws Exception {
-        // Given
-        String customSql = "SELECT 100 as id, 'CUSTOM_KEY' as business_key, 'Custom Name' as name, 'Custom Description' as description, '2026-03-06' as batch_date WHERE 1=1";
+        // Given - use unique batchDate
+        String uniqueBatchDate = "2026-03-14-" + UUID.randomUUID().toString().substring(0, 8);
+        String customSql = "SELECT 100 as id, 'CUSTOM_KEY' as business_key, 'Custom Name' as name, 'Custom Description' as description, '" + uniqueBatchDate + "' as batch_date WHERE 1=1";
         JobCompletionNotificationListener listener = mock(JobCompletionNotificationListener.class);
         Step exportStep = mock(Step.class);
         Job job = dataExportJobConfig.dataExportJob(listener, exportStep);
         JobParameters jobParameters = new JobParametersBuilder()
                 .addString("export.sql", customSql)
                 .addString("output.file.name", outputFile.toString())
-                .addLong("run.id", System.currentTimeMillis())
+                .addString("batchDate", uniqueBatchDate)
                 .toJobParameters();
 
         // When
@@ -112,20 +117,21 @@ class DataExportIntegrationTest {
         
         // Verify output file contains custom data
         String content = Files.readString(outputFile);
-        assertTrue(content.contains("100,CUSTOM_KEY,Custom Name,Custom Description,2026-03-06"));
+        assertTrue(content.contains("100,CUSTOM_KEY,Custom Name,Custom Description," + uniqueBatchDate));
     }
 
     @Test
     void shouldHandleLargeDatasetExport() throws Exception {
-        // Given
-        String largeSql = "SELECT generate_series(1, 1000) as id, 'BULK_KEY_' || generate_series as business_key, 'Bulk Name ' || generate_series as name, 'Bulk Description ' || generate_series as description, '2026-03-06' as batch_date";
+        // Given - use unique batchDate
+        String uniqueBatchDate = "2026-03-14-" + UUID.randomUUID().toString().substring(0, 8);
+        String largeSql = "SELECT generate_series(1, 1000) as id, 'BULK_KEY_' || generate_series as business_key, 'Bulk Name ' || generate_series as name, 'Bulk Description ' || generate_series as description, '" + uniqueBatchDate + "' as batch_date";
         JobCompletionNotificationListener listener = mock(JobCompletionNotificationListener.class);
         Step exportStep = mock(Step.class);
         Job job = dataExportJobConfig.dataExportJob(listener, exportStep);
         JobParameters jobParameters = new JobParametersBuilder()
                 .addString("export.sql", largeSql)
                 .addString("output.file.name", outputFile.toString())
-                .addLong("run.id", System.currentTimeMillis())
+                .addString("batchDate", uniqueBatchDate)
                 .toJobParameters();
 
         // When
@@ -147,15 +153,16 @@ class DataExportIntegrationTest {
 
     @Test
     void shouldHandleEmptyResultSet() throws Exception {
-        // Given
-        String emptySql = "SELECT 1 as id, 'TEST_KEY' as business_key, 'Test Name' as name, 'Test Description' as description, '2026-03-06' as batch_date WHERE 1=0"; // Empty result
+        // Given - use unique batchDate
+        String uniqueBatchDate = "2026-03-14-" + UUID.randomUUID().toString().substring(0, 8);
+        String emptySql = "SELECT 1 as id, 'TEST_KEY' as business_key, 'Test Name' as name, 'Test Description' as description, '" + uniqueBatchDate + "' as batch_date WHERE 1=0"; // Empty result
         JobCompletionNotificationListener listener = mock(JobCompletionNotificationListener.class);
         Step exportStep = mock(Step.class);
         Job job = dataExportJobConfig.dataExportJob(listener, exportStep);
         JobParameters jobParameters = new JobParametersBuilder()
                 .addString("export.sql", emptySql)
                 .addString("output.file.name", outputFile.toString())
-                .addLong("run.id", System.currentTimeMillis())
+                .addString("batchDate", uniqueBatchDate)
                 .toJobParameters();
 
         // When
@@ -175,7 +182,8 @@ class DataExportIntegrationTest {
 
     @Test
     void shouldFailWithInvalidSql() throws Exception {
-        // Given
+        // Given - use unique batchDate
+        String uniqueBatchDate = "2026-03-14-" + UUID.randomUUID().toString().substring(0, 8);
         String invalidSql = "DROP TABLE test_table;"; // Invalid SQL
         JobCompletionNotificationListener listener = mock(JobCompletionNotificationListener.class);
         Step exportStep = mock(Step.class);
@@ -183,7 +191,7 @@ class DataExportIntegrationTest {
         JobParameters jobParameters = new JobParametersBuilder()
                 .addString("export.sql", invalidSql)
                 .addString("output.file.name", outputFile.toString())
-                .addLong("run.id", System.currentTimeMillis())
+                .addString("batchDate", uniqueBatchDate)
                 .toJobParameters();
 
         // When
@@ -201,13 +209,15 @@ class DataExportIntegrationTest {
 
     @Test
     void shouldHandleDefaultOutputFileName() throws Exception {
-        // Given - No output file name specified
+        // Given - use unique batchDate
+        String uniqueBatchDate = "2026-03-14-" + UUID.randomUUID().toString().substring(0, 8);
+        // No output file name specified
         JobCompletionNotificationListener listener = mock(JobCompletionNotificationListener.class);
         Step exportStep = mock(Step.class);
         Job job = dataExportJobConfig.dataExportJob(listener, exportStep);
         JobParameters jobParameters = new JobParametersBuilder()
-                .addString("export.sql", "SELECT 1 as id, 'TEST_KEY' as business_key, 'Test Name' as name, 'Test Description' as description, '2026-03-06' as batch_date")
-                .addLong("run.id", System.currentTimeMillis())
+                .addString("export.sql", "SELECT 1 as id, 'TEST_KEY' as business_key, 'Test Name' as name, 'Test Description' as description, '" + uniqueBatchDate + "' as batch_date")
+                .addString("batchDate", uniqueBatchDate)
                 .toJobParameters();
 
         // When
@@ -222,15 +232,16 @@ class DataExportIntegrationTest {
 
     @Test
     void shouldHandleSqlWithSpecialCharacters() throws Exception {
-        // Given
-        String sqlWithSpecialChars = "SELECT 1 as id, 'SPECIAL_KEY_@#$%' as business_key, 'Name with \"quotes\"' as name, 'Description with \\n newlines' as description, '2026-03-06' as batch_date";
+        // Given - use unique batchDate
+        String uniqueBatchDate = "2026-03-14-" + UUID.randomUUID().toString().substring(0, 8);
+        String sqlWithSpecialChars = "SELECT 1 as id, 'SPECIAL_KEY_@#$%' as business_key, 'Name with \"quotes\"' as name, 'Description with \\n newlines' as description, '" + uniqueBatchDate + "' as batch_date";
         JobCompletionNotificationListener listener = mock(JobCompletionNotificationListener.class);
         Step exportStep = mock(Step.class);
         Job job = dataExportJobConfig.dataExportJob(listener, exportStep);
         JobParameters jobParameters = new JobParametersBuilder()
                 .addString("export.sql", sqlWithSpecialChars)
                 .addString("output.file.name", outputFile.toString())
-                .addLong("run.id", System.currentTimeMillis())
+                .addString("batchDate", uniqueBatchDate)
                 .toJobParameters();
 
         // When
@@ -247,14 +258,15 @@ class DataExportIntegrationTest {
 
     @Test
     void shouldRecordExportStatistics() throws Exception {
-        // Given
+        // Given - use unique batchDate
+        String uniqueBatchDate = "2026-03-14-" + UUID.randomUUID().toString().substring(0, 8);
         JobCompletionNotificationListener listener = mock(JobCompletionNotificationListener.class);
         Step exportStep = mock(Step.class);
         Job job = dataExportJobConfig.dataExportJob(listener, exportStep);
         JobParameters jobParameters = new JobParametersBuilder()
-                .addString("export.sql", "SELECT 1 as id, 'STATS_TEST' as business_key, 'Stats Name' as name, 'Stats Description' as description, '2026-03-06' as batch_date")
+                .addString("export.sql", "SELECT 1 as id, 'STATS_TEST' as business_key, 'Stats Name' as name, 'Stats Description' as description, '" + uniqueBatchDate + "' as batch_date")
                 .addString("output.file.name", outputFile.toString())
-                .addLong("run.id", System.currentTimeMillis())
+                .addString("batchDate", uniqueBatchDate)
                 .toJobParameters();
 
         // When

@@ -32,6 +32,7 @@ public class FileImportRecordReader implements ItemStreamReader<FileRecord>, Ste
 
     private final Resource resource;
     private BufferedReader reader;
+    private InputStream inputStream;
     private int lineCount = 0;
     private final int shardIndex;
     private final int shardTotal;
@@ -114,7 +115,7 @@ public class FileImportRecordReader implements ItemStreamReader<FileRecord>, Ste
     }
 
     private void initializeReader() throws IOException {
-        InputStream inputStream = resource.getInputStream();
+        inputStream = resource.getInputStream();
         reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8));
         lineCount = 0;
     }
@@ -157,6 +158,13 @@ public class FileImportRecordReader implements ItemStreamReader<FileRecord>, Ste
             }
         } catch (IOException e) {
             log.error("Error closing reader", e);
+        }
+        try {
+            if (inputStream != null) {
+                inputStream.close();
+            }
+        } catch (IOException e) {
+            log.error("Error closing input stream", e);
         }
     }
 
