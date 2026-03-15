@@ -24,7 +24,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
-class LaunchExecutor {
+public class LaunchExecutor {
     private static final Logger log = LoggerFactory.getLogger(LaunchExecutor.class);
     private static final Set<String> RESERVED_PARAMETERS = Set.of(
             "execution.id",
@@ -48,12 +48,12 @@ class LaunchExecutor {
     private final int defaultDynamicShardMax;
     private final long defaultTimeoutMs;
 
-    LaunchExecutor(JobLauncher jobLauncher,
-                   BatchJobResolver jobResolver,
-                   JobInstanceService jobInstanceService,
-                   Semaphore launchPermits,
-                   int defaultDynamicShardMax,
-                   long defaultTimeoutMs) {
+    public LaunchExecutor(JobLauncher jobLauncher,
+                          BatchJobResolver jobResolver,
+                          JobInstanceService jobInstanceService,
+                          Semaphore launchPermits,
+                          int defaultDynamicShardMax,
+                          long defaultTimeoutMs) {
         this.jobLauncher = jobLauncher;
         this.jobResolver = jobResolver;
         this.jobInstanceService = jobInstanceService;
@@ -62,7 +62,7 @@ class LaunchExecutor {
         this.defaultTimeoutMs = Math.max(1000, defaultTimeoutMs);
     }
 
-    LaunchResult launch(OrchestrationTaskDefinition def, String batchDate, int queueSize) {
+    public LaunchResult launch(OrchestrationTaskDefinition def, String batchDate, int queueSize) {
         BatchJobResolver.ResolvedJob resolvedJob = jobResolver.resolve(def.getJobName()).orElse(null);
         if (resolvedJob == null) {
             return LaunchResult.failed("No job found for name " + def.getJobName()
@@ -255,7 +255,7 @@ class LaunchExecutor {
 
     @Getter
     @Builder
-    static class LaunchResult {
+    public static class LaunchResult {
         private final boolean success;
         private final boolean partial;
         private final boolean shouldReschedule;

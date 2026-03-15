@@ -7,7 +7,6 @@ import com.example.filebatchprocessor.service.FileAssetService;
 import com.example.filebatchprocessor.service.JobInstanceService;
 import com.example.filebatchprocessor.service.OpsAuditService;
 import com.example.filebatchprocessor.service.RetryCompensationService;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 

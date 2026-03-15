@@ -7,11 +7,14 @@ import org.springframework.batch.core.ExitStatus;
 import org.springframework.batch.core.listener.StepExecutionListener;
 import org.springframework.batch.core.step.StepExecution;
 import org.springframework.batch.infrastructure.item.Chunk;
+import org.springframework.batch.infrastructure.item.ExecutionContext;
+import org.springframework.batch.infrastructure.item.ItemStream;
+import org.springframework.batch.infrastructure.item.ItemStreamException;
 import org.springframework.batch.infrastructure.item.ItemWriter;
 
 import java.util.List;
 
-public class ExportRecordTraceWriter implements ItemWriter<ExportRecord>, StepExecutionListener {
+public class ExportRecordTraceWriter implements ItemWriter<ExportRecord>, ItemStream, StepExecutionListener {
 
     private final ItemWriter<ExportRecord> delegate;
     private final RecordTraceRepository recordTraceRepository;
@@ -41,6 +44,27 @@ public class ExportRecordTraceWriter implements ItemWriter<ExportRecord>, StepEx
     @Override
     public ExitStatus afterStep(StepExecution stepExecution) {
         return stepExecution.getExitStatus();
+    }
+
+    @Override
+    public void open(ExecutionContext executionContext) throws ItemStreamException {
+        if (delegate instanceof ItemStream itemStream) {
+            itemStream.open(executionContext);
+        }
+    }
+
+    @Override
+    public void update(ExecutionContext executionContext) throws ItemStreamException {
+        if (delegate instanceof ItemStream itemStream) {
+            itemStream.update(executionContext);
+        }
+    }
+
+    @Override
+    public void close() throws ItemStreamException {
+        if (delegate instanceof ItemStream itemStream) {
+            itemStream.close();
+        }
     }
 
     @Override

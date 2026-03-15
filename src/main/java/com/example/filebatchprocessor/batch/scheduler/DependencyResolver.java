@@ -7,9 +7,9 @@ import com.example.filebatchprocessor.repository.TaskExecutionStateRepository;
 
 import java.util.Locale;
 
-class DependencyResolver {
+public class DependencyResolver {
 
-    enum DependencyState {
+    public enum DependencyState {
         READY,
         WAITING,
         FAILED,
@@ -18,11 +18,11 @@ class DependencyResolver {
 
     private final TaskExecutionStateRepository taskExecutionStateRepository;
 
-    DependencyResolver(TaskExecutionStateRepository taskExecutionStateRepository) {
+    public DependencyResolver(TaskExecutionStateRepository taskExecutionStateRepository) {
         this.taskExecutionStateRepository = taskExecutionStateRepository;
     }
 
-    DependencyState resolve(OrchestrationTaskDefinition task, String batchDate, long defaultDependencyTimeoutMs, long waitedMs) {
+    public DependencyState resolve(OrchestrationTaskDefinition task, String batchDate, long defaultDependencyTimeoutMs, long waitedMs) {
         String rerunId = task.getParameters().getOrDefault("rerunId", "");
         for (String dep : task.getDependencies()) {
             TaskExecutionState state = taskExecutionStateRepository

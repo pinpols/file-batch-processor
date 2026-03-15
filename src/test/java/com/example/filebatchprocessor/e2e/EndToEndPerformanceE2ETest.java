@@ -92,7 +92,7 @@ class EndToEndPerformanceE2ETest {
     private void truncateIfExists(String table) {
         String exists = jdbcTemplate.queryForObject("select to_regclass(?)", String.class, table);
         if (exists != null) {
-            jdbcTemplate.execute("truncate table " + table);
+            jdbcTemplate.execute("TRUNCATE TABLE " + table + " RESTART IDENTITY CASCADE");
         }
     }
 }

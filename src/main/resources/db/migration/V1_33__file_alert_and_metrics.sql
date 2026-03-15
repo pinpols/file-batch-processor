@@ -91,7 +91,7 @@ CREATE TABLE IF NOT EXISTS file_metrics_snapshot (
 );
 
 CREATE INDEX IF NOT EXISTS idx_file_metrics_snapshot_date ON file_metrics_snapshot(metric_date);
-CREATE INDEX IF NOT idx_file_metrics_snapshot_time ON file_metrics_snapshot(snapshot_time);
+CREATE INDEX IF NOT EXISTS idx_file_metrics_snapshot_time ON file_metrics_snapshot(snapshot_time);
 
 COMMENT ON TABLE file_metrics_snapshot IS 'Periodic metrics snapshot for file processing monitoring';
 

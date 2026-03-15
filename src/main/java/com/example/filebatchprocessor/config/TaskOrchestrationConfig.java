@@ -28,7 +28,6 @@ import java.util.Map;
 
 @Slf4j
 @Configuration
-@EnableScheduling
 @EnableConfigurationProperties({TaskDefinitionProperties.class, SchedulerConcurrencyProperties.class, ImportParseErrorGateProperties.class, CircuitBreakerProperties.class})
 public class TaskOrchestrationConfig {
 
