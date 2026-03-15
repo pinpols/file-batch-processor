@@ -21,7 +21,8 @@ class FileAssetStateMachineServiceTest {
     @Test
     void shouldAdvanceReceptionLifecycle() {
         FileAssetRecordRepository repository = mock(FileAssetRecordRepository.class);
-        FileAssetStateMachineService service = new FileAssetStateMachineService(repository, new ObjectMapper());
+        FileProcessLogService processLogService = mock(FileProcessLogService.class);
+        FileAssetStateMachineService service = new FileAssetStateMachineService(repository, processLogService, new ObjectMapper());
 
         FileAssetRecord record = new FileAssetRecord();
         record.setId(1L);
@@ -50,7 +51,8 @@ class FileAssetStateMachineServiceTest {
     @Test
     void shouldRejectIllegalTransition() {
         FileAssetRecordRepository repository = mock(FileAssetRecordRepository.class);
-        FileAssetStateMachineService service = new FileAssetStateMachineService(repository, new ObjectMapper());
+        FileProcessLogService processLogService = mock(FileProcessLogService.class);
+        FileAssetStateMachineService service = new FileAssetStateMachineService(repository, processLogService, new ObjectMapper());
 
         FileAssetRecord record = new FileAssetRecord();
         record.setId(2L);
@@ -65,7 +67,8 @@ class FileAssetStateMachineServiceTest {
     @Test
     void shouldAllowDispatchBackToProcessedForResend() {
         FileAssetRecordRepository repository = mock(FileAssetRecordRepository.class);
-        FileAssetStateMachineService service = new FileAssetStateMachineService(repository, new ObjectMapper());
+        FileProcessLogService processLogService = mock(FileProcessLogService.class);
+        FileAssetStateMachineService service = new FileAssetStateMachineService(repository, processLogService, new ObjectMapper());
 
         FileAssetRecord record = new FileAssetRecord();
         record.setId(3L);

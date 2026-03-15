@@ -25,11 +25,15 @@ public class FileAssetStateMachineService {
             buildAllowedTransitions();
 
     private final FileAssetRecordRepository repository;
+    private final FileProcessLogService processLogService;
     private final ObjectMapper objectMapper;
 
     @Autowired
-    public FileAssetStateMachineService(FileAssetRecordRepository repository, ObjectMapper objectMapper) {
+    public FileAssetStateMachineService(FileAssetRecordRepository repository,
+                                        FileProcessLogService processLogService,
+                                        ObjectMapper objectMapper) {
         this.repository = repository;
+        this.processLogService = processLogService;
         this.objectMapper = objectMapper;
     }
 
@@ -45,7 +49,24 @@ public class FileAssetStateMachineService {
 
         applyStatus(record, targetStatus);
         mergeMetadata(record, metadataDelta);
-        return new TransitionResult(repository.save(record), currentStatus, targetStatus);
+        FileAssetRecord saved = repository.save(record);
+        
+        processLogService.log(
+                fileRecordId,
+                "STATE_TRANSITION",
+                "STATUS_CHANGE",
+                currentStatus.name(),
+                targetStatus.name(),
+                "SUCCESS",
+                null,
+                null,
+                0,
+                null,
+                reason,
+                metadataDelta
+        );
+        
+        return new TransitionResult(saved, currentStatus, targetStatus);
     }
 
     public TransitionResult annotate(Long fileRecordId, Map<String, Object> metadataDelta) {
