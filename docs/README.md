@@ -61,8 +61,9 @@
 |------|------|
 | [架构与技术栈](./other/ARCHITECTURE_AND_TECH_STACK.md) | 技术栈说明 |
 | [任务配置表结构](./other/task-configuration-schema.md) | 任务配置表结构说明 |
+| [当前能力总结](./other/CURRENT_CAPABILITIES_SUMMARY.md) | 基于V1_27-V1_34迁移的当前系统能力总结 |
 | [早期规划文档](./other/system-capability-completion-plan.md) | 批量调度系统补齐实施计划 |
-| [能力缺口分析](./other/system-capability-gap-analysis.md) | 系统能力与缺口分析 |
+| [能力缺口分析](./other/system-capability-gap-analysis.md) | 系统能力与缺口分析（历史参考） |
 | [待办事项](./other/todo.md) | 批量调度系统能力补齐计划状态 |
 
 ---
