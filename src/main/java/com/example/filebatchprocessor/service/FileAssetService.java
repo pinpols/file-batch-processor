@@ -147,6 +147,25 @@ public class FileAssetService {
         return stateMachineService.transition(fileRecordId, FileAssetStatus.READY, "resetToReady", metadata);
     }
 
+    public FileAssetStateMachineService.TransitionResult reprocessFile(Long fileRecordId, String operator, String reason) {
+        FileAssetRecord record = repository.findById(fileRecordId)
+                .orElseThrow(() -> new IllegalArgumentException("File record not found: " + fileRecordId));
+        
+        String currentStatus = record.getStatus();
+        if ("PROCESSED".equals(currentStatus) || "DISPATCHED".equals(currentStatus)) {
+            return stateMachineService.transition(fileRecordId, FileAssetStatus.READY, 
+                    "reprocess", Map.of("operator", operator, "reason", reason));
+        } else if ("FAILED".equals(currentStatus)) {
+            return stateMachineService.transition(fileRecordId, FileAssetStatus.READY, 
+                    "reprocess", Map.of("operator", operator, "reason", reason));
+        } else if ("ARCHIVED".equals(currentStatus)) {
+            throw new IllegalStateException("Cannot reprocess archived file: " + fileRecordId);
+        } else {
+            return stateMachineService.transition(fileRecordId, FileAssetStatus.READY, 
+                    "reprocess", Map.of("operator", operator, "reason", reason));
+        }
+    }
+
     private FileAssetRecord registerFile(String fileDirection,
                                          String fileName,
                                          String filePath,
