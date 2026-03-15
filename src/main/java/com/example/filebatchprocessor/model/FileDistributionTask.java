@@ -103,6 +103,9 @@ public class FileDistributionTask {
     @Column(name = "error_message", length = 1000)
     private String errorMessage;
 
+    @Column(name = "file_record_id")
+    private Long fileRecordId;
+
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();

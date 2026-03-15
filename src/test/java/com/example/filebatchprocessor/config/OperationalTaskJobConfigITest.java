@@ -1,6 +1,7 @@
 package com.example.filebatchprocessor.config;
 
 import com.example.filebatchprocessor.batch.config.OperationalTaskJobConfig;
+import com.example.filebatchprocessor.listener.JobCompletionNotificationListener;
 import com.example.filebatchprocessor.model.FileDistributionTask;
 import com.example.filebatchprocessor.model.FileReceptionQueue;
 import com.example.filebatchprocessor.model.ImportedRecord;
@@ -99,6 +100,7 @@ class OperationalTaskJobConfigITest {
         JobRepository jobRepository = new ResourcelessJobRepository();
         PlatformTransactionManager transactionManager = new ResourcelessTransactionManager();
         OperationalTaskJobConfig config = new OperationalTaskJobConfig(jobRepository, transactionManager);
+        JobCompletionNotificationListener listener = mock(JobCompletionNotificationListener.class);
 
         TaskExecutorJobLauncher jobLauncher = new TaskExecutorJobLauncher();
         jobLauncher.setJobRepository(jobRepository);
@@ -112,10 +114,10 @@ class OperationalTaskJobConfigITest {
 
         jobs = new JobLauncherBundle(
                 jobLauncher,
-                config.partitionedImportJob(config.partitionedImportStep(partitionedImportTasklet)),
-                config.fileExportJob(config.fileExportStep(fileExportTasklet)),
-                config.fileReceptionJob(config.fileReceptionStep(fileReceptionTasklet)),
-                config.fileDistributionJob(config.fileDistributionStep(fileDistributionTasklet))
+                config.partitionedImportJob(config.partitionedImportStep(partitionedImportTasklet), listener),
+                config.fileExportJob(config.fileExportStep(fileExportTasklet), listener),
+                config.fileReceptionJob(config.fileReceptionStep(fileReceptionTasklet), listener),
+                config.fileDistributionJob(config.fileDistributionStep(fileDistributionTasklet), listener)
         );
     }
 

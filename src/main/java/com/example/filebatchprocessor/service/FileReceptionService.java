@@ -1,8 +1,10 @@
 package com.example.filebatchprocessor.service;
 
+import com.example.filebatchprocessor.model.FileAssetRecord;
 import com.example.filebatchprocessor.model.FileReceptionQueue;
 import com.example.filebatchprocessor.repository.FileReceptionQueueRepository;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,7 +18,9 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -31,9 +35,29 @@ import java.util.Optional;
 public class FileReceptionService {
 
     private final FileReceptionQueueRepository fileReceptionQueueRepository;
+    private final FileAssetService fileAssetService;
+    private final FileProcessLogService fileProcessLogService;
+    private final FileReceptionGuardService fileReceptionGuardService;
+
+    @Autowired
+    public FileReceptionService(FileReceptionQueueRepository fileReceptionQueueRepository,
+                                FileAssetService fileAssetService,
+                                FileProcessLogService fileProcessLogService,
+                                FileReceptionGuardService fileReceptionGuardService) {
+        this.fileReceptionQueueRepository = fileReceptionQueueRepository;
+        this.fileAssetService = fileAssetService;
+        this.fileProcessLogService = fileProcessLogService;
+        this.fileReceptionGuardService = fileReceptionGuardService;
+    }
 
     public FileReceptionService(FileReceptionQueueRepository fileReceptionQueueRepository) {
-        this.fileReceptionQueueRepository = fileReceptionQueueRepository;
+        this(fileReceptionQueueRepository, null, null, FileReceptionGuardService.testingDefaults());
+    }
+
+    public FileReceptionService(FileReceptionQueueRepository fileReceptionQueueRepository,
+                                FileAssetService fileAssetService,
+                                FileProcessLogService fileProcessLogService) {
+        this(fileReceptionQueueRepository, fileAssetService, fileProcessLogService, FileReceptionGuardService.testingDefaults());
     }
 
     /**
@@ -41,33 +65,43 @@ public class FileReceptionService {
      */
     public FileReceptionQueue receiveFile(String fileName, String filePath, String sourceSystem) {
         log.info("Receiving file: {} from {}", fileName, sourceSystem);
-
-        // 检查重复
-        Optional<FileReceptionQueue> existing = fileReceptionQueueRepository.findByFileName(fileName);
-        if (existing.isPresent()) {
-            log.warn("File already exists in reception queue: {}", fileName);
-            throw new IllegalArgumentException("File already exists: " + fileName);
-        }
+        Optional<FileReceptionQueue> existingByName = fileReceptionQueueRepository.findByFileName(fileName);
 
         try {
-            // 验证文件存在
             File file = new File(filePath);
+            if (existingByName.isPresent() && !file.exists()) {
+                log.warn("Duplicate file name detected before file inspection: {}", fileName);
+                throw new IllegalArgumentException("File already exists: " + fileName);
+            }
             if (!file.exists()) {
                 throw new IOException("File not found: " + filePath);
             }
+            fileReceptionGuardService.assertReceivable(fileName, filePath);
+
+            Long fileSize = file.length();
+            String fileHash = calculateHash(filePath);
+            rejectDuplicateOrConflict(existingByName, fileName, sourceSystem, fileSize, fileHash);
+            FileAssetRecord fileRecord = registerInboundFileRecord(fileName, filePath, sourceSystem, fileSize, fileHash);
 
             FileReceptionQueue queue = new FileReceptionQueue();
             queue.setFileName(fileName);
             queue.setFilePath(filePath);
-            queue.setFileSize(file.length());
-            queue.setFileHash(calculateHash(filePath));
+            queue.setFileSize(fileSize);
+            queue.setFileHash(fileHash);
             queue.setSourceSystem(sourceSystem);
             queue.setStatus("RECEIVED");
             queue.setCreatedAt(LocalDateTime.now());
+            if (fileRecord != null) {
+                queue.setFileRecordId(fileRecord.getId());
+            }
 
             FileReceptionQueue saved = fileReceptionQueueRepository.save(queue);
+            logFileProcess(saved.getFileRecordId(), "receiveFile", "RECEIVE", null, "ARRIVED",
+                    "SUCCESS", null, null, 0, Map.of("sourceSystem", sourceSystem));
             log.info("File received successfully: id={}, fileName={}", saved.getId(), fileName);
             return saved;
+        } catch (IllegalArgumentException e) {
+            throw e;
         } catch (Exception e) {
             log.error("Failed to receive file: {}", fileName, e);
             throw new RuntimeException("Failed to receive file: " + e.getMessage(), e);
@@ -80,13 +114,30 @@ public class FileReceptionService {
     public void markAsWaiting(Long fileId, String waitReason) {
         log.info("Marking file as waiting: id={}, reason={}", fileId, waitReason);
 
-        FileReceptionQueue queue = fileReceptionQueueRepository.findById(fileId)
-                .orElseThrow(() -> new IllegalArgumentException("File not found: " + fileId));
-
+        FileReceptionQueue queue = loadQueue(fileId);
         queue.setStatus("WAITING");
         queue.setWaitReason(waitReason);
         queue.setUpdatedAt(LocalDateTime.now());
-        fileReceptionQueueRepository.save(queue);
+        queue = fileReceptionQueueRepository.save(queue);
+        queue = ensureFileRecord(queue);
+        if (queue.getFileRecordId() != null && fileAssetService != null) {
+            var transition = fileAssetService.markWaiting(queue.getFileRecordId(), waitReason);
+            logFileProcess(queue.getFileRecordId(), "markAsWaiting", "WAIT",
+                    statusFrom(transition, "ARRIVED"), statusTo(transition, "ARRIVED"),
+                    "SKIPPED", null, null, queue.getRetryCount(), Map.of("waitReason", waitReason));
+        }
+    }
+
+    public void markAsReady(Long fileId) {
+        log.info("Marking file as ready: id={}", fileId);
+
+        FileReceptionQueue queue = ensureFileRecord(loadQueue(fileId));
+        if (queue.getFileRecordId() != null && fileAssetService != null) {
+            var transition = fileAssetService.markReady(queue.getFileRecordId(), Map.of("integrityCheck", "passed"));
+            logFileProcess(queue.getFileRecordId(), "markAsReady", "VERIFY",
+                    statusFrom(transition, "ARRIVED"), statusTo(transition, "READY"),
+                    "SUCCESS", null, null, queue.getRetryCount(), Map.of("verified", true));
+        }
     }
 
     /**
@@ -95,12 +146,17 @@ public class FileReceptionService {
     public void markAsProcessing(Long fileId) {
         log.info("Marking file as processing: id={}", fileId);
 
-        FileReceptionQueue queue = fileReceptionQueueRepository.findById(fileId)
-                .orElseThrow(() -> new IllegalArgumentException("File not found: " + fileId));
-
+        FileReceptionQueue queue = loadQueue(fileId);
         queue.setStatus("PROCESSING");
         queue.setUpdatedAt(LocalDateTime.now());
-        fileReceptionQueueRepository.save(queue);
+        queue = fileReceptionQueueRepository.save(queue);
+        queue = ensureFileRecord(queue);
+        if (queue.getFileRecordId() != null && fileAssetService != null) {
+            var transition = fileAssetService.markProcessing(queue.getFileRecordId());
+            logFileProcess(queue.getFileRecordId(), "markAsProcessing", "PROCESS",
+                    statusFrom(transition, "READY"), statusTo(transition, "PROCESSING"),
+                    "SUCCESS", null, null, queue.getRetryCount(), null);
+        }
     }
 
     /**
@@ -109,12 +165,17 @@ public class FileReceptionService {
     public void markAsCompleted(Long fileId) {
         log.info("Marking file as completed: id={}", fileId);
 
-        FileReceptionQueue queue = fileReceptionQueueRepository.findById(fileId)
-                .orElseThrow(() -> new IllegalArgumentException("File not found: " + fileId));
-
+        FileReceptionQueue queue = loadQueue(fileId);
         queue.setStatus("COMPLETED");
         queue.setUpdatedAt(LocalDateTime.now());
-        fileReceptionQueueRepository.save(queue);
+        queue = fileReceptionQueueRepository.save(queue);
+        queue = ensureFileRecord(queue);
+        if (queue.getFileRecordId() != null && fileAssetService != null) {
+            var transition = fileAssetService.markProcessed(queue.getFileRecordId());
+            logFileProcess(queue.getFileRecordId(), "markAsCompleted", "PROCESS",
+                    statusFrom(transition, "PROCESSING"), statusTo(transition, "PROCESSED"),
+                    "SUCCESS", null, null, queue.getRetryCount(), null);
+        }
     }
 
     /**
@@ -123,52 +184,41 @@ public class FileReceptionService {
     public void markAsFailed(Long fileId, String errorMessage) {
         log.error("Marking file as failed: id={}, error={}", fileId, errorMessage);
 
-        FileReceptionQueue queue = fileReceptionQueueRepository.findById(fileId)
-                .orElseThrow(() -> new IllegalArgumentException("File not found: " + fileId));
-
+        FileReceptionQueue queue = loadQueue(fileId);
         queue.setStatus("FAILED");
         queue.setErrorMessage(errorMessage);
         queue.setRetryCount(queue.getRetryCount() != null ? queue.getRetryCount() + 1 : 1);
         queue.setUpdatedAt(LocalDateTime.now());
-        fileReceptionQueueRepository.save(queue);
+        queue = fileReceptionQueueRepository.save(queue);
+        queue = ensureFileRecord(queue);
+        if (queue.getFileRecordId() != null && fileAssetService != null) {
+            var transition = fileAssetService.markFailed(queue.getFileRecordId(), errorMessage);
+            logFileProcess(queue.getFileRecordId(), "markAsFailed", "PROCESS",
+                    statusFrom(transition, "ARRIVED"), statusTo(transition, "FAILED"),
+                    "FAILED", "FILE_RECEPTION_FAILED", errorMessage, queue.getRetryCount(), null);
+        }
     }
 
-    /**
-     * 查找待处理文件（已接收且未处理的文件）
-     */
     public List<FileReceptionQueue> findPendingFiles() {
         return fileReceptionQueueRepository.findByStatusOrderByCreatedAtAsc("RECEIVED");
     }
 
-    /**
-     * 查找等待中的文件
-     */
     public List<FileReceptionQueue> findWaitingFiles() {
         return fileReceptionQueueRepository.findByStatus("WAITING");
     }
 
-    /**
-     * 查找超时的文件
-     */
     public List<FileReceptionQueue> findOverdueFiles(int minutesTolerance) {
         LocalDateTime threshold = LocalDateTime.now().minus(minutesTolerance, ChronoUnit.MINUTES);
         return fileReceptionQueueRepository.findOverdueFiles(threshold);
     }
 
-    /**
-     * 查找需要重试的文件
-     */
     public List<FileReceptionQueue> findRetriableFiles(int minutesInterval) {
         LocalDateTime threshold = LocalDateTime.now().minus(minutesInterval, ChronoUnit.MINUTES);
         return fileReceptionQueueRepository.findRetriableFiles(threshold);
     }
 
-    /**
-     * 检查文件完整性（文件大小和哈希值）
-     */
     public boolean verifyFileIntegrity(Long fileId) throws IOException, NoSuchAlgorithmException {
-        FileReceptionQueue queue = fileReceptionQueueRepository.findById(fileId)
-                .orElseThrow(() -> new IllegalArgumentException("File not found: " + fileId));
+        FileReceptionQueue queue = loadQueue(fileId);
 
         File file = new File(queue.getFilePath());
         if (!file.exists()) {
@@ -176,25 +226,28 @@ public class FileReceptionService {
             return false;
         }
 
-        // 检查文件大小
         if (!queue.getFileSize().equals(file.length())) {
             log.warn("File size mismatch for: {}", queue.getFileName());
             return false;
         }
 
-        // 检查文件哈希
         String currentHash = calculateHash(queue.getFilePath());
         if (!currentHash.equals(queue.getFileHash())) {
             log.warn("File hash mismatch for: {}", queue.getFileName());
             return false;
         }
 
+        FileReceptionGuardService.ValidationResult receptionValidation =
+                fileReceptionGuardService.validateForProcessing(queue.getFileName(), queue.getFilePath());
+        if (!receptionValidation.accepted()) {
+            log.warn("File not ready for processing: fileName={}, reason={}",
+                    queue.getFileName(), receptionValidation.reason());
+            return false;
+        }
+
         return true;
     }
 
-    /**
-     * 计算文件哈希值（MD5）
-     */
     private String calculateHash(String filePath) throws IOException, NoSuchAlgorithmException {
         MessageDigest md = MessageDigest.getInstance("MD5");
         try (InputStream in = new BufferedInputStream(Files.newInputStream(Paths.get(filePath)))) {
@@ -209,15 +262,14 @@ public class FileReceptionService {
         StringBuilder hexString = new StringBuilder();
         for (byte b : hashBytes) {
             String hex = Integer.toHexString(0xff & b);
-            if (hex.length() == 1) hexString.append('0');
+            if (hex.length() == 1) {
+                hexString.append('0');
+            }
             hexString.append(hex);
         }
         return hexString.toString();
     }
 
-    /**
-     * 获取文件接收统计信息
-     */
     public FileReceptionStats getStatistics() {
         long receivedCount = fileReceptionQueueRepository.countByStatus("RECEIVED");
         long waitingCount = fileReceptionQueueRepository.countByStatus("WAITING");
@@ -228,9 +280,6 @@ public class FileReceptionService {
         return new FileReceptionStats(receivedCount, waitingCount, processingCount, completedCount, failedCount);
     }
 
-    /**
-     * 统计数据类
-     */
     public static class FileReceptionStats {
         public long receivedCount;
         public long waitingCount;
@@ -238,13 +287,129 @@ public class FileReceptionService {
         public long completedCount;
         public long failedCount;
 
-        public FileReceptionStats(long receivedCount, long waitingCount, long processingCount, 
-                                 long completedCount, long failedCount) {
+        public FileReceptionStats(long receivedCount, long waitingCount, long processingCount,
+                                  long completedCount, long failedCount) {
             this.receivedCount = receivedCount;
             this.waitingCount = waitingCount;
             this.processingCount = processingCount;
             this.completedCount = completedCount;
             this.failedCount = failedCount;
         }
+    }
+
+    private FileReceptionQueue loadQueue(Long fileId) {
+        return fileReceptionQueueRepository.findById(fileId)
+                .orElseThrow(() -> new IllegalArgumentException("File not found: " + fileId));
+    }
+
+    private FileReceptionQueue ensureFileRecord(FileReceptionQueue queue) {
+        if (queue.getFileRecordId() != null || fileAssetService == null) {
+            return queue;
+        }
+        FileAssetRecord fileRecord = registerInboundFileRecord(
+                queue.getFileName(),
+                queue.getFilePath(),
+                queue.getSourceSystem(),
+                queue.getFileSize(),
+                queue.getFileHash(),
+                queue.getId()
+        );
+        if (fileRecord == null) {
+            return queue;
+        }
+        queue.setFileRecordId(fileRecord.getId());
+        queue.setUpdatedAt(LocalDateTime.now());
+        return fileReceptionQueueRepository.save(queue);
+    }
+
+    private FileAssetRecord registerInboundFileRecord(String fileName,
+                                                      String filePath,
+                                                      String sourceSystem,
+                                                      Long fileSize,
+                                                      String fileHash) {
+        return registerInboundFileRecord(fileName, filePath, sourceSystem, fileSize, fileHash, null);
+    }
+
+    private FileAssetRecord registerInboundFileRecord(String fileName,
+                                                      String filePath,
+                                                      String sourceSystem,
+                                                      Long fileSize,
+                                                      String fileHash,
+                                                      Long legacyQueueId) {
+        if (fileAssetService == null) {
+            return null;
+        }
+        return fileAssetService.registerInboundFile(
+                fileName,
+                filePath,
+                sourceSystem,
+                fileSize,
+                fileHash,
+                "ARRIVED",
+                legacyMetadata(legacyQueueId)
+        );
+    }
+
+    private Map<String, Object> legacyMetadata(Long legacyQueueId) {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("legacyTable", "file_reception_queue");
+        if (legacyQueueId != null) {
+            metadata.put("legacyQueueId", legacyQueueId);
+        }
+        return metadata;
+    }
+
+    private void rejectDuplicateOrConflict(Optional<FileReceptionQueue> existingByName,
+                                           String fileName,
+                                           String sourceSystem,
+                                           Long fileSize,
+                                           String fileHash) {
+        if (existingByName.isPresent()) {
+            FileReceptionQueue queue = existingByName.get();
+            boolean sameContent = safeEquals(fileHash, queue.getFileHash()) && safeEquals(fileSize, queue.getFileSize());
+            if (sameContent) {
+                log.warn("Duplicate file name and content detected: {}", fileName);
+                throw new IllegalArgumentException("File already exists: " + fileName);
+            }
+            log.warn("File name conflict detected with different content: {}", fileName);
+            throw new IllegalArgumentException("File name conflict with different content: " + fileName);
+        }
+
+        if (fileAssetService == null) {
+            return;
+        }
+        fileAssetService.findDuplicateInbound(sourceSystem, fileHash).ifPresent(existingRecord -> {
+            log.warn("Duplicate inbound file content detected: fileName={}, fileNo={}", fileName, existingRecord.getFileNo());
+            throw new IllegalArgumentException("Duplicate file content already received: " + existingRecord.getFileNo());
+        });
+    }
+
+    private void logFileProcess(Long fileRecordId,
+                                String stepName,
+                                String actionType,
+                                String statusFrom,
+                                String statusTo,
+                                String result,
+                                String errorCode,
+                                String errorMessage,
+                                Integer retryNo,
+                                Map<String, Object> extra) {
+        if (fileProcessLogService == null || fileRecordId == null) {
+            return;
+        }
+        fileProcessLogService.log(fileRecordId, stepName, actionType, statusFrom, statusTo, result,
+                null, "fileReceptionJob", retryNo, errorCode, errorMessage, extra);
+    }
+
+    private String statusFrom(FileAssetStateMachineService.TransitionResult transition, String fallback) {
+        return transition == null ? fallback : transition.from().name();
+    }
+
+    private String statusTo(FileAssetStateMachineService.TransitionResult transition, String fallback) {
+        return transition == null ? fallback : transition.to().name();
+    }
+
+    private boolean safeEquals(Object left, Object right) {
+        return left == null ? right == null : left.equals(right);
     }
 }

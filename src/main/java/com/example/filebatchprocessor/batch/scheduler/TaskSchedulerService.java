@@ -10,6 +10,7 @@ import com.example.filebatchprocessor.repository.TaskExecutionStateRepository;
 import com.example.filebatchprocessor.scheduler.LocalCacheService;
 import com.example.filebatchprocessor.scheduler.OrchestrationTaskDefinition;
 import com.example.filebatchprocessor.service.ExecutionDedupService;
+import com.example.filebatchprocessor.service.JobInstanceService;
 import com.example.filebatchprocessor.service.SchedulerLeaderService;
 import com.example.filebatchprocessor.service.SchedulerQueueService;
 import com.example.filebatchprocessor.service.BatchJobResolver;
@@ -96,6 +97,7 @@ public class TaskSchedulerService {
                                 SchedulerLeaderService schedulerLeaderService,
                                 SchedulerQueueService schedulerQueueService,
                                 TaskExecutionAuditService taskExecutionAuditService,
+                                JobInstanceService jobInstanceService,
                                 DlqRecordRepository dlqRecordRepository,
                                 Scheduler quartzScheduler,
                                 ThreadPoolTaskExecutor batchTaskExecutor,
@@ -155,6 +157,7 @@ public class TaskSchedulerService {
         this.launchExecutor = new LaunchExecutor(
                 jobLauncher,
                 batchJobResolver,
+                jobInstanceService,
                 launchPermits,
                 defaultDynamicShardMax,
                 defaultTimeoutMs

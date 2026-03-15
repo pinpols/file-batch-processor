@@ -24,21 +24,25 @@ public class JobTaskSchedulerService {
     private final BatchJobResolver batchJobResolver;
     private final JobOperator jobOperator;
     private final TaskConfigService taskConfigService;
+    private final JobInstanceService jobInstanceService;
 
     public JobTaskSchedulerService(@Qualifier("asyncJobLauncher") JobLauncher jobLauncher,
                                    BatchJobResolver batchJobResolver,
                                    JobOperator jobOperator,
-                                   TaskConfigService taskConfigService) {
+                                   TaskConfigService taskConfigService,
+                                   JobInstanceService jobInstanceService) {
         this.jobLauncher = jobLauncher;
         this.batchJobResolver = batchJobResolver;
         this.jobOperator = jobOperator;
         this.taskConfigService = taskConfigService;
+        this.jobInstanceService = jobInstanceService;
     }
 
     /**
      * 触发任务执行
      */
     public String triggerJob(String taskId, Map<String, Object> parameters, String triggeredBy) {
+        Long businessJobInstanceId = null;
         try {
             if (taskId == null || taskId.isBlank()) {
                 return "Failed to trigger job: taskId is required";
@@ -49,12 +53,35 @@ public class JobTaskSchedulerService {
                     .map(BatchJobResolver.ResolvedJob::job)
                     .orElseThrow(() -> new IllegalArgumentException(
                             "No job found for name " + jobName + ", available=" + batchJobResolver.describeAvailableJobs()));
-            JobParameters jobParameters = buildJobParameters(taskId, parameters);
+            Map<String, Object> mergedParameters = mergeParameters(taskId, parameters);
+            String batchDate = stringValue(mergedParameters.get("batchDate"));
+            String batchNo = stringValue(mergedParameters.get("batchNo"));
+            String runKey = "manual-" + taskId + "-" + System.nanoTime();
+            var businessInstance = jobInstanceService.createTriggeredInstance(
+                    new JobInstanceService.CreateRequest(
+                            taskId,
+                            jobName,
+                            "MANUAL",
+                            triggeredBy,
+                            batchDate,
+                            batchNo,
+                            runKey,
+                            stringValue(mergedParameters.get("rerunId")) != null,
+                            false,
+                            true,
+                            jobInstanceService.resolveRelatedFileId(mergedParameters),
+                            mergedParameters
+                    )
+            );
+            businessJobInstanceId = businessInstance.getId();
+            JobParameters jobParameters = buildJobParameters(mergedParameters, businessInstance.getId(),
+                    businessInstance.getJobInstanceNo(), triggeredBy);
             JobExecution execution = jobLauncher.run(job, jobParameters);
             return "Job triggered: taskId=" + taskId + ", jobName=" + jobName + ", executionId=" + execution.getId()
                     + ", status=" + execution.getStatus();
         } catch (Exception e) {
             log.error("Failed to trigger job: {}", taskId, e);
+            jobInstanceService.markLaunchFailed(businessJobInstanceId, e.getMessage());
             return "Failed to trigger job: " + taskId + ", reason=" + e.getMessage();
         }
     }
@@ -101,8 +128,7 @@ public class JobTaskSchedulerService {
         }
     }
 
-    private JobParameters buildJobParameters(String taskId, Map<String, Object> rawParameters) {
-        JobParametersBuilder builder = new JobParametersBuilder();
+    private Map<String, Object> mergeParameters(String taskId, Map<String, Object> rawParameters) {
         Map<String, Object> merged = new HashMap<>();
         try {
             merged.putAll(taskConfigService.getTaskParametersAsMap(taskId));
@@ -112,9 +138,24 @@ public class JobTaskSchedulerService {
         if (rawParameters != null) {
             merged.putAll(rawParameters);
         }
+        return merged;
+    }
+
+    private JobParameters buildJobParameters(Map<String, Object> merged,
+                                             Long businessJobInstanceId,
+                                             String businessJobInstanceNo,
+                                             String triggeredBy) {
+        JobParametersBuilder builder = new JobParametersBuilder();
 
         merged.forEach((key, value) -> {
                 if (key == null || key.isBlank() || value == null) {
+                    return;
+                }
+                if (JobInstanceParameters.BUSINESS_JOB_INSTANCE_ID.equals(key)
+                        || JobInstanceParameters.BUSINESS_JOB_INSTANCE_NO.equals(key)
+                        || JobInstanceParameters.TRIGGER_SOURCE.equals(key)
+                        || JobInstanceParameters.TRIGGERED_BY.equals(key)
+                        || JobInstanceParameters.RELATED_FILE_ID.equals(key)) {
                     return;
                 }
                 if (value instanceof Number number) {
@@ -123,9 +164,27 @@ public class JobTaskSchedulerService {
                     builder.addString(key, String.valueOf(value));
                 }
             });
+        builder.addLong(JobInstanceParameters.BUSINESS_JOB_INSTANCE_ID, businessJobInstanceId);
+        builder.addString(JobInstanceParameters.BUSINESS_JOB_INSTANCE_NO, businessJobInstanceNo);
+        builder.addString(JobInstanceParameters.TRIGGER_SOURCE, "MANUAL");
+        if (triggeredBy != null && !triggeredBy.isBlank()) {
+            builder.addString(JobInstanceParameters.TRIGGERED_BY, triggeredBy);
+        }
+        Long relatedFileId = jobInstanceService.resolveRelatedFileId(merged);
+        if (relatedFileId != null) {
+            builder.addLong(JobInstanceParameters.RELATED_FILE_ID, relatedFileId);
+        }
         if (!merged.containsKey("run.id")) {
             builder.addLong("run.id", System.currentTimeMillis());
         }
         return builder.toJobParameters();
+    }
+
+    private String stringValue(Object value) {
+        if (value == null) {
+            return null;
+        }
+        String text = String.valueOf(value);
+        return text.isBlank() ? null : text;
     }
 }

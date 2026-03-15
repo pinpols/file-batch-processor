@@ -5,15 +5,18 @@ import cn.hutool.extra.ftp.FtpMode;
 import com.example.filebatchprocessor.exception.BusinessException;
 import com.example.filebatchprocessor.exception.ErrorCode;
 import com.example.filebatchprocessor.exception.SystemException;
+import com.example.filebatchprocessor.model.FileAssetRecord;
+import com.example.filebatchprocessor.model.FileDispatchRecord;
 import com.example.filebatchprocessor.model.FileDistributionTask;
 import com.example.filebatchprocessor.model.RecordTrace;
 import com.example.filebatchprocessor.repository.FileDistributionTaskRepository;
 import com.example.filebatchprocessor.repository.RecordTraceRepository;
+import lombok.extern.slf4j.Slf4j;
 import net.schmizz.sshj.SSHClient;
 import net.schmizz.sshj.sftp.SFTPClient;
 import net.schmizz.sshj.transport.verification.PromiscuousVerifier;
 import net.schmizz.sshj.xfer.FileSystemFile;
-import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,8 +28,10 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /**
  * 文件分发服务：
@@ -41,17 +46,29 @@ public class FileDistributionService {
 
     private final FileDistributionTaskRepository fileDistributionTaskRepository;
     private final RecordTraceRepository recordTraceRepository;
+    private final FileAssetService fileAssetService;
+    private final FileDispatchRecordService fileDispatchRecordService;
+    private final FileProcessLogService fileProcessLogService;
     private final HttpClient httpClient = HttpClient.newBuilder().build();
+
+    @Autowired
+    public FileDistributionService(FileDistributionTaskRepository fileDistributionTaskRepository,
+                                   RecordTraceRepository recordTraceRepository,
+                                   FileAssetService fileAssetService,
+                                   FileDispatchRecordService fileDispatchRecordService,
+                                   FileProcessLogService fileProcessLogService) {
+        this.fileDistributionTaskRepository = fileDistributionTaskRepository;
+        this.recordTraceRepository = recordTraceRepository;
+        this.fileAssetService = fileAssetService;
+        this.fileDispatchRecordService = fileDispatchRecordService;
+        this.fileProcessLogService = fileProcessLogService;
+    }
 
     public FileDistributionService(FileDistributionTaskRepository fileDistributionTaskRepository,
                                    RecordTraceRepository recordTraceRepository) {
-        this.fileDistributionTaskRepository = fileDistributionTaskRepository;
-        this.recordTraceRepository = recordTraceRepository;
+        this(fileDistributionTaskRepository, recordTraceRepository, null, null, null);
     }
 
-    /**
-     * 创建分发任务
-     */
     public FileDistributionTask createDistributionTask(
             String fileName, String filePath, String targetSystem, String targetAddress) {
         log.info("Creating distribution task: file={}, target={}://{}", fileName, targetSystem, targetAddress);
@@ -73,7 +90,16 @@ public class FileDistributionService {
             task.setMaxRetries(3);
             task.setRetryIntervalSeconds(300L);
 
+            FileAssetRecord fileRecord = resolveOrCreateFileRecord(fileName, filePath, null);
+            if (fileRecord != null) {
+                task.setFileRecordId(fileRecord.getId());
+            }
+
             FileDistributionTask saved = fileDistributionTaskRepository.save(task);
+            saved = ensureLinkage(saved);
+            logFileProcess(saved.getFileRecordId(), "createDistributionTask", "DISPATCH_CREATE",
+                    "PROCESSED", "PROCESSED", "SUCCESS", null, 0,
+                    distributionExtra(targetSystem, targetAddress, null));
             log.info("Distribution task created: id={}", saved.getId());
             return saved;
         } catch (BusinessException e) {
@@ -86,47 +112,80 @@ public class FileDistributionService {
     }
 
     public void markAsInProgress(Long taskId) {
-        FileDistributionTask task = fileDistributionTaskRepository.findById(taskId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Task not found: " + taskId));
+        FileDistributionTask task = ensureLinkage(loadTask(taskId));
 
         task.setStatus("IN_PROGRESS");
         task.setLastAttemptTime(LocalDateTime.now());
         task.setUpdatedAt(LocalDateTime.now());
-        fileDistributionTaskRepository.save(task);
+        task = fileDistributionTaskRepository.save(task);
+        FileAssetStateMachineService.TransitionResult transition = markDispatching(task);
 
         persistDistributionTrace(task, "DISTRIBUTE", "IN_PROGRESS", null);
+        logFileProcess(task.getFileRecordId(), "markAsInProgress", "DISPATCH",
+                statusFrom(transition, "PROCESSED"), statusTo(transition, "DISPATCHING"),
+                "SUCCESS", null, task.getRetryCount(),
+                distributionExtra(task.getTargetSystem(), task.getTargetAddress(), null));
     }
 
     public void markAsSuccess(Long taskId) {
-        FileDistributionTask task = fileDistributionTaskRepository.findById(taskId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Task not found: " + taskId));
+        FileDistributionTask task = ensureLinkage(loadTask(taskId));
 
         task.setStatus("SUCCESS");
         task.setCompletedTime(LocalDateTime.now());
         task.setUpdatedAt(LocalDateTime.now());
-        fileDistributionTaskRepository.save(task);
+        task = fileDistributionTaskRepository.save(task);
+
+        FileAssetStateMachineService.TransitionResult transition = null;
+        if (task.getFileRecordId() != null && fileAssetService != null) {
+            transition = fileAssetService.markDispatched(task.getFileRecordId());
+        }
+        if (fileDispatchRecordService != null) {
+            fileDispatchRecordService.markSuccess(taskId);
+        }
+        logFileProcess(task.getFileRecordId(), "markAsSuccess", "DISPATCH",
+                statusFrom(transition, "DISPATCHING"), statusTo(transition, "DISPATCHED"),
+                "SUCCESS", null, task.getRetryCount(),
+                distributionExtra(task.getTargetSystem(), task.getTargetAddress(), null));
 
         persistDistributionTrace(task, "DISTRIBUTE", "SUCCESS", null);
     }
 
     public boolean markAsFailed(Long taskId, String errorMessage) {
-        FileDistributionTask task = fileDistributionTaskRepository.findById(taskId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Task not found: " + taskId));
+        FileDistributionTask task = ensureLinkage(loadTask(taskId));
 
         task.setRetryCount(task.getRetryCount() + 1);
         task.setErrorMessage(errorMessage);
         task.setUpdatedAt(LocalDateTime.now());
 
+        FileAssetStateMachineService.TransitionResult transition = null;
         if (task.getRetryCount() < task.getMaxRetries()) {
             task.setStatus("RETRY");
             log.info("Task will be retried: id={}, retryCount={}/{}", taskId, task.getRetryCount(), task.getMaxRetries());
+            if (fileDispatchRecordService != null) {
+                fileDispatchRecordService.markRetryPending(taskId, errorMessage);
+            }
+            if (task.getFileRecordId() != null && fileAssetService != null) {
+                transition = fileAssetService.resetToProcessed(task.getFileRecordId(),
+                        retryMetadata(errorMessage, task.getRetryCount(), true));
+            }
         } else {
             task.setStatus("FAILED");
             task.setCompletedTime(LocalDateTime.now());
             log.error("Task failed after max retries: id={}", taskId);
+            if (fileDispatchRecordService != null) {
+                fileDispatchRecordService.markFailed(taskId, errorMessage);
+            }
+            if (task.getFileRecordId() != null && fileAssetService != null) {
+                transition = fileAssetService.markFailed(task.getFileRecordId(), errorMessage);
+            }
         }
 
-        fileDistributionTaskRepository.save(task);
+        task = fileDistributionTaskRepository.save(task);
+        logFileProcess(task.getFileRecordId(), "markAsFailed", "DISPATCH",
+                statusFrom(transition, "DISPATCHING"),
+                statusTo(transition, "RETRY".equals(task.getStatus()) ? "PROCESSED" : "FAILED"),
+                "FAILED", errorMessage, task.getRetryCount(),
+                distributionExtra(task.getTargetSystem(), task.getTargetAddress(), task.getStatus()));
 
         persistDistributionTrace(task, "DISTRIBUTE", task.getStatus(), errorMessage);
         return "RETRY".equals(task.getStatus());
@@ -171,9 +230,7 @@ public class FileDistributionService {
         try {
             markAsInProgress(taskId);
 
-            FileDistributionTask taskFile = fileDistributionTaskRepository.findById(taskId)
-                    .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Task not found: " + taskId));
-
+            FileDistributionTask taskFile = loadTask(taskId);
             File localFile = new File(taskFile.getFilePath());
             if (!localFile.exists()) {
                 throw new BusinessException(ErrorCode.NOT_FOUND, "Local file not found: " + taskFile.getFilePath());
@@ -218,8 +275,7 @@ public class FileDistributionService {
 
         try {
             markAsInProgress(taskId);
-            FileDistributionTask task = fileDistributionTaskRepository.findById(taskId)
-                    .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Task not found: " + taskId));
+            FileDistributionTask task = loadTask(taskId);
 
             if (task.getFilePath() == null || task.getFilePath().isBlank()) {
                 throw new BusinessException(ErrorCode.INVALID_ARGUMENT, "Local file path is required");
@@ -265,8 +321,7 @@ public class FileDistributionService {
         Ftp ftp = null;
         try {
             markAsInProgress(taskId);
-            FileDistributionTask task = fileDistributionTaskRepository.findById(taskId)
-                    .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Task not found: " + taskId));
+            FileDistributionTask task = loadTask(taskId);
 
             if (task.getFilePath() == null || task.getFilePath().isBlank()) {
                 throw new BusinessException(ErrorCode.INVALID_ARGUMENT, "Local file path is required");
@@ -312,8 +367,7 @@ public class FileDistributionService {
 
     @Transactional
     public void retryFailedTask(Long taskId) {
-        FileDistributionTask task = fileDistributionTaskRepository.findById(taskId)
-                .orElseThrow(() -> new IllegalArgumentException("Task not found: " + taskId));
+        FileDistributionTask task = ensureLinkage(loadTask(taskId));
 
         if (task.getRetryCount() >= task.getMaxRetries()) {
             log.warn("Task has exceeded max retries: id={}", taskId);
@@ -322,7 +376,13 @@ public class FileDistributionService {
 
         task.setStatus("PENDING");
         task.setUpdatedAt(LocalDateTime.now());
-        fileDistributionTaskRepository.save(task);
+        task = fileDistributionTaskRepository.save(task);
+        if (fileDispatchRecordService != null) {
+            fileDispatchRecordService.markPendingForRetry(taskId);
+        }
+        if (task.getFileRecordId() != null && fileAssetService != null) {
+            fileAssetService.resetToProcessed(task.getFileRecordId(), retryMetadata(null, task.getRetryCount(), false));
+        }
 
         log.info("Task ready for retry: id={}, nextRetry={}", taskId, task.getRetryCount() + 1);
     }
@@ -352,5 +412,137 @@ public class FileDistributionService {
             this.successCount = successCount;
             this.failedCount = failedCount;
         }
+    }
+
+    private FileDistributionTask loadTask(Long taskId) {
+        return fileDistributionTaskRepository.findById(taskId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Task not found: " + taskId));
+    }
+
+    private FileDistributionTask ensureLinkage(FileDistributionTask task) {
+        FileAssetRecord fileRecord = null;
+        if (fileAssetService != null) {
+            if (task.getFileRecordId() != null) {
+                fileRecord = fileAssetService.findById(task.getFileRecordId()).orElse(null);
+            }
+            if (fileRecord == null) {
+                fileRecord = resolveOrCreateFileRecord(task.getFileName(), task.getFilePath(), task.getId());
+                if (fileRecord != null && !fileRecord.getId().equals(task.getFileRecordId())) {
+                    task.setFileRecordId(fileRecord.getId());
+                    task.setUpdatedAt(LocalDateTime.now());
+                    task = fileDistributionTaskRepository.save(task);
+                }
+            }
+        }
+        if (fileRecord != null && fileDispatchRecordService != null && task.getId() != null
+                && fileDispatchRecordService.findByLegacyDistributionTaskId(task.getId()).isEmpty()) {
+            createDispatchRecord(fileRecord, task);
+        }
+        return task;
+    }
+
+    private FileAssetRecord resolveOrCreateFileRecord(String fileName, String filePath, Long legacyTaskId) {
+        if (fileAssetService == null) {
+            return null;
+        }
+        return fileAssetService.findLatestByStoredPath(filePath)
+                .orElseGet(() -> fileAssetService.registerOutboundFile(
+                        fileName,
+                        filePath,
+                        "FILE_DISTRIBUTION",
+                        null,
+                        null,
+                        null,
+                        "PROCESSED",
+                        outboundMetadata(legacyTaskId)
+                ));
+    }
+
+    private Map<String, Object> outboundMetadata(Long legacyTaskId) {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("createdBy", "FileDistributionService");
+        metadata.put("legacyTable", "file_distribution_task");
+        if (legacyTaskId != null) {
+            metadata.put("legacyDistributionTaskId", legacyTaskId);
+        }
+        return metadata;
+    }
+
+    private void createDispatchRecord(FileAssetRecord fileRecord, FileDistributionTask task) {
+        if (fileRecord == null || fileDispatchRecordService == null) {
+            return;
+        }
+        FileDispatchRecord ignored = fileDispatchRecordService.createPendingDispatch(
+                fileRecord,
+                task.getId(),
+                task.getTargetSystem(),
+                task.getTargetAddress(),
+                task.getMaxRetries()
+        );
+    }
+
+    private FileAssetStateMachineService.TransitionResult markDispatching(FileDistributionTask task) {
+        if (task.getFileRecordId() != null && fileAssetService != null) {
+            FileAssetStateMachineService.TransitionResult transition = fileAssetService.markDispatching(task.getFileRecordId());
+            if (fileDispatchRecordService != null) {
+                fileDispatchRecordService.markDispatching(task.getId());
+            }
+            return transition;
+        }
+        if (fileDispatchRecordService != null) {
+            fileDispatchRecordService.markDispatching(task.getId());
+        }
+        return null;
+    }
+
+    private void logFileProcess(Long fileRecordId,
+                                String stepName,
+                                String actionType,
+                                String statusFrom,
+                                String statusTo,
+                                String result,
+                                String errorMessage,
+                                Integer retryNo,
+                                Map<String, Object> extra) {
+        if (fileProcessLogService == null || fileRecordId == null) {
+            return;
+        }
+        fileProcessLogService.log(fileRecordId, stepName, actionType, statusFrom, statusTo, result,
+                null, "fileDistributionJob", retryNo, "FAILED".equals(result) ? "FILE_DISTRIBUTION_FAILED" : null,
+                errorMessage, extra);
+    }
+
+    private Map<String, Object> distributionExtra(String targetSystem, String targetAddress, String legacyStatus) {
+        Map<String, Object> extra = new LinkedHashMap<>();
+        if (targetSystem != null) {
+            extra.put("targetSystem", targetSystem);
+        }
+        if (targetAddress != null) {
+            extra.put("targetAddress", targetAddress);
+        }
+        if (legacyStatus != null) {
+            extra.put("legacyStatus", legacyStatus);
+        }
+        return extra;
+    }
+
+    private Map<String, Object> retryMetadata(String errorMessage, Integer retryCount, boolean retryPending) {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("retryPending", retryPending);
+        if (retryCount != null) {
+            metadata.put("retryCount", retryCount);
+        }
+        if (errorMessage != null && !errorMessage.isBlank()) {
+            metadata.put("lastError", errorMessage);
+        }
+        return metadata;
+    }
+
+    private String statusFrom(FileAssetStateMachineService.TransitionResult transition, String fallback) {
+        return transition == null ? fallback : transition.from().name();
+    }
+
+    private String statusTo(FileAssetStateMachineService.TransitionResult transition, String fallback) {
+        return transition == null ? fallback : transition.to().name();
     }
 }

@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.opencsv.CSVWriter;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
@@ -33,7 +34,22 @@ import java.util.zip.ZipOutputStream;
 public class FileExportService {
 
     private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
-    private final ObjectMapper objectMapper = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
+    private final ObjectMapper objectMapper;
+    private final FileAssetService fileAssetService;
+    private final FileProcessLogService fileProcessLogService;
+
+    @Autowired
+    public FileExportService(ObjectMapper objectMapper,
+                             FileAssetService fileAssetService,
+                             FileProcessLogService fileProcessLogService) {
+        this.objectMapper = objectMapper.copy().enable(SerializationFeature.INDENT_OUTPUT);
+        this.fileAssetService = fileAssetService;
+        this.fileProcessLogService = fileProcessLogService;
+    }
+
+    public FileExportService() {
+        this(new ObjectMapper(), null, null);
+    }
 
     public String exportDemoData(String outputDir, String fileName, String batchDate, String format) {
         if ("csv".equalsIgnoreCase(format)) {
@@ -89,6 +105,8 @@ public class FileExportService {
             }
 
             log.info("CSV export completed: {}", filePath);
+            registerGeneratedFile(fileName, filePath, "FILE_EXPORT", null,
+                    Map.of("format", "csv", "rowCount", data == null ? 0 : data.length));
             return filePath;
         } catch (Exception e) {
             log.error("Failed to export CSV: {}", fileName, e);
@@ -108,6 +126,8 @@ public class FileExportService {
             objectMapper.writeValue(Paths.get(filePath).toFile(), data);
 
             log.info("JSON export completed: {}", filePath);
+            registerGeneratedFile(fileName, filePath, "FILE_EXPORT", null,
+                    Map.of("format", "json", "rowCount", data == null ? 0 : data.size()));
             return filePath;
         } catch (Exception e) {
             log.error("Failed to export JSON: {}", fileName, e);
@@ -136,6 +156,8 @@ public class FileExportService {
                 }
                 writer.flush();
             }
+            registerGeneratedFile(fileName, filePath, "FILE_EXPORT", null,
+                    Map.of("format", "excel", "rowCount", data == null ? 0 : data.length));
             return filePath;
         } catch (Exception e) {
             log.error("Failed to export Excel: {}", fileName, e);
@@ -163,6 +185,8 @@ public class FileExportService {
                 zos.closeEntry();
             }
 
+            registerGeneratedFile(fileName, zipPath, "FILE_EXPORT", null,
+                    Map.of("format", "zip", "sourceFile", sourceFilePath));
             return zipPath;
         } catch (Exception e) {
             log.error("Failed to export compressed file: {}", fileName, e);
@@ -222,6 +246,30 @@ public class FileExportService {
             this.absolutePath = absolutePath;
             this.fileSize = fileSize;
             this.lastModified = lastModified;
+        }
+    }
+
+    private void registerGeneratedFile(String fileName,
+                                       String filePath,
+                                       String bizType,
+                                       String batchDate,
+                                       Map<String, Object> metadata) {
+        if (fileAssetService == null) {
+            return;
+        }
+        var fileRecord = fileAssetService.registerOutboundFile(
+                fileName,
+                filePath,
+                bizType,
+                batchDate,
+                null,
+                null,
+                "PROCESSED",
+                metadata
+        );
+        if (fileProcessLogService != null) {
+            fileProcessLogService.log(fileRecord.getId(), "exportFile", "EXPORT", null, "PROCESSED",
+                    "SUCCESS", null, "fileExportJob", 0, null, null, metadata);
         }
     }
 }

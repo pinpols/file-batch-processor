@@ -1,5 +1,6 @@
 package com.example.filebatchprocessor.batch.config;
 
+import com.example.filebatchprocessor.listener.JobCompletionNotificationListener;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.builder.JobBuilder;
@@ -44,9 +45,11 @@ public class OpsNoopJobConfig {
             "opsNoopJob",
             "batchRestartJob"
     })
-    public Job opsNoopJob(@Qualifier("opsNoopStep") Step opsNoopStep) {
+    public Job opsNoopJob(@Qualifier("opsNoopStep") Step opsNoopStep,
+                          JobCompletionNotificationListener listener) {
         return new JobBuilder("opsNoopJob", jobRepository)
                 .incrementer(new RunIdIncrementer())
+                .listener(listener)
                 .start(opsNoopStep)
                 .build();
     }

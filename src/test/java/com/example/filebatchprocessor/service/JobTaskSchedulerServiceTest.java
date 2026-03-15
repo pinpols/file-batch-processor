@@ -1,5 +1,6 @@
 package com.example.filebatchprocessor.service;
 
+import com.example.filebatchprocessor.model.BusinessJobInstance;
 import com.example.filebatchprocessor.model.TaskDefinition;
 import org.junit.jupiter.api.Test;
 import org.springframework.batch.core.BatchStatus;
@@ -29,8 +30,9 @@ class JobTaskSchedulerServiceTest {
         BatchJobResolver batchJobResolver = mock(BatchJobResolver.class);
         JobOperator jobOperator = mock(JobOperator.class);
         TaskConfigService taskConfigService = mock(TaskConfigService.class);
+        JobInstanceService jobInstanceService = mock(JobInstanceService.class);
 
-        JobTaskSchedulerService service = new JobTaskSchedulerService(jobLauncher, batchJobResolver, jobOperator, taskConfigService);
+        JobTaskSchedulerService service = new JobTaskSchedulerService(jobLauncher, batchJobResolver, jobOperator, taskConfigService, jobInstanceService);
 
         TaskDefinition def = new TaskDefinition();
         def.setTaskId("task-import");
@@ -38,6 +40,10 @@ class JobTaskSchedulerServiceTest {
         when(taskConfigService.getTaskDefinition("task-import")).thenReturn(def);
         when(taskConfigService.getTaskParametersAsMap("task-import"))
                 .thenReturn(new HashMap<>(Map.of("batchDate", "2026-03-14", "source", "db-default")));
+        BusinessJobInstance businessJobInstance = new BusinessJobInstance();
+        businessJobInstance.setId(501L);
+        businessJobInstance.setJobInstanceNo("JI-20260315-ABCD1234");
+        when(jobInstanceService.createTriggeredInstance(any())).thenReturn(businessJobInstance);
 
         Job job = mock(Job.class);
         when(batchJobResolver.resolve("processFileJob"))
@@ -67,10 +73,15 @@ class JobTaskSchedulerServiceTest {
         BatchJobResolver batchJobResolver = mock(BatchJobResolver.class);
         JobOperator jobOperator = mock(JobOperator.class);
         TaskConfigService taskConfigService = mock(TaskConfigService.class);
-        JobTaskSchedulerService service = new JobTaskSchedulerService(jobLauncher, batchJobResolver, jobOperator, taskConfigService);
+        JobInstanceService jobInstanceService = mock(JobInstanceService.class);
+        JobTaskSchedulerService service = new JobTaskSchedulerService(jobLauncher, batchJobResolver, jobOperator, taskConfigService, jobInstanceService);
 
         when(taskConfigService.getTaskDefinition("dataExportJob")).thenThrow(new IllegalArgumentException("not found"));
         when(taskConfigService.getTaskParametersAsMap("dataExportJob")).thenReturn(Map.of());
+        BusinessJobInstance businessJobInstance = new BusinessJobInstance();
+        businessJobInstance.setId(502L);
+        businessJobInstance.setJobInstanceNo("JI-20260315-EFGH5678");
+        when(jobInstanceService.createTriggeredInstance(any())).thenReturn(businessJobInstance);
 
         Job job = mock(Job.class);
         when(batchJobResolver.resolve("dataExportJob"))
@@ -91,7 +102,8 @@ class JobTaskSchedulerServiceTest {
                 mock(JobLauncher.class),
                 mock(BatchJobResolver.class),
                 mock(JobOperator.class),
-                mock(TaskConfigService.class)
+                mock(TaskConfigService.class),
+                mock(JobInstanceService.class)
         );
 
         String result = service.triggerJob(" ", Map.of(), "tester");
@@ -104,7 +116,7 @@ class JobTaskSchedulerServiceTest {
         BatchJobResolver batchJobResolver = mock(BatchJobResolver.class);
         JobOperator jobOperator = mock(JobOperator.class);
         TaskConfigService taskConfigService = mock(TaskConfigService.class);
-        JobTaskSchedulerService service = new JobTaskSchedulerService(jobLauncher, batchJobResolver, jobOperator, taskConfigService);
+        JobTaskSchedulerService service = new JobTaskSchedulerService(jobLauncher, batchJobResolver, jobOperator, taskConfigService, mock(JobInstanceService.class));
 
         when(jobOperator.restart(88L)).thenReturn(99L);
         String retryResult = service.retryJobExecution(88L, "operator");
@@ -121,7 +133,8 @@ class JobTaskSchedulerServiceTest {
                 mock(JobLauncher.class),
                 mock(BatchJobResolver.class),
                 jobOperator,
-                mock(TaskConfigService.class)
+                mock(TaskConfigService.class),
+                mock(JobInstanceService.class)
         );
 
         service.stopJobExecution(null, "operator");

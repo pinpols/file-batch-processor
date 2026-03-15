@@ -105,6 +105,16 @@ batch:
     duplicate:
       max-rate: 0.0
       min-lines: 100
+  file:
+    reception:
+      partial:
+        # 半文件防护：拒绝临时后缀名，必要时要求 .done，兜底做稳定大小检测
+        temp-suffixes: .part,.tmp,.upload
+        require-done-marker: false
+        done-marker-suffix: .done
+        stable-size-check-enabled: true
+        stable-size-check-rounds: 2
+        stable-size-check-interval-ms: 200
 
 orchestration:
   # 配置来源：db（推荐）| yaml（仅 local/dev）

@@ -159,9 +159,10 @@ class FileImportJobConfigTest {
     void shouldCreateDlqReplayJob() {
         // Given
         Step dlqReplayStep = mock(Step.class);
+        JobCompletionNotificationListener listener = mock(JobCompletionNotificationListener.class);
         
         // When
-        Job job = fileImportJobConfig.dlqReplayJob(dlqReplayStep);
+        Job job = fileImportJobConfig.dlqReplayJob(dlqReplayStep, listener);
         
         // Then
         assertNotNull(job);
