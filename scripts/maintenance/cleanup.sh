@@ -32,8 +32,8 @@ find . -name "*.bak" -type f -delete 2>/dev/null || true
 
 # 清理自动生成的文档
 echo "📚 清理自动生成的文档..."
-rm -f docs/other/dag-*-graph.generated.md 2>/dev/null || true
-rm -f docs/other/dag-complex-template.sql 2>/dev/null || true
+rm -f docs/todo_analysis_plans/dag-*-graph.generated.md 2>/dev/null || true
+rm -f docs/todo_analysis_plans/dag-complex-template.sql 2>/dev/null || true
 
 # 清理 IDE 文件（保留配置）
 echo "💻 清理 IDE 文件..."
