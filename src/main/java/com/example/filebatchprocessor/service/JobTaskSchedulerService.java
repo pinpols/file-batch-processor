@@ -25,17 +25,20 @@ public class JobTaskSchedulerService {
     private final JobOperator jobOperator;
     private final TaskConfigService taskConfigService;
     private final JobInstanceService jobInstanceService;
+    private final RetryCompensationService retryCompensationService;
 
     public JobTaskSchedulerService(@Qualifier("asyncJobLauncher") JobLauncher jobLauncher,
                                    BatchJobResolver batchJobResolver,
                                    JobOperator jobOperator,
                                    TaskConfigService taskConfigService,
-                                   JobInstanceService jobInstanceService) {
+                                   JobInstanceService jobInstanceService,
+                                   RetryCompensationService retryCompensationService) {
         this.jobLauncher = jobLauncher;
         this.batchJobResolver = batchJobResolver;
         this.jobOperator = jobOperator;
         this.taskConfigService = taskConfigService;
         this.jobInstanceService = jobInstanceService;
+        this.retryCompensationService = retryCompensationService;
     }
 
     /**
@@ -95,7 +98,11 @@ public class JobTaskSchedulerService {
                 return "Failed to retry job execution: executionId is required";
             }
             log.info("Retrying job execution: {} by: {}", executionId, triggeredBy);
-            long restartedExecutionId = jobOperator.restart(executionId);
+            long restartedExecutionId = retryCompensationService.restartExecution(
+                    executionId,
+                    triggeredBy,
+                    "Manual retry from jobTaskSchedulerService"
+            );
             return "Job retried: executionId=" + executionId + ", restartedExecutionId=" + restartedExecutionId;
         } catch (Exception e) {
             log.error("Failed to retry job execution: {}", executionId, e);

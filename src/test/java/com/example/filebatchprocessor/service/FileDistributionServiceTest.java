@@ -1,5 +1,7 @@
 package com.example.filebatchprocessor.service;
 
+import com.example.filebatchprocessor.model.BusinessJobInstance;
+import com.example.filebatchprocessor.model.CompensationRecord;
 import com.example.filebatchprocessor.model.FileDistributionTask;
 import com.example.filebatchprocessor.model.FileAssetRecord;
 import com.example.filebatchprocessor.repository.FileDistributionTaskRepository;
@@ -30,8 +32,9 @@ class FileDistributionServiceTest {
         FileAssetService fileAssetService = mock(FileAssetService.class);
         FileDispatchRecordService fileDispatchRecordService = mock(FileDispatchRecordService.class);
         FileProcessLogService fileProcessLogService = mock(FileProcessLogService.class);
+        RetryCompensationService retryCompensationService = mock(RetryCompensationService.class);
         FileDistributionService service = new FileDistributionService(
-                repository, traceRepository, fileAssetService, fileDispatchRecordService, fileProcessLogService);
+                repository, traceRepository, fileAssetService, fileDispatchRecordService, fileProcessLogService, retryCompensationService);
 
         Path tempFile = Files.createTempFile("dist", ".dat");
         Files.writeString(tempFile, "payload");
@@ -64,8 +67,9 @@ class FileDistributionServiceTest {
         FileAssetService fileAssetService = mock(FileAssetService.class);
         FileDispatchRecordService fileDispatchRecordService = mock(FileDispatchRecordService.class);
         FileProcessLogService fileProcessLogService = mock(FileProcessLogService.class);
+        RetryCompensationService retryCompensationService = mock(RetryCompensationService.class);
         FileDistributionService service = new FileDistributionService(
-                repository, traceRepository, fileAssetService, fileDispatchRecordService, fileProcessLogService);
+                repository, traceRepository, fileAssetService, fileDispatchRecordService, fileProcessLogService, retryCompensationService);
 
         FileDistributionTask task = new FileDistributionTask();
         task.setId(1L);
@@ -100,8 +104,9 @@ class FileDistributionServiceTest {
         FileAssetService fileAssetService = mock(FileAssetService.class);
         FileDispatchRecordService fileDispatchRecordService = mock(FileDispatchRecordService.class);
         FileProcessLogService fileProcessLogService = mock(FileProcessLogService.class);
+        RetryCompensationService retryCompensationService = mock(RetryCompensationService.class);
         FileDistributionService service = new FileDistributionService(
-                repository, traceRepository, fileAssetService, fileDispatchRecordService, fileProcessLogService);
+                repository, traceRepository, fileAssetService, fileDispatchRecordService, fileProcessLogService, retryCompensationService);
 
         FileDistributionTask task = new FileDistributionTask();
         task.setId(10L);
@@ -122,5 +127,49 @@ class FileDistributionServiceTest {
         service.distributeByFTP(10L, "127.0.0.1", 21, "u", "p", "/tmp");
         assertEquals("FAILED", task.getStatus());
         verify(fileAssetService, times(1)).markFailed(eq(999L), any());
+    }
+
+    @Test
+    void shouldCreateCompensationRecordWhenRetryingFailedTask() {
+        FileDistributionTaskRepository repository = mock(FileDistributionTaskRepository.class);
+        RecordTraceRepository traceRepository = mock(RecordTraceRepository.class);
+        FileAssetService fileAssetService = mock(FileAssetService.class);
+        FileDispatchRecordService fileDispatchRecordService = mock(FileDispatchRecordService.class);
+        FileProcessLogService fileProcessLogService = mock(FileProcessLogService.class);
+        RetryCompensationService retryCompensationService = mock(RetryCompensationService.class);
+        FileDistributionService service = new FileDistributionService(
+                repository, traceRepository, fileAssetService, fileDispatchRecordService, fileProcessLogService, retryCompensationService);
+
+        FileDistributionTask task = new FileDistributionTask();
+        task.setId(21L);
+        task.setStatus("RETRY");
+        task.setRetryCount(1);
+        task.setMaxRetries(3);
+        task.setFileRecordId(88L);
+        task.setTargetSystem("HTTP");
+        task.setTargetAddress("http://retry");
+
+        FileAssetRecord fileRecord = new FileAssetRecord();
+        fileRecord.setId(88L);
+
+        BusinessJobInstance jobInstance = new BusinessJobInstance();
+        jobInstance.setId(700L);
+
+        CompensationRecord compensationRecord = new CompensationRecord();
+        compensationRecord.setId(901L);
+
+        when(repository.findById(21L)).thenReturn(Optional.of(task));
+        when(repository.save(any(FileDistributionTask.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(fileAssetService.findById(88L)).thenReturn(Optional.of(fileRecord));
+        when(retryCompensationService.findLatestJobInstanceByRelatedFileId(88L)).thenReturn(Optional.of(jobInstance));
+        when(retryCompensationService.startCompensation(any())).thenReturn(compensationRecord);
+
+        service.retryFailedTask(21L, "operator", "manual distribution retry");
+
+        assertEquals("PENDING", task.getStatus());
+        verify(fileDispatchRecordService).markPendingForRetry(21L);
+        verify(fileAssetService).resetToProcessed(eq(88L), any());
+        verify(retryCompensationService).startCompensation(any());
+        verify(retryCompensationService).completeCompensation(eq(901L), eq(700L), eq(null), any());
     }
 }

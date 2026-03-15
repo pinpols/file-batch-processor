@@ -13,5 +13,7 @@ public interface BusinessJobInstanceRepository extends JpaRepository<BusinessJob
 
     Optional<BusinessJobInstance> findBySpringBatchExecutionId(Long springBatchExecutionId);
 
+    Optional<BusinessJobInstance> findFirstByRelatedFileIdOrderByCreatedAtDesc(Long relatedFileId);
+
     Page<BusinessJobInstance> findByTaskIdOrderByCreatedAtDesc(String taskId, Pageable pageable);
 }

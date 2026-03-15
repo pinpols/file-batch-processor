@@ -5,6 +5,8 @@ import cn.hutool.extra.ftp.FtpMode;
 import com.example.filebatchprocessor.exception.BusinessException;
 import com.example.filebatchprocessor.exception.ErrorCode;
 import com.example.filebatchprocessor.exception.SystemException;
+import com.example.filebatchprocessor.model.BusinessJobInstance;
+import com.example.filebatchprocessor.model.CompensationActionType;
 import com.example.filebatchprocessor.model.FileAssetRecord;
 import com.example.filebatchprocessor.model.FileDispatchRecord;
 import com.example.filebatchprocessor.model.FileDistributionTask;
@@ -49,6 +51,7 @@ public class FileDistributionService {
     private final FileAssetService fileAssetService;
     private final FileDispatchRecordService fileDispatchRecordService;
     private final FileProcessLogService fileProcessLogService;
+    private final RetryCompensationService retryCompensationService;
     private final HttpClient httpClient = HttpClient.newBuilder().build();
 
     @Autowired
@@ -56,17 +59,19 @@ public class FileDistributionService {
                                    RecordTraceRepository recordTraceRepository,
                                    FileAssetService fileAssetService,
                                    FileDispatchRecordService fileDispatchRecordService,
-                                   FileProcessLogService fileProcessLogService) {
+                                   FileProcessLogService fileProcessLogService,
+                                   RetryCompensationService retryCompensationService) {
         this.fileDistributionTaskRepository = fileDistributionTaskRepository;
         this.recordTraceRepository = recordTraceRepository;
         this.fileAssetService = fileAssetService;
         this.fileDispatchRecordService = fileDispatchRecordService;
         this.fileProcessLogService = fileProcessLogService;
+        this.retryCompensationService = retryCompensationService;
     }
 
     public FileDistributionService(FileDistributionTaskRepository fileDistributionTaskRepository,
                                    RecordTraceRepository recordTraceRepository) {
-        this(fileDistributionTaskRepository, recordTraceRepository, null, null, null);
+        this(fileDistributionTaskRepository, recordTraceRepository, null, null, null, null);
     }
 
     public FileDistributionTask createDistributionTask(
@@ -367,10 +372,40 @@ public class FileDistributionService {
 
     @Transactional
     public void retryFailedTask(Long taskId) {
+        retryFailedTask(taskId, "SYSTEM", "Automatic distribution retry");
+    }
+
+    @Transactional
+    public void retryFailedTask(Long taskId, String operatorName, String reason) {
         FileDistributionTask task = ensureLinkage(loadTask(taskId));
+        Long targetJobInstanceId = task.getFileRecordId() == null || retryCompensationService == null
+                ? null
+                : retryCompensationService.findLatestJobInstanceByRelatedFileId(task.getFileRecordId())
+                .map(BusinessJobInstance::getId)
+                .orElse(null);
+        Long compensationRecordId = retryCompensationService == null ? null
+                : retryCompensationService.startCompensation(
+                        new RetryCompensationService.StartRequest(
+                                CompensationActionType.FILE_RETRY,
+                                targetJobInstanceId,
+                                null,
+                                task.getFileRecordId(),
+                                null,
+                                task.getId(),
+                                null,
+                                operatorName,
+                                reason,
+                                retryCompensationPayload(task)
+                        )
+                ).getId();
 
         if (task.getRetryCount() >= task.getMaxRetries()) {
-            log.warn("Task has exceeded max retries: id={}", taskId);
+            String message = "Task has exceeded max retries: id=" + taskId;
+            log.warn(message);
+            if (retryCompensationService != null) {
+                retryCompensationService.failCompensation(compensationRecordId, targetJobInstanceId, null, message,
+                        Map.of("taskId", taskId));
+            }
             return;
         }
 
@@ -385,6 +420,13 @@ public class FileDistributionService {
         }
 
         log.info("Task ready for retry: id={}, nextRetry={}", taskId, task.getRetryCount() + 1);
+        if (retryCompensationService != null) {
+            retryCompensationService.completeCompensation(compensationRecordId, targetJobInstanceId, null, Map.of(
+                    "taskId", taskId,
+                    "status", task.getStatus(),
+                    "nextRetryCount", task.getRetryCount() + 1
+            ));
+        }
     }
 
     public FileDistributionStats getStatistics() {
@@ -524,6 +566,14 @@ public class FileDistributionService {
             extra.put("legacyStatus", legacyStatus);
         }
         return extra;
+    }
+
+    private Map<String, Object> retryCompensationPayload(FileDistributionTask task) {
+        Map<String, Object> payload = distributionExtra(task.getTargetSystem(), task.getTargetAddress(), task.getStatus());
+        payload.put("taskId", task.getId());
+        payload.put("retryCount", task.getRetryCount());
+        payload.put("maxRetries", task.getMaxRetries());
+        return payload;
     }
 
     private Map<String, Object> retryMetadata(String errorMessage, Integer retryCount, boolean retryPending) {
