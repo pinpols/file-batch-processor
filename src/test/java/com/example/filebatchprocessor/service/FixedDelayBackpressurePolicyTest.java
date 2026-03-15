@@ -50,6 +50,7 @@ class FixedDelayBackpressurePolicyTest {
                 mock(SchedulerLeaderService.class),
                 mock(SchedulerQueueService.class),
                 mock(TaskExecutionAuditService.class),
+                mock(JobInstanceService.class),
                 mock(DlqRecordRepository.class),
                 quartzScheduler,
                 mock(ThreadPoolTaskExecutor.class),

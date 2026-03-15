@@ -2,6 +2,8 @@ package com.example.filebatchprocessor.batch.scheduler;
 
 import com.example.filebatchprocessor.scheduler.OrchestrationTaskDefinition;
 import com.example.filebatchprocessor.service.BatchJobResolver;
+import com.example.filebatchprocessor.service.JobInstanceParameters;
+import com.example.filebatchprocessor.service.JobInstanceService;
 import lombok.Builder;
 import lombok.Getter;
 import org.springframework.batch.core.BatchStatus;
@@ -30,11 +32,17 @@ class LaunchExecutor {
             "task.id",
             "priority",
             "shard.index",
-            "shard.total"
+            "shard.total",
+            JobInstanceParameters.BUSINESS_JOB_INSTANCE_ID,
+            JobInstanceParameters.BUSINESS_JOB_INSTANCE_NO,
+            JobInstanceParameters.TRIGGER_SOURCE,
+            JobInstanceParameters.TRIGGERED_BY,
+            JobInstanceParameters.RELATED_FILE_ID
     );
 
     private final JobLauncher jobLauncher;
     private final BatchJobResolver jobResolver;
+    private final JobInstanceService jobInstanceService;
     private final Semaphore launchPermits;
     private final Map<String, Semaphore> jobLaunchLocks = new ConcurrentHashMap<>();
     private final int defaultDynamicShardMax;
@@ -42,11 +50,13 @@ class LaunchExecutor {
 
     LaunchExecutor(JobLauncher jobLauncher,
                    BatchJobResolver jobResolver,
+                   JobInstanceService jobInstanceService,
                    Semaphore launchPermits,
                    int defaultDynamicShardMax,
                    long defaultTimeoutMs) {
         this.jobLauncher = jobLauncher;
         this.jobResolver = jobResolver;
+        this.jobInstanceService = jobInstanceService;
         this.launchPermits = launchPermits;
         this.defaultDynamicShardMax = Math.max(1, defaultDynamicShardMax);
         this.defaultTimeoutMs = Math.max(1000, defaultTimeoutMs);
@@ -83,10 +93,10 @@ class LaunchExecutor {
                     + "-s" + shardIndex
                     + "-of" + shardTotal
                     + "-" + System.nanoTime();
-            JobParameters parameters = buildJobParameters(def, taskParameters, batchDate, executionId, shardIndex, shardTotal);
 
             boolean permitAcquired = false;
             boolean jobLockAcquired = false;
+            Long jobInstanceId = null;
             try {
                 permitAcquired = launchPermits.tryAcquire(1, TimeUnit.SECONDS);
                 if (!permitAcquired) {
@@ -96,6 +106,33 @@ class LaunchExecutor {
                 if (!jobLockAcquired) {
                     return LaunchResult.reschedule();
                 }
+                var businessInstance = jobInstanceService.createTriggeredInstance(
+                        new JobInstanceService.CreateRequest(
+                                def.getId(),
+                                def.getJobName(),
+                                "SCHEDULER",
+                                null,
+                                batchDate,
+                                taskParameters.get("batchNo"),
+                                executionId,
+                                !rerunId.isBlank(),
+                                false,
+                                false,
+                                jobInstanceService.resolveRelatedFileId(taskParameters),
+                                buildRequestPayload(taskParameters, executionId, shardIndex, shardTotal)
+                        )
+                );
+                jobInstanceId = businessInstance.getId();
+                JobParameters parameters = buildJobParameters(
+                        def,
+                        taskParameters,
+                        batchDate,
+                        executionId,
+                        shardIndex,
+                        shardTotal,
+                        businessInstance.getId(),
+                        businessInstance.getJobInstanceNo()
+                );
                 JobExecution execution = runWithTimeout(job, parameters, timeoutMs);
                 if (execution != null && execution.getStatus() == BatchStatus.FAILED) {
                     failedShards++;
@@ -105,6 +142,9 @@ class LaunchExecutor {
             } catch (Exception e) {
                 log.warn("Launch failed: taskId={} jobName={} shardIndex={} reason={}",
                         def.getId(), def.getJobName(), shardIndex, e.toString(), e);
+                if (jobInstanceId != null) {
+                    jobInstanceService.markLaunchFailed(jobInstanceId, e.getMessage());
+                }
                 failedShards++;
             } finally {
                 if (jobLockAcquired) {
@@ -172,25 +212,45 @@ class LaunchExecutor {
                                              String batchDate,
                                              String executionId,
                                              int shardIndex,
-                                             int shardTotal) {
+                                             int shardTotal,
+                                             Long businessJobInstanceId,
+                                             String businessJobInstanceNo) {
         JobParametersBuilder builder = new JobParametersBuilder()
                 .addString("execution.id", executionId)
                 .addLong("time", System.currentTimeMillis())
                 .addString("task.id", def.getId())
                 .addLong("priority", (long) def.getPriority().weight())
                 .addLong("shard.index", (long) shardIndex)
-                .addLong("shard.total", (long) shardTotal);
+                .addLong("shard.total", (long) shardTotal)
+                .addLong(JobInstanceParameters.BUSINESS_JOB_INSTANCE_ID, businessJobInstanceId)
+                .addString(JobInstanceParameters.BUSINESS_JOB_INSTANCE_NO, businessJobInstanceNo)
+                .addString(JobInstanceParameters.TRIGGER_SOURCE, "SCHEDULER");
         taskParameters.forEach((k, v) -> {
             if (k == null || RESERVED_PARAMETERS.contains(k) || v == null) {
                 return;
             }
             builder.addString(k, v);
         });
+        Long relatedFileId = jobInstanceService.resolveRelatedFileId(taskParameters);
+        if (relatedFileId != null) {
+            builder.addLong(JobInstanceParameters.RELATED_FILE_ID, relatedFileId);
+        }
         String configuredBatchDate = taskParameters.get("batchDate");
         if (configuredBatchDate == null || configuredBatchDate.isBlank()) {
             builder.addString("batchDate", batchDate);
         }
         return builder.toJobParameters();
+    }
+
+    private Map<String, Object> buildRequestPayload(Map<String, String> taskParameters,
+                                                    String executionId,
+                                                    int shardIndex,
+                                                    int shardTotal) {
+        Map<String, Object> payload = new HashMap<>(taskParameters);
+        payload.put("execution.id", executionId);
+        payload.put("shard.index", shardIndex);
+        payload.put("shard.total", shardTotal);
+        return payload;
     }
 
     @Getter

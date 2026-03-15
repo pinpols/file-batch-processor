@@ -6,6 +6,9 @@ import com.example.filebatchprocessor.model.QualityGateResult;
 import com.example.filebatchprocessor.repository.BatchRunRecordRepository;
 import com.example.filebatchprocessor.repository.ImportedRecordRepository;
 import com.example.filebatchprocessor.repository.QualityGateResultRepository;
+import com.example.filebatchprocessor.service.FileAssetService;
+import com.example.filebatchprocessor.service.FileProcessLogService;
+import com.example.filebatchprocessor.service.JobInstanceService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.batch.core.BatchStatus;
@@ -20,6 +23,9 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Collection;
+import java.util.Map;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 @Component
 public class JobCompletionNotificationListener implements JobExecutionListener {
@@ -28,17 +34,26 @@ public class JobCompletionNotificationListener implements JobExecutionListener {
     private final BatchRunRecordRepository batchRunRecordRepository;
     private final ImportedRecordRepository importedRecordRepository;
     private final QualityGateResultRepository qualityGateResultRepository;
+    private final FileAssetService fileAssetService;
+    private final FileProcessLogService fileProcessLogService;
+    private final JobInstanceService jobInstanceService;
     private final double defaultDuplicateMaxRate;
     private final long defaultDuplicateMinLines;
 
     public JobCompletionNotificationListener(BatchRunRecordRepository batchRunRecordRepository,
                                              ImportedRecordRepository importedRecordRepository,
                                              QualityGateResultRepository qualityGateResultRepository,
+                                             FileAssetService fileAssetService,
+                                             FileProcessLogService fileProcessLogService,
+                                             JobInstanceService jobInstanceService,
                                              @org.springframework.beans.factory.annotation.Value("${batch.import.duplicate.max-rate:0.0}") double defaultDuplicateMaxRate,
                                              @org.springframework.beans.factory.annotation.Value("${batch.import.duplicate.min-lines:100}") long defaultDuplicateMinLines) {
         this.batchRunRecordRepository = batchRunRecordRepository;
         this.importedRecordRepository = importedRecordRepository;
         this.qualityGateResultRepository = qualityGateResultRepository;
+        this.fileAssetService = fileAssetService;
+        this.fileProcessLogService = fileProcessLogService;
+        this.jobInstanceService = jobInstanceService;
         this.defaultDuplicateMaxRate = Math.max(0.0, defaultDuplicateMaxRate);
         this.defaultDuplicateMinLines = Math.max(1L, defaultDuplicateMinLines);
     }
@@ -47,6 +62,7 @@ public class JobCompletionNotificationListener implements JobExecutionListener {
     public void beforeJob(JobExecution jobExecution) {
         log.info("Starting job: {}", jobExecution.getJobInstance().getJobName());
         log.info("Job parameters: {}", jobExecution.getJobParameters());
+        jobInstanceService.markRunning(jobExecution);
         upsertBatchRun(jobExecution, "RUNNING");
     }
 
@@ -68,11 +84,13 @@ public class JobCompletionNotificationListener implements JobExecutionListener {
             evaluatePostImportQuality(jobExecution);
             evaluateDuplicateRate(jobExecution);
             evaluatePostExportQuality(jobExecution);
+            registerGeneratedExportFile(jobExecution);
         } else if (status == BatchStatus.FAILED) {
             handleJobFailure(jobExecution);
         }
 
         logJobSummary(jobExecution);
+        jobInstanceService.completeFromBatch(jobExecution);
         upsertBatchRun(jobExecution, status.name());
     }
 
@@ -365,5 +383,42 @@ public class JobCompletionNotificationListener implements JobExecutionListener {
         } catch (Exception ex) {
             log.error("Failed to persist batch run audit record for executionId={}", jobExecution.getId(), ex);
         }
+    }
+
+    private void registerGeneratedExportFile(JobExecution jobExecution) {
+        String jobName = jobExecution.getJobInstance().getJobName();
+        if (!"dataExportJob".equals(jobName)) {
+            return;
+        }
+
+        String outputFileName = jobExecution.getJobParameters().getString("output.file.name");
+        if (outputFileName == null || outputFileName.isBlank()) {
+            outputFileName = "export/output.csv";
+        }
+
+        Path outputPath = Path.of(outputFileName);
+        if (!Files.exists(outputPath)) {
+            log.warn("Skip registering export file asset because file does not exist: {}", outputPath);
+            return;
+        }
+
+        String batchDate = jobExecution.getJobParameters().getString("batchDate");
+        var fileRecord = fileAssetService.registerOutboundFile(
+                outputPath.getFileName().toString(),
+                outputPath.toString(),
+                "DATA_EXPORT",
+                batchDate,
+                null,
+                null,
+                "PROCESSED",
+                Map.of(
+                        "jobName", jobName,
+                        "jobExecutionId", jobExecution.getId(),
+                        "source", "JobCompletionNotificationListener"
+                )
+        );
+        fileProcessLogService.log(fileRecord.getId(), "afterJob", "EXPORT", null, "PROCESSED",
+                "SUCCESS", null, jobName, 0, null, null,
+                Map.of("jobExecutionId", jobExecution.getId(), "outputFileName", outputFileName));
     }
 }

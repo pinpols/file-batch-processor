@@ -1,5 +1,6 @@
 package com.example.filebatchprocessor.config;
 
+import com.example.filebatchprocessor.listener.JobCompletionNotificationListener;
 import com.example.filebatchprocessor.model.ReconcileRunRecord;
 import com.example.filebatchprocessor.model.ReconcileDiffRecord;
 import com.example.filebatchprocessor.params.ReconcileJobParams;
@@ -239,9 +240,11 @@ public class ReconcileJobConfig {
     }
 
     @Bean
-    public Job reconcileImportJob(Step reconcileImportStep) {
+    public Job reconcileImportJob(Step reconcileImportStep,
+                                  JobCompletionNotificationListener listener) {
         return new JobBuilder("reconcileImportJob", jobRepository)
                 .incrementer(new RunIdIncrementer())
+                .listener(listener)
                 .start(reconcileImportStep)
                 .build();
     }

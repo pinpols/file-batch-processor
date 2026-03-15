@@ -7,6 +7,7 @@ import com.example.filebatchprocessor.model.ImportedRecordPartitioned;
 import com.example.filebatchprocessor.repository.FileDistributionTaskRepository;
 import com.example.filebatchprocessor.repository.ImportedRecordPartitionedRepository;
 import com.example.filebatchprocessor.repository.ImportedRecordRepository;
+import com.example.filebatchprocessor.listener.JobCompletionNotificationListener;
 import com.example.filebatchprocessor.service.FileDistributionService;
 import com.example.filebatchprocessor.service.FileExportService;
 import com.example.filebatchprocessor.service.FileReceptionService;
@@ -79,9 +80,11 @@ public class OperationalTaskJobConfig {
     }
 
     @Bean("partitionedImportJob")
-    public Job partitionedImportJob(Step partitionedImportStep) {
+    public Job partitionedImportJob(Step partitionedImportStep,
+                                    JobCompletionNotificationListener listener) {
         return new JobBuilder("partitionedImportJob", jobRepository)
                 .incrementer(new RunIdIncrementer())
+                .listener(listener)
                 .start(partitionedImportStep)
                 .build();
     }
@@ -130,9 +133,11 @@ public class OperationalTaskJobConfig {
     }
 
     @Bean("fileExportJob")
-    public Job fileExportJob(Step fileExportStep) {
+    public Job fileExportJob(Step fileExportStep,
+                             JobCompletionNotificationListener listener) {
         return new JobBuilder("fileExportJob", jobRepository)
                 .incrementer(new RunIdIncrementer())
+                .listener(listener)
                 .start(fileExportStep)
                 .build();
     }
@@ -146,6 +151,7 @@ public class OperationalTaskJobConfig {
             for (FileReceptionQueue file : pendingFiles) {
                 try {
                     if (fileReceptionService.verifyFileIntegrity(file.getId())) {
+                        fileReceptionService.markAsReady(file.getId());
                         fileReceptionService.markAsProcessing(file.getId());
                         fileReceptionService.markAsCompleted(file.getId());
                         completed++;
@@ -170,9 +176,11 @@ public class OperationalTaskJobConfig {
     }
 
     @Bean("fileReceptionJob")
-    public Job fileReceptionJob(Step fileReceptionStep) {
+    public Job fileReceptionJob(Step fileReceptionStep,
+                                JobCompletionNotificationListener listener) {
         return new JobBuilder("fileReceptionJob", jobRepository)
                 .incrementer(new RunIdIncrementer())
+                .listener(listener)
                 .start(fileReceptionStep)
                 .build();
     }
@@ -199,9 +207,11 @@ public class OperationalTaskJobConfig {
     }
 
     @Bean("fileReceptionTimeoutJob")
-    public Job fileReceptionTimeoutJob(Step fileReceptionTimeoutStep) {
+    public Job fileReceptionTimeoutJob(Step fileReceptionTimeoutStep,
+                                       JobCompletionNotificationListener listener) {
         return new JobBuilder("fileReceptionTimeoutJob", jobRepository)
                 .incrementer(new RunIdIncrementer())
+                .listener(listener)
                 .start(fileReceptionTimeoutStep)
                 .build();
     }
@@ -227,9 +237,11 @@ public class OperationalTaskJobConfig {
     }
 
     @Bean("fileDistributionJob")
-    public Job fileDistributionJob(Step fileDistributionStep) {
+    public Job fileDistributionJob(Step fileDistributionStep,
+                                   JobCompletionNotificationListener listener) {
         return new JobBuilder("fileDistributionJob", jobRepository)
                 .incrementer(new RunIdIncrementer())
+                .listener(listener)
                 .start(fileDistributionStep)
                 .build();
     }
@@ -261,9 +273,11 @@ public class OperationalTaskJobConfig {
     }
 
     @Bean("fileDistributionRetryJob")
-    public Job fileDistributionRetryJob(Step fileDistributionRetryStep) {
+    public Job fileDistributionRetryJob(Step fileDistributionRetryStep,
+                                        JobCompletionNotificationListener listener) {
         return new JobBuilder("fileDistributionRetryJob", jobRepository)
                 .incrementer(new RunIdIncrementer())
+                .listener(listener)
                 .start(fileDistributionRetryStep)
                 .build();
     }
@@ -290,9 +304,11 @@ public class OperationalTaskJobConfig {
     }
 
     @Bean("fileDistributionTimeoutJob")
-    public Job fileDistributionTimeoutJob(Step fileDistributionTimeoutStep) {
+    public Job fileDistributionTimeoutJob(Step fileDistributionTimeoutStep,
+                                          JobCompletionNotificationListener listener) {
         return new JobBuilder("fileDistributionTimeoutJob", jobRepository)
                 .incrementer(new RunIdIncrementer())
+                .listener(listener)
                 .start(fileDistributionTimeoutStep)
                 .build();
     }

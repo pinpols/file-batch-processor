@@ -239,7 +239,7 @@ class FileImportIntegrationTest {
         dlqRecordRepository.save(dlqRecord);
 
         Step dlqStep = mock(Step.class);
-        Job dlqJob = fileImportJobConfig.dlqReplayJob(dlqStep);
+        Job dlqJob = fileImportJobConfig.dlqReplayJob(dlqStep, mock(JobCompletionNotificationListener.class));
         JobParameters jobParameters = new JobParametersBuilder()
                 .addLong("limit", 10L)
                 .addString("batchDate", uniqueBatchDate)

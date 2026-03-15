@@ -165,8 +165,10 @@ public class FileImportJobConfig {
     }
 
     @Bean("dlqReplayJob")
-    public Job dlqReplayJob(Step dlqReplayStep) {
+    public Job dlqReplayJob(Step dlqReplayStep,
+                            JobCompletionNotificationListener listener) {
         return new JobBuilder("dlqReplayJob", jobRepository)
+                .listener(listener)
                 .start(dlqReplayStep)
                 .build();
     }
