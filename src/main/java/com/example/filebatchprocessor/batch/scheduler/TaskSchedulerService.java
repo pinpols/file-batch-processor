@@ -578,7 +578,7 @@ public class TaskSchedulerService {
         }
     }
 
-    void scheduleFixedDelayOnce(OrchestrationTaskDefinition def, Instant when) {
+    public void scheduleFixedDelayOnce(OrchestrationTaskDefinition def, Instant when) {
         Instant baseAt = when;
         long baseDelayMs = def.getTrigger() == null || def.getTrigger().getFixedDelayMs() == null
                 ? 1000L

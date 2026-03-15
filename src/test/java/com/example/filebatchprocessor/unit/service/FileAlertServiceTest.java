@@ -1,0 +1,90 @@
+package com.example.filebatchprocessor.unit.service;
+
+import com.example.filebatchprocessor.model.FileAlertLog;
+import com.example.filebatchprocessor.repository.FileAlertLogRepository;
+import com.example.filebatchprocessor.repository.FileAssetRecordRepository;
+import com.example.filebatchprocessor.repository.FileDispatchRecordRepository;
+import com.example.filebatchprocessor.service.FileAlertService;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.Spy;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
+
+import java.util.List;
+import java.util.Map;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class FileAlertServiceTest {
+
+    @Mock
+    private FileAlertLogRepository alertLogRepository;
+
+    @Mock
+    private FileAssetRecordRepository fileAssetRepository;
+
+    @Mock
+    private FileDispatchRecordRepository dispatchRecordRepository;
+
+    @Spy
+    private ObjectMapper objectMapper = new ObjectMapper();
+
+    @InjectMocks
+    private FileAlertService fileAlertService;
+
+    @BeforeEach
+    void setUp() {
+        ReflectionTestUtils.setField(fileAlertService, "enabled", true);
+        ReflectionTestUtils.setField(fileAlertService, "timeoutMinutes", 120L);
+        ReflectionTestUtils.setField(fileAlertService, "unprocessedThreshold", 100L);
+        ReflectionTestUtils.setField(fileAlertService, "dispatchAckTimeoutMinutes", 60L);
+    }
+
+    @Test
+    void shouldCreateAlert() {
+        when(alertLogRepository.save(any(FileAlertLog.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        FileAlertLog alert = fileAlertService.createAlert(
+                "TEST_ALERT", "FILE_TIMEOUT", "WARNING", "Test alert",
+                1L, "SOURCE", "2026-01-01", "TARGET",
+                Map.of("key", "value")
+        );
+
+        verify(alertLogRepository).save(any(FileAlertLog.class));
+    }
+
+    @Test
+    void shouldAcknowledgeAlert() {
+        FileAlertLog alert = new FileAlertLog();
+        alert.setId(1L);
+        alert.setAcknowledged(false);
+        
+        when(alertLogRepository.findById(1L)).thenReturn(java.util.Optional.of(alert));
+        when(alertLogRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        fileAlertService.acknowledgeAlert(1L, "operator");
+
+        verify(alertLogRepository).save(any(FileAlertLog.class));
+    }
+
+    @Test
+    void shouldResolveAlert() {
+        FileAlertLog alert = new FileAlertLog();
+        alert.setId(1L);
+        alert.setResolved(false);
+        
+        when(alertLogRepository.findById(1L)).thenReturn(java.util.Optional.of(alert));
+        when(alertLogRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        fileAlertService.resolveAlert(1L, "operator", "Resolved");
+
+        verify(alertLogRepository).save(any(FileAlertLog.class));
+    }
+}

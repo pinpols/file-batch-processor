@@ -9,18 +9,18 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.PriorityBlockingQueue;
 
-class QueueManager {
+public class QueueManager {
 
     private final int maxQueueSize;
     private final PriorityBlockingQueue<OrchestrationTaskDefinition> queue =
             new PriorityBlockingQueue<>(11, (a, b) -> Integer.compare(b.getPriority().weight(), a.getPriority().weight()));
     private final ConcurrentMap<String, Instant> enqueuedAtMap = new ConcurrentHashMap<>();
 
-    QueueManager(int maxQueueSize) {
+    public QueueManager(int maxQueueSize) {
         this.maxQueueSize = Math.max(10, maxQueueSize);
     }
 
-    boolean offer(OrchestrationTaskDefinition task, String runKey) {
+    public boolean offer(OrchestrationTaskDefinition task, String runKey) {
         if (queue.size() >= maxQueueSize) {
             return false;
         }
@@ -33,7 +33,7 @@ class QueueManager {
         queue.offer(task);
     }
 
-    OrchestrationTaskDefinition poll() {
+    public OrchestrationTaskDefinition poll() {
         return queue.poll();
     }
 
@@ -41,11 +41,11 @@ class QueueManager {
         return queue.size();
     }
 
-    void removeRunKey(String runKey) {
+    public void removeRunKey(String runKey) {
         enqueuedAtMap.remove(runKey);
     }
 
-    Instant enqueuedAt(String runKey) {
+    public Instant enqueuedAt(String runKey) {
         return enqueuedAtMap.get(runKey);
     }
 
@@ -53,7 +53,7 @@ class QueueManager {
         return enqueuedAtMap.getOrDefault(runKey, Instant.now());
     }
 
-    boolean isQueueWaitTimeout(String runKey, long maxWaitMs) {
+    public boolean isQueueWaitTimeout(String runKey, long maxWaitMs) {
         Instant enqueuedAt = enqueuedAtMap.get(runKey);
         if (enqueuedAt == null) {
             return false;

@@ -26,6 +26,7 @@
         <lombok.version>1.18.42</lombok.version>
         <quartz.version>2.5.2</quartz.version>
         <testcontainers.version>1.21.3</testcontainers.version>
+        <maven.surefire.plugin.version>3.5.2</maven.surefire.plugin.version>
     </properties>
 
     <dependencies>
@@ -159,6 +160,11 @@
             <version>${testcontainers.version}</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>test</scope>
+        </dependency>
 
 
     </dependencies>
@@ -171,16 +177,13 @@
                 <version>3.5.2</version>
                 <configuration>
                     <includes>
-                        <include>**/*Test.java</include>
+                        <include>**/unit/**/*Test.java</include>
                     </includes>
                     <excludes>
                         <exclude>**/*IT.java</exclude>
-                        <exclude>**/*ITest.java</exclude>
-                        <exclude>**/*IntegrationTest.java</exclude>
+                        <exclude>**/integration/**/*IT.java</exclude>
                         <exclude>**/*E2ETest.java</exclude>
-                        <exclude>**/e2e/**</exclude>
-                        <exclude>**/integration/**</exclude>
-                        <exclude>**/performance/**</exclude>
+                        <exclude>**/e2e/**/*E2ETest.java</exclude>
                     </excludes>
                 </configuration>
             </plugin>
@@ -210,6 +213,18 @@
                             <version>${lombok.version}</version>
                         </path>
                     </annotationProcessorPaths>
+                    <testAnnotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>${lombok.version}</version>
+                        </path>
+                        <path>
+                            <groupId>org.mockito</groupId>
+                            <artifactId>mockito-core</artifactId>
+                            <version>5.11.0</version>
+                        </path>
+                    </testAnnotationProcessorPaths>
                 </configuration>
             </plugin>
             <plugin>
@@ -258,15 +273,37 @@
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-surefire-plugin</artifactId>
-                        <version>3.5.2</version>
+                        <version>${maven.surefire.plugin.version}</version>
                         <configuration>
                             <includes>
                                 <include>**/*Test.java</include>
+                                <include>**/unit/**/*Test.java</include>
                                 <include>**/*IT.java</include>
-                                <include>**/*ITest.java</include>
-                                <include>**/*IntegrationTest.java</include>
+                                <include>**/integration/**/*IT.java</include>
                                 <include>**/*E2ETest.java</include>
+                                <include>**/e2e/**/*E2ETest.java</include>
                             </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>unit-test</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <version>${maven.surefire.plugin.version}</version>
+                        <configuration>
+                            <includes>
+                                <include>**/unit/**/*Test.java</include>
+                            </includes>
+                            <excludes>
+                                <exclude>**/integration/**/*IT.java</exclude>
+                                <exclude>**/e2e/**/*E2ETest.java</exclude>
+                            </excludes>
                         </configuration>
                     </plugin>
                 </plugins>
@@ -279,20 +316,17 @@
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-surefire-plugin</artifactId>
-                        <version>3.5.2</version>
+                        <version>${maven.surefire.plugin.version}</version>
                         <configuration>
+                            <systemPropertyVariables>
+                                <spring.profiles.active>test</spring.profiles.active>
+                            </systemPropertyVariables>
                             <includes>
-                                <include>**/*IT.java</include>
-                                <include>**/*ITest.java</include>
-                                <include>**/*IntegrationTest.java</include>
-                                <include>**/integration/**/*Test.java</include>
                                 <include>**/integration/**/*IT.java</include>
                             </includes>
                             <excludes>
-                                <exclude>**/*E2ETest.java</exclude>
-                                <exclude>**/*E2E*Test.java</exclude>
-                                <exclude>**/e2e/**</exclude>
-                                <exclude>**/performance/**</exclude>
+                                <exclude>**/unit/**/*Test.java</exclude>
+                                <exclude>**/e2e/**/*E2ETest.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -306,15 +340,17 @@
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-surefire-plugin</artifactId>
-                        <version>3.5.2</version>
+                        <version>${maven.surefire.plugin.version}</version>
                         <configuration>
+                            <systemPropertyVariables>
+                                <spring.profiles.active>test</spring.profiles.active>
+                            </systemPropertyVariables>
                             <includes>
-                                <include>**/*E2ETest.java</include>
-                                <include>**/*E2E*Test.java</include>
-                                <include>**/e2e/**/*Test.java</include>
+                                <include>**/e2e/**/*E2ETest.java</include>
                             </includes>
                             <excludes>
-                                <exclude>**/performance/**</exclude>
+                                <exclude>**/unit/**/*Test.java</exclude>
+                                <exclude>**/integration/**/*IT.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -322,4 +358,5 @@
             </build>
         </profile>
     </profiles>
+
 </project>

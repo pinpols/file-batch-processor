@@ -24,20 +24,20 @@ public class FileProcessLogService {
         this.objectMapper = objectMapper;
     }
 
-    public void log(Long fileRecordId,
-                    String stepName,
-                    String actionType,
-                    String statusFrom,
-                    String statusTo,
-                    String result,
-                    String taskId,
-                    String jobName,
-                    Integer retryNo,
-                    String errorCode,
-                    String errorMsg,
-                    Map<String, Object> extra) {
+    public FileProcessLog log(Long fileRecordId,
+                              String stepName,
+                              String actionType,
+                              String statusFrom,
+                              String statusTo,
+                              String result,
+                              String taskId,
+                              String jobName,
+                              Integer retryNo,
+                              String errorCode,
+                              String errorMsg,
+                              Map<String, Object> extra) {
         if (fileRecordId == null) {
-            return;
+            return null;
         }
 
         FileProcessLog log = new FileProcessLog();
@@ -56,6 +56,7 @@ public class FileProcessLogService {
         log.setStartedAt(LocalDateTime.now());
         log.setFinishedAt(LocalDateTime.now());
         repository.save(log);
+        return log;
     }
 
     private String toJson(Map<String, Object> extra) {

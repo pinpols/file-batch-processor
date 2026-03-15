@@ -45,7 +45,7 @@ public class BatchMetricsPublisher {
     }
 
     @PostConstruct
-    void init() {
+    public void init() {
         Gauge.builder("batch_recent_failure_count", recentFailureCount, AtomicLong::get).register(meterRegistry);
         Gauge.builder("batch_recent_completed_count", recentCompletedCount, AtomicLong::get).register(meterRegistry);
         Gauge.builder("batch_dlq_backlog", dlqBacklog, AtomicLong::get).register(meterRegistry);

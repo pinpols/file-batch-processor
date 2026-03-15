@@ -50,7 +50,6 @@ import java.util.Map;
  */
 @Slf4j
 @Configuration
-@EnableTransactionManagement
 public class FileImportJobConfig {
 
     private final JobRepository jobRepository;
