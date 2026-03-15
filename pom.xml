@@ -19,34 +19,27 @@
 
     <properties>
         <java.version>25</java.version>
-        <maven.compiler.source>25</maven.compiler.source>
-        <maven.compiler.target>25</maven.compiler.target>
+
         <opencsv.version>5.8</opencsv.version>
         <commons-lang3.version>3.14.0</commons-lang3.version>
         <lombok.version>1.18.42</lombok.version>
-        <quartz.version>2.5.2</quartz.version>
+        <hutool.version>5.8.32</hutool.version>
+        <sshj.version>0.39.0</sshj.version>
         <testcontainers.version>1.21.3</testcontainers.version>
+        <mockito.version>5.11.0</mockito.version>
+
+        <maven.compiler.plugin.version>3.14.0</maven.compiler.plugin.version>
         <maven.surefire.plugin.version>3.5.2</maven.surefire.plugin.version>
+        <maven.enforcer.plugin.version>3.6.2</maven.enforcer.plugin.version>
+        <dependency-check.plugin.version>12.1.0</dependency-check.plugin.version>
     </properties>
 
     <dependencies>
-        <!-- Spring Batch -->
+        <!-- Batch / Web / Data -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-batch</artifactId>
         </dependency>
-
-        <dependency>
-            <groupId>org.springframework.batch</groupId>
-            <artifactId>spring-batch-infrastructure</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.springframework.batch</groupId>
-            <artifactId>spring-batch-core</artifactId>
-        </dependency>
-
-        <!-- Web & Data Access -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
@@ -60,10 +53,6 @@
             <artifactId>spring-boot-starter-security</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
-        </dependency>
-        <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency>
@@ -71,6 +60,8 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
+
+        <!-- Metrics -->
         <dependency>
             <groupId>io.micrometer</groupId>
             <artifactId>micrometer-registry-prometheus</artifactId>
@@ -92,44 +83,40 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- Spring Framework -->
+        <!-- Framework -->
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-aspects</artifactId>
         </dependency>
 
-        <!-- CSV Processing -->
+        <!-- CSV / Utils -->
         <dependency>
             <groupId>com.opencsv</groupId>
             <artifactId>opencsv</artifactId>
             <version>${opencsv.version}</version>
         </dependency>
-
-        <!-- Utilities -->
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-lang3</artifactId>
             <version>${commons-lang3.version}</version>
         </dependency>
-        <!-- SFTP client (SSHJ) -->
         <dependency>
             <groupId>com.hierynomus</groupId>
             <artifactId>sshj</artifactId>
-            <version>0.39.0</version>
+            <version>${sshj.version}</version>
         </dependency>
+        <dependency>
+            <groupId>cn.hutool</groupId>
+            <artifactId>hutool-all</artifactId>
+            <version>${hutool.version}</version>
+        </dependency>
+
+        <!-- Lombok -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <version>${lombok.version}</version>
             <optional>true</optional>
-        </dependency>
-
-
-        <!-- Hutool -->
-        <dependency>
-            <groupId>cn.hutool</groupId>
-            <artifactId>hutool-all</artifactId>
-            <version>5.8.32</version>
         </dependency>
 
         <!-- Testing -->
@@ -165,47 +152,17 @@
             <artifactId>h2</artifactId>
             <scope>test</scope>
         </dependency>
-
-
     </dependencies>
 
     <build>
         <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.5.2</version>
-                <configuration>
-                    <includes>
-                        <include>**/unit/**/*Test.java</include>
-                    </includes>
-                    <excludes>
-                        <exclude>**/*IT.java</exclude>
-                        <exclude>**/integration/**/*IT.java</exclude>
-                        <exclude>**/*E2ETest.java</exclude>
-                        <exclude>**/e2e/**/*E2ETest.java</exclude>
-                    </excludes>
-                </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-maven-plugin</artifactId>
-                <configuration>
-                    <excludes>
-                        <exclude>
-                            <groupId>org.projectlombok</groupId>
-                            <artifactId>lombok</artifactId>
-                        </exclude>
-                    </excludes>
-                </configuration>
-            </plugin>
-
+            <!-- Compiler -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
+                <version>${maven.compiler.plugin.version}</version>
                 <configuration>
-                    <source>25</source>
-                    <target>25</target>
+                    <release>${java.version}</release>
                     <annotationProcessorPaths>
                         <path>
                             <groupId>org.projectlombok</groupId>
@@ -222,15 +179,49 @@
                         <path>
                             <groupId>org.mockito</groupId>
                             <artifactId>mockito-core</artifactId>
-                            <version>5.11.0</version>
+                            <version>${mockito.version}</version>
                         </path>
                     </testAnnotationProcessorPaths>
                 </configuration>
             </plugin>
+
+            <!-- Unit test default -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>${maven.surefire.plugin.version}</version>
+                <configuration>
+                    <includes>
+                        <include>**/unit/**/*Test.java</include>
+                    </includes>
+                    <excludes>
+                        <exclude>**/*IT.java</exclude>
+                        <exclude>**/integration/**/*IT.java</exclude>
+                        <exclude>**/*E2ETest.java</exclude>
+                        <exclude>**/e2e/**/*E2ETest.java</exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+
+            <!-- Spring Boot package -->
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+
+            <!-- Enforcer -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-enforcer-plugin</artifactId>
-                <version>3.6.2</version>
+                <version>${maven.enforcer.plugin.version}</version>
                 <executions>
                     <execution>
                         <id>enforce-java-maven</id>
@@ -250,10 +241,12 @@
                     </execution>
                 </executions>
             </plugin>
+
+            <!-- Security scan -->
             <plugin>
                 <groupId>org.owasp</groupId>
                 <artifactId>dependency-check-maven</artifactId>
-                <version>12.1.0</version>
+                <version>${dependency-check.plugin.version}</version>
                 <configuration>
                     <formats>
                         <format>HTML</format>
@@ -288,6 +281,7 @@
                 </plugins>
             </build>
         </profile>
+
         <profile>
             <id>unit-test</id>
             <build>
@@ -309,6 +303,7 @@
                 </plugins>
             </build>
         </profile>
+
         <profile>
             <id>integration-test</id>
             <build>
@@ -333,6 +328,7 @@
                 </plugins>
             </build>
         </profile>
+
         <profile>
             <id>e2e-test</id>
             <build>
@@ -358,5 +354,4 @@
             </build>
         </profile>
     </profiles>
-
 </project>
