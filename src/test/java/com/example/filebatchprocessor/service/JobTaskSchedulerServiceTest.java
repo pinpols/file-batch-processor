@@ -31,8 +31,9 @@ class JobTaskSchedulerServiceTest {
         JobOperator jobOperator = mock(JobOperator.class);
         TaskConfigService taskConfigService = mock(TaskConfigService.class);
         JobInstanceService jobInstanceService = mock(JobInstanceService.class);
+        RetryCompensationService retryCompensationService = mock(RetryCompensationService.class);
 
-        JobTaskSchedulerService service = new JobTaskSchedulerService(jobLauncher, batchJobResolver, jobOperator, taskConfigService, jobInstanceService);
+        JobTaskSchedulerService service = new JobTaskSchedulerService(jobLauncher, batchJobResolver, jobOperator, taskConfigService, jobInstanceService, retryCompensationService);
 
         TaskDefinition def = new TaskDefinition();
         def.setTaskId("task-import");
@@ -74,7 +75,7 @@ class JobTaskSchedulerServiceTest {
         JobOperator jobOperator = mock(JobOperator.class);
         TaskConfigService taskConfigService = mock(TaskConfigService.class);
         JobInstanceService jobInstanceService = mock(JobInstanceService.class);
-        JobTaskSchedulerService service = new JobTaskSchedulerService(jobLauncher, batchJobResolver, jobOperator, taskConfigService, jobInstanceService);
+        JobTaskSchedulerService service = new JobTaskSchedulerService(jobLauncher, batchJobResolver, jobOperator, taskConfigService, jobInstanceService, mock(RetryCompensationService.class));
 
         when(taskConfigService.getTaskDefinition("dataExportJob")).thenThrow(new IllegalArgumentException("not found"));
         when(taskConfigService.getTaskParametersAsMap("dataExportJob")).thenReturn(Map.of());
@@ -103,7 +104,8 @@ class JobTaskSchedulerServiceTest {
                 mock(BatchJobResolver.class),
                 mock(JobOperator.class),
                 mock(TaskConfigService.class),
-                mock(JobInstanceService.class)
+                mock(JobInstanceService.class),
+                mock(RetryCompensationService.class)
         );
 
         String result = service.triggerJob(" ", Map.of(), "tester");
@@ -116,9 +118,10 @@ class JobTaskSchedulerServiceTest {
         BatchJobResolver batchJobResolver = mock(BatchJobResolver.class);
         JobOperator jobOperator = mock(JobOperator.class);
         TaskConfigService taskConfigService = mock(TaskConfigService.class);
-        JobTaskSchedulerService service = new JobTaskSchedulerService(jobLauncher, batchJobResolver, jobOperator, taskConfigService, mock(JobInstanceService.class));
+        RetryCompensationService retryCompensationService = mock(RetryCompensationService.class);
+        JobTaskSchedulerService service = new JobTaskSchedulerService(jobLauncher, batchJobResolver, jobOperator, taskConfigService, mock(JobInstanceService.class), retryCompensationService);
 
-        when(jobOperator.restart(88L)).thenReturn(99L);
+        when(retryCompensationService.restartExecution(88L, "operator", "Manual retry from jobTaskSchedulerService")).thenReturn(99L);
         String retryResult = service.retryJobExecution(88L, "operator");
         assertTrue(retryResult.contains("restartedExecutionId=99"));
 
@@ -134,7 +137,8 @@ class JobTaskSchedulerServiceTest {
                 mock(BatchJobResolver.class),
                 jobOperator,
                 mock(TaskConfigService.class),
-                mock(JobInstanceService.class)
+                mock(JobInstanceService.class),
+                mock(RetryCompensationService.class)
         );
 
         service.stopJobExecution(null, "operator");
