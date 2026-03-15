@@ -59,10 +59,56 @@
 ### 📦 其他
 | 文档 | 说明 |
 |------|------|
-| [项目结构](./other/DIRECTORY_STRUCTURE.md) | 目录结构说明 |
-| [项目评估](./other/PROJECT_ASSESSMENT.md) | 项目评估报告 |
 | [架构与技术栈](./other/ARCHITECTURE_AND_TECH_STACK.md) | 技术栈说明 |
-| [测试增强报告](./other/TEST_ENHANCEMENT_REPORT.md) | 测试增强记录 |
+| [任务配置表结构](./other/task-configuration-schema.md) | 任务配置表结构说明 |
+| [早期规划文档](./other/system-capability-completion-plan.md) | 批量调度系统补齐实施计划 |
+| [能力缺口分析](./other/system-capability-gap-analysis.md) | 系统能力与缺口分析 |
+| [待办事项](./other/todo.md) | 批量调度系统能力补齐计划状态 |
+
+---
+
+## 📁 项目目录结构
+
+```
+file-batch-processor/
+├── src/
+│   ├── main/
+│   │   ├── java/com/example/filebatchprocessor/
+│   │   │   ├── batch/           # Spring Batch 作业配置
+│   │   │   ├── config/          # 配置类
+│   │   │   ├── controller/      # REST API 控制器
+│   │   │   ├── exception/       # 异常处理
+│   │   │   ├── listener/        # 事件监听器
+│   │   │   ├── model/           # JPA 实体模型
+│   │   │   ├── observability/   # 可观测性组件
+│   │   │   ├── params/          # 参数模型
+│   │   │   ├── repository/      # 数据访问层
+│   │   │   ├── scheduler/       # 任务调度相关
+│   │   │   ├── service/         # 业务服务层
+│   │   │   └── util/            # 工具类
+│   │   └── resources/
+│   │       ├── db/migration/    # Flyway 数据库迁移
+│   │       └── application.yml  # 应用配置
+│   └── test/
+│       └── java/.../
+│           ├── e2e/             # 端到端测试
+│           ├── integration/     # 集成测试
+│           ├── support/         # 测试支持类
+│           └── unit/            # 单元测试
+├── scripts/
+│   ├── database/                # 数据库脚本
+│   ├── deployment/             # 部署脚本
+│   ├── local/                  # 本地开发脚本
+│   ├── maintenance/            # 维护脚本
+│   ├── testing/                # 测试脚本
+│   └── testdata/               # 测试数据
+├── docs/                       # 项目文档
+├── deploy/                     # 部署配置
+├── docker-compose.dev.yml      # 开发环境
+├── docker-compose.prod.yml     # 生产环境
+├── Dockerfile
+└── pom.xml
+```
 
 ---
 
