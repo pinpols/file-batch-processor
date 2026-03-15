@@ -32,11 +32,16 @@ public class HttpFileDistributor implements FileDistributor {
 
     @Override
     public void distribute(FileDistributionTask task) {
+        distribute(task, null);
+    }
+
+    @Override
+    public void distribute(FileDistributionTask task, Long jobInstanceId) {
         if (task == null) {
             return;
         }
         try {
-            fileDistributionService.markAsInProgress(task.getId());
+            fileDistributionService.markAsInProgress(task.getId(), jobInstanceId);
 
             File localFile = new File(task.getFilePath());
             if (!localFile.exists()) {
@@ -58,13 +63,15 @@ public class HttpFileDistributor implements FileDistributor {
 
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() >= 200 && response.statusCode() < 300) {
-                fileDistributionService.markAsSuccess(task.getId());
+                fileDistributionService.markAsSuccess(task.getId(), jobInstanceId, false, null, java.util.Map.of(
+                        "httpStatus", response.statusCode()
+                ));
             } else {
-                fileDistributionService.markAsFailed(task.getId(), "HTTP transfer failed with status " + response.statusCode());
+                fileDistributionService.markAsFailed(task.getId(), "HTTP transfer failed with status " + response.statusCode(), jobInstanceId);
             }
         } catch (Exception e) {
             log.error("HTTP distribution failed for taskId={}", task.getId(), e);
-            fileDistributionService.markAsFailed(task.getId(), "HTTP transfer failed: " + e.getMessage());
+            fileDistributionService.markAsFailed(task.getId(), "HTTP transfer failed: " + e.getMessage(), jobInstanceId);
         }
     }
 }

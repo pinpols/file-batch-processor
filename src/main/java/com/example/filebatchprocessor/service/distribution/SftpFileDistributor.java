@@ -51,23 +51,28 @@ public class SftpFileDistributor implements FileDistributor {
 
     @Override
     public void distribute(FileDistributionTask task) {
+        distribute(task, null);
+    }
+
+    @Override
+    public void distribute(FileDistributionTask task, Long jobInstanceId) {
         if (task == null) {
             return;
         }
         if (sftpHost == null || sftpHost.isBlank() || sftpUsername == null || sftpUsername.isBlank() || sftpPassword == null || sftpPassword.isBlank()) {
-            fileDistributionService.markAsFailed(task.getId(), "SFTP config missing: sftp.host/username/password");
+            fileDistributionService.markAsFailed(task.getId(), "SFTP config missing: sftp.host/username/password", jobInstanceId);
             return;
         }
 
         Semaphore semaphore = limiter.semaphoreForHost(sftpHost);
         boolean acquired = semaphore.tryAcquire();
         if (!acquired) {
-            fileDistributionService.markAsFailed(task.getId(), "SFTP throttled: too many concurrent connections for host=" + sftpHost);
+            fileDistributionService.markAsFailed(task.getId(), "SFTP throttled: too many concurrent connections for host=" + sftpHost, jobInstanceId);
             return;
         }
 
         try (SSHClient sshClient = new SSHClient()) {
-            fileDistributionService.markAsInProgress(task.getId());
+            fileDistributionService.markAsInProgress(task.getId(), jobInstanceId);
 
             File localFile = new File(task.getFilePath());
             if (!localFile.exists()) {
@@ -92,10 +97,10 @@ public class SftpFileDistributor implements FileDistributor {
                 sftpClient.put(new FileSystemFile(localFile), remotePath);
             }
 
-            fileDistributionService.markAsSuccess(task.getId());
+            fileDistributionService.markAsSuccess(task.getId(), jobInstanceId, false, null, null);
         } catch (Exception e) {
             log.error("SFTP distribution failed for taskId={}", task.getId(), e);
-            fileDistributionService.markAsFailed(task.getId(), "SFTP transfer failed: " + e.getMessage());
+            fileDistributionService.markAsFailed(task.getId(), "SFTP transfer failed: " + e.getMessage(), jobInstanceId);
         } finally {
             semaphore.release();
         }

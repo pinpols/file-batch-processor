@@ -61,4 +61,22 @@ class FileAssetStateMachineServiceTest {
         assertThrows(InvalidFileStateTransitionException.class,
                 () -> service.transition(2L, com.example.filebatchprocessor.model.FileAssetStatus.DISPATCHING, "skip-ahead", null));
     }
+
+    @Test
+    void shouldAllowDispatchBackToProcessedForResend() {
+        FileAssetRecordRepository repository = mock(FileAssetRecordRepository.class);
+        FileAssetStateMachineService service = new FileAssetStateMachineService(repository, new ObjectMapper());
+
+        FileAssetRecord record = new FileAssetRecord();
+        record.setId(3L);
+        record.setStatus("DISPATCHED");
+
+        when(repository.findById(3L)).thenReturn(Optional.of(record));
+        when(repository.save(any(FileAssetRecord.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var reset = service.transition(3L, com.example.filebatchprocessor.model.FileAssetStatus.PROCESSED, "ack-timeout", Map.of("ackTimeout", true));
+        assertEquals("DISPATCHED", reset.from().name());
+        assertEquals("PROCESSED", reset.to().name());
+        assertEquals("PROCESSED", record.getStatus());
+    }
 }

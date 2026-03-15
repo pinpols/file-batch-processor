@@ -26,7 +26,7 @@ class FileDistributorDispatcherTest {
 
         dispatcher.distribute(task);
 
-        verify(d2, times(1)).distribute(task);
+        verify(d2, times(1)).distribute(task, null);
         verify(d1, never()).distribute(any());
     }
 

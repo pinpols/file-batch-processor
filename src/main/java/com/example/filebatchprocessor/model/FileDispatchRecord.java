@@ -11,6 +11,8 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 
@@ -43,6 +45,15 @@ public class FileDispatchRecord {
     @Column(name = "legacy_distribution_task_id")
     private Long legacyDistributionTaskId;
 
+    @Column(name = "created_job_instance_id")
+    private Long createdJobInstanceId;
+
+    @Column(name = "last_dispatch_job_instance_id")
+    private Long lastDispatchJobInstanceId;
+
+    @Column(name = "last_ack_job_instance_id")
+    private Long lastAckJobInstanceId;
+
     @Column(name = "target_system", nullable = false, length = 100)
     private String targetSystem;
 
@@ -70,6 +81,9 @@ public class FileDispatchRecord {
     @Column(name = "ack_required", nullable = false)
     private Boolean ackRequired = Boolean.FALSE;
 
+    @Column(name = "ack_timeout_minutes", nullable = false)
+    private Integer ackTimeoutMinutes = 120;
+
     @Column(name = "last_dispatch_time")
     private LocalDateTime lastDispatchTime;
 
@@ -78,6 +92,19 @@ public class FileDispatchRecord {
 
     @Column(name = "ack_time")
     private LocalDateTime ackTime;
+
+    @Column(name = "ack_deadline_at")
+    private LocalDateTime ackDeadlineAt;
+
+    @Column(name = "ack_message", length = 1000)
+    private String ackMessage;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "ack_payload", columnDefinition = "jsonb")
+    private String ackPayload;
+
+    @Column(name = "resend_count", nullable = false)
+    private Integer resendCount = 0;
 
     @Column(name = "error_code", length = 64)
     private String errorCode;

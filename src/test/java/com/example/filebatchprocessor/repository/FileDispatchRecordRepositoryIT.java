@@ -87,6 +87,36 @@ class FileDispatchRecordRepositoryIT extends PostgresContainerSupport {
         assertThrows(DataIntegrityViolationException.class, () -> fileDispatchRecordRepository.saveAndFlush(duplicate));
     }
 
+    @Test
+    void shouldFindAckTimeoutCandidatesByStatusAndDispatchNo() {
+        FileAssetRecord fileRecord = fileAssetRecordRepository.saveAndFlush(baseFileRecord("FR-100-C"));
+
+        FileDispatchRecord dispatchRecord = new FileDispatchRecord();
+        dispatchRecord.setDispatchNo("FD-ACK-9004");
+        dispatchRecord.setDispatchKey(fileRecord.getFileNo() + "|1|HTTP|ack");
+        dispatchRecord.setFileRecordId(fileRecord.getId());
+        dispatchRecord.setLegacyDistributionTaskId(9004L);
+        dispatchRecord.setTargetSystem("HTTP");
+        dispatchRecord.setDispatchChannel("HTTP");
+        dispatchRecord.setTargetAddress("http://ack");
+        dispatchRecord.setFileVersionNo(1);
+        dispatchRecord.setDispatchStatus("SUCCESS");
+        dispatchRecord.setAckRequired(Boolean.TRUE);
+        dispatchRecord.setAckStatus("PENDING");
+        dispatchRecord.setAckTimeoutMinutes(30);
+        dispatchRecord.setAckDeadlineAt(LocalDateTime.now().minusMinutes(1));
+        dispatchRecord.setCreatedJobInstanceId(null);
+        fileDispatchRecordRepository.saveAndFlush(dispatchRecord);
+
+        var byDispatchNo = fileDispatchRecordRepository.findByDispatchNo("FD-ACK-9004");
+        var ackPending = fileDispatchRecordRepository.findByAckRequiredTrueAndAckStatus("PENDING");
+
+        assertTrue(byDispatchNo.isPresent());
+        assertEquals(9004L, byDispatchNo.get().getLegacyDistributionTaskId());
+        assertEquals(1, ackPending.size());
+        assertEquals("FD-ACK-9004", ackPending.get(0).getDispatchNo());
+    }
+
     private FileAssetRecord baseFileRecord(String fileNo) {
         FileAssetRecord record = new FileAssetRecord();
         record.setFileNo(fileNo);

@@ -162,7 +162,7 @@ public class FileAssetStateMachineService {
         transitions.put(FileAssetStatus.PROCESSING, EnumSet.of(FileAssetStatus.PROCESSED, FileAssetStatus.FAILED));
         transitions.put(FileAssetStatus.PROCESSED, EnumSet.of(FileAssetStatus.DISPATCHING, FileAssetStatus.ARCHIVED));
         transitions.put(FileAssetStatus.DISPATCHING, EnumSet.of(FileAssetStatus.PROCESSED, FileAssetStatus.DISPATCHED, FileAssetStatus.FAILED));
-        transitions.put(FileAssetStatus.DISPATCHED, EnumSet.of(FileAssetStatus.ARCHIVED));
+        transitions.put(FileAssetStatus.DISPATCHED, EnumSet.of(FileAssetStatus.PROCESSED, FileAssetStatus.FAILED, FileAssetStatus.ARCHIVED));
         transitions.put(FileAssetStatus.FAILED, EnumSet.of(FileAssetStatus.READY, FileAssetStatus.PROCESSED));
         transitions.put(FileAssetStatus.ARCHIVED, EnumSet.noneOf(FileAssetStatus.class));
         return transitions;

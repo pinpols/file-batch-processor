@@ -11,6 +11,7 @@ import com.example.filebatchprocessor.listener.JobCompletionNotificationListener
 import com.example.filebatchprocessor.service.FileDistributionService;
 import com.example.filebatchprocessor.service.FileExportService;
 import com.example.filebatchprocessor.service.FileReceptionService;
+import com.example.filebatchprocessor.service.JobInstanceParameters;
 import com.example.filebatchprocessor.service.PartitionedImportService;
 import com.example.filebatchprocessor.service.distribution.FileDistributorDispatcher;
 import lombok.extern.slf4j.Slf4j;
@@ -39,6 +40,7 @@ public class OperationalTaskJobConfig {
     private static final int DEFAULT_RECEPTION_TIMEOUT_MINUTES = 360;
     private static final int DEFAULT_DISTRIBUTION_RETRY_MINUTES = 15;
     private static final int DEFAULT_DISTRIBUTION_TIMEOUT_MINUTES = 720;
+    private static final int DEFAULT_DISTRIBUTION_ACK_TIMEOUT_MINUTES = 120;
 
     private final JobRepository jobRepository;
     private final PlatformTransactionManager transactionManager;
@@ -220,9 +222,11 @@ public class OperationalTaskJobConfig {
     public Tasklet fileDistributionTasklet(FileDistributionService fileDistributionService,
                                            FileDistributorDispatcher fileDistributorDispatcher) {
         return (contribution, chunkContext) -> {
+            Long jobInstanceId = resolveLong(chunkContext.getStepContext().getJobParameters()
+                    .get(JobInstanceParameters.BUSINESS_JOB_INSTANCE_ID));
             List<FileDistributionTask> pendingTasks = fileDistributionService.findPendingTasks();
             for (FileDistributionTask task : pendingTasks) {
-                fileDistributorDispatcher.distribute(task);
+                fileDistributorDispatcher.distribute(task, jobInstanceId);
             }
             log.info("fileDistributionJob completed: pendingTasks={}", pendingTasks.size());
             return RepeatStatus.FINISHED;
@@ -252,12 +256,14 @@ public class OperationalTaskJobConfig {
                                                 FileDistributorDispatcher fileDistributorDispatcher) {
         return (contribution, chunkContext) -> {
             var params = chunkContext.getStepContext().getJobParameters();
+            Long jobInstanceId = resolveLong(params.get(JobInstanceParameters.BUSINESS_JOB_INSTANCE_ID));
             int retryMinutes = resolveInt(params.get("retryMinutes"), DEFAULT_DISTRIBUTION_RETRY_MINUTES);
             List<FileDistributionTask> retryableTasks = fileDistributionService.findRetryableTasks(retryMinutes);
             int retried = 0;
             for (FileDistributionTask task : retryableTasks) {
-                fileDistributionService.retryFailedTask(task.getId());
-                fileDistributionTaskRepository.findById(task.getId()).ifPresent(fileDistributorDispatcher::distribute);
+                fileDistributionService.retryFailedTask(task.getId(), "SYSTEM", "Automatic distribution retry", jobInstanceId);
+                fileDistributionTaskRepository.findById(task.getId()).ifPresent(refreshed ->
+                        fileDistributorDispatcher.distribute(refreshed, jobInstanceId));
                 retried++;
             }
             log.info("fileDistributionRetryJob completed: retryMinutes={}, retriedTasks={}", retryMinutes, retried);
@@ -286,12 +292,23 @@ public class OperationalTaskJobConfig {
     public Tasklet fileDistributionTimeoutTasklet(FileDistributionService fileDistributionService) {
         return (contribution, chunkContext) -> {
             var params = chunkContext.getStepContext().getJobParameters();
+            Long jobInstanceId = resolveLong(params.get(JobInstanceParameters.BUSINESS_JOB_INSTANCE_ID));
             int timeoutMinutes = resolveInt(params.get("timeoutMinutes"), DEFAULT_DISTRIBUTION_TIMEOUT_MINUTES);
+            int ackTimeoutMinutes = resolveInt(params.get("ackTimeoutMinutes"), DEFAULT_DISTRIBUTION_ACK_TIMEOUT_MINUTES);
             List<FileDistributionTask> timeoutTasks = fileDistributionService.findTimeoutTasks(timeoutMinutes);
             for (FileDistributionTask task : timeoutTasks) {
-                fileDistributionService.markAsFailed(task.getId(), "File distribution timeout exceeded " + timeoutMinutes + " minutes");
+                fileDistributionService.markAsFailed(task.getId(),
+                        "File distribution timeout exceeded " + timeoutMinutes + " minutes",
+                        jobInstanceId);
             }
-            log.info("fileDistributionTimeoutJob completed: timeoutMinutes={}, timeoutTasks={}", timeoutMinutes, timeoutTasks.size());
+            List<FileDistributionTask> ackTimeoutTasks = fileDistributionService.findAckTimeoutTasks(ackTimeoutMinutes);
+            for (FileDistributionTask task : ackTimeoutTasks) {
+                fileDistributionService.markAckTimedOut(task.getId(),
+                        "Dispatch ack timeout exceeded " + ackTimeoutMinutes + " minutes",
+                        jobInstanceId);
+            }
+            log.info("fileDistributionTimeoutJob completed: timeoutMinutes={}, timeoutTasks={}, ackTimeoutMinutes={}, ackTimeoutTasks={}",
+                    timeoutMinutes, timeoutTasks.size(), ackTimeoutMinutes, ackTimeoutTasks.size());
             return RepeatStatus.FINISHED;
         };
     }
@@ -334,6 +351,20 @@ public class OperationalTaskJobConfig {
             return Integer.parseInt(String.valueOf(raw));
         } catch (NumberFormatException ex) {
             return defaultValue;
+        }
+    }
+
+    private static Long resolveLong(Object raw) {
+        if (raw == null) {
+            return null;
+        }
+        if (raw instanceof Number number) {
+            return number.longValue();
+        }
+        try {
+            return Long.parseLong(String.valueOf(raw).trim());
+        } catch (NumberFormatException ex) {
+            return null;
         }
     }
 
