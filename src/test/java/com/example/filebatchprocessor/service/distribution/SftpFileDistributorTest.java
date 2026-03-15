@@ -25,7 +25,7 @@ class SftpFileDistributorTest {
 
         distributor.distribute(task);
 
-        verify(service, times(1)).markAsFailed(1L, "SFTP config missing: sftp.host/username/password");
+        verify(service, times(1)).markAsFailed(1L, "SFTP config missing: sftp.host/username/password", null);
         verify(service, never()).markAsInProgress(any());
     }
 }

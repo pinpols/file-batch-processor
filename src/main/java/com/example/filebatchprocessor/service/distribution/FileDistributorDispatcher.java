@@ -17,6 +17,10 @@ public class FileDistributorDispatcher {
     }
 
     public void distribute(FileDistributionTask task) {
+        distribute(task, null);
+    }
+
+    public void distribute(FileDistributionTask task, Long jobInstanceId) {
         if (task == null) {
             return;
         }
@@ -25,6 +29,6 @@ public class FileDistributorDispatcher {
                 .filter(d -> d.supports(targetSystem))
                 .findFirst()
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_ARGUMENT, "Unknown distribution target: " + targetSystem));
-        distributor.distribute(task);
+        distributor.distribute(task, jobInstanceId);
     }
 }

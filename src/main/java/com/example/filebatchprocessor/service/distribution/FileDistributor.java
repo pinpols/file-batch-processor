@@ -7,4 +7,8 @@ public interface FileDistributor {
     boolean supports(String targetSystem);
 
     void distribute(FileDistributionTask task);
+
+    default void distribute(FileDistributionTask task, Long jobInstanceId) {
+        distribute(task);
+    }
 }

@@ -22,12 +22,17 @@ public class FtpFileDistributor implements FileDistributor {
 
     @Override
     public void distribute(FileDistributionTask task) {
+        distribute(task, null);
+    }
+
+    @Override
+    public void distribute(FileDistributionTask task, Long jobInstanceId) {
         if (task == null) {
             return;
         }
         String targetAddress = task.getTargetAddress();
         if (targetAddress == null || targetAddress.isBlank()) {
-            fileDistributionService.markAsFailed(task.getId(), "FTP target address is required");
+            fileDistributionService.markAsFailed(task.getId(), "FTP target address is required", jobInstanceId);
             return;
         }
 
@@ -47,9 +52,9 @@ public class FtpFileDistributor implements FileDistributor {
                 password = parts.length > 1 ? parts[1] : "";
             }
 
-            fileDistributionService.distributeByFTP(task.getId(), host, port, username, password, remoteDir);
+            fileDistributionService.distributeByFTP(task.getId(), host, port, username, password, remoteDir, jobInstanceId);
         } catch (Exception ex) {
-            fileDistributionService.markAsFailed(task.getId(), "Invalid FTP target address: " + targetAddress + ", " + ex.getMessage());
+            fileDistributionService.markAsFailed(task.getId(), "Invalid FTP target address: " + targetAddress + ", " + ex.getMessage(), jobInstanceId);
         }
     }
 }
