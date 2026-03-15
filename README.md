@@ -45,10 +45,13 @@ input=/data/input.csv&batchDate=2025-01-01&runMode=backfill&rerunId=bf-20250101&
    - Prometheus：`/actuator/prometheus`
 
 ### 测试执行（分层）
-- 默认快速测试：`./mvnw test`（跳过 integration/e2e/performance）。
-- 集成测试：`./mvnw -Pintegration-test test`。
-- E2E 测试：`./mvnw -Pe2e-test test`。
-- 全量测试：`./mvnw -Pfull-test test`。
+- 单元测试：`mvn test -Punit-test`（150+ tests）
+- 集成测试：`mvn test -Pintegration-test`（需要 PostgreSQL test 数据库）
+- E2E 测试：`mvn test -Pe2e-test`（需要 PostgreSQL test 数据库）
+
+### 数据库准备
+1. 创建测试数据库：`CREATE DATABASE test;`
+2. 运行 Flyway 迁移：`mvn flyway:migrate -Dflyway.url=jdbc:postgresql://localhost:5432/test`
 
 ### 扩展点
 - Writer 落地真实数据库时，可按业务键/多字段自定义 `business_key` 生成逻辑。
