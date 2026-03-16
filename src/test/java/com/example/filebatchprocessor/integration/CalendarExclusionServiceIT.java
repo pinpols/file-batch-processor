@@ -1,6 +1,7 @@
 package com.example.filebatchprocessor.integration;
 
 import com.example.filebatchprocessor.service.CalendarExclusionService;
+import com.example.filebatchprocessor.support.PostgresContainerSupport;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -10,7 +11,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
 @ActiveProfiles("test")
-class CalendarExclusionServiceIT {
+class CalendarExclusionServiceIT extends PostgresContainerSupport {
 
     @Autowired
     private CalendarExclusionService calendarExclusionService;

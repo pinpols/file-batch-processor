@@ -4,12 +4,11 @@ import com.example.filebatchprocessor.batch.scheduler.TaskSchedulerService;
 import com.example.filebatchprocessor.repository.DlqRecordRepository;
 import com.example.filebatchprocessor.scheduler.OrchestrationTaskDefinition;
 import com.example.filebatchprocessor.service.SchedulerLeaderService;
+import com.example.filebatchprocessor.support.PostgresContainerSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
-import org.junit.jupiter.api.condition.DisabledIfEnvironmentVariable;
-import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -23,9 +22,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 @SpringBootTest
 @TestInstance(Lifecycle.PER_CLASS)
-@DisabledIfEnvironmentVariable(named = "SKIP_TESTCONTAINERS", matches = "true")
-@EnabledIfEnvironmentVariable(named = "ENABLE_DOCKER_TESTS", matches = "true")
-class TaskSchedulerServiceDlqIT {
+class TaskSchedulerServiceDlqIT extends PostgresContainerSupport {
 
     private static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:17-alpine")
             .withDatabaseName("file_batch")

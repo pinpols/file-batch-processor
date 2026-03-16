@@ -16,7 +16,6 @@ import com.example.filebatchprocessor.service.DagOrchestratorService;
 import com.example.filebatchprocessor.support.PostgresContainerSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.DirtiesContext;
@@ -31,7 +30,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @SpringBootTest
 @ActiveProfiles("test")
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
-@EnabledIfEnvironmentVariable(named = "ENABLE_DOCKER_TESTS", matches = "true")
 @Transactional
 class DagDependencyTimeoutIT extends PostgresContainerSupport {
 

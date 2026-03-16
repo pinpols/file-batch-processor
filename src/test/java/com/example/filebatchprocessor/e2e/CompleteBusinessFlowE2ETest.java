@@ -4,6 +4,7 @@ import com.example.filebatchprocessor.model.ImportedRecordPartitioned;
 import com.example.filebatchprocessor.model.RecordTrace;
 import com.example.filebatchprocessor.repository.ImportedRecordPartitionedRepository;
 import com.example.filebatchprocessor.repository.RecordTraceRepository;
+import com.example.filebatchprocessor.support.PostgresContainerSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -32,7 +33,7 @@ import static org.springframework.batch.core.BatchStatus.COMPLETED;
 @SpringBootTest
 @ActiveProfiles("test")
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
-class CompleteBusinessFlowE2ETest {
+class CompleteBusinessFlowE2ETest extends PostgresContainerSupport {
 
     @Autowired
     @Qualifier("asyncJobLauncher")

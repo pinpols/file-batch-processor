@@ -4,6 +4,7 @@ import com.example.filebatchprocessor.batch.scheduler.TaskSchedulerService;
 import com.example.filebatchprocessor.batch.scheduler.TriggerType;
 import com.example.filebatchprocessor.scheduler.OrchestrationTaskDefinition;
 import com.example.filebatchprocessor.scheduler.OrchestrationTaskTrigger;
+import com.example.filebatchprocessor.support.PostgresContainerSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.quartz.*;
@@ -24,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
         "orchestration.enabled=true",
         "orchestration.scheduler.force-leader=true"
 })
-class QuartzSchedulerIT {
+class QuartzSchedulerIT extends PostgresContainerSupport {
 
     @Autowired
     TaskSchedulerService taskSchedulerService;

@@ -9,7 +9,6 @@ import com.example.filebatchprocessor.repository.ImportedRecordRepository;
 import com.example.filebatchprocessor.service.DlqCompensationService;
 import com.example.filebatchprocessor.support.PostgresContainerSupport;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.batch.core.BatchStatus;
 import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.JobExecution;
@@ -18,6 +17,7 @@ import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -27,7 +27,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
-@EnabledIfEnvironmentVariable(named = "ENABLE_DOCKER_TESTS", matches = "true")
+@ActiveProfiles("test")
 class BatchE2ERegressionIT extends PostgresContainerSupport {
 
     @Autowired
