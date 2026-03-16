@@ -5,6 +5,7 @@ import com.example.filebatchprocessor.model.CompensationRecord;
 import com.example.filebatchprocessor.repository.BusinessJobInstanceRepository;
 import com.example.filebatchprocessor.repository.CompensationRecordRepository;
 import com.example.filebatchprocessor.repository.FileDistributionTaskRepository;
+import com.example.filebatchprocessor.support.PostgresContainerSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,7 +20,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
 @ActiveProfiles("test")
-class CompensationRecordRepositoryIT {
+class CompensationRecordRepositoryIT extends PostgresContainerSupport {
 
     @Autowired
     private CompensationRecordRepository repository;

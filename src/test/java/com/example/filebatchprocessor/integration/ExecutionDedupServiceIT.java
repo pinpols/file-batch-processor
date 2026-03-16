@@ -3,9 +3,9 @@ package com.example.filebatchprocessor.integration;
 import com.example.filebatchprocessor.service.ExecutionDedupService;
 import com.example.filebatchprocessor.support.PostgresContainerSupport;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -14,7 +14,7 @@ import java.util.concurrent.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @SpringBootTest
-@EnabledIfEnvironmentVariable(named = "ENABLE_DOCKER_TESTS", matches = "true")
+@ActiveProfiles("test")
 class ExecutionDedupServiceIT extends PostgresContainerSupport {
 
     @Autowired

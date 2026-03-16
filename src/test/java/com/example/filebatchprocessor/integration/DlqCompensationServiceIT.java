@@ -6,9 +6,9 @@ import com.example.filebatchprocessor.repository.ImportedRecordPartitionedReposi
 import com.example.filebatchprocessor.service.DlqCompensationService;
 import com.example.filebatchprocessor.support.PostgresContainerSupport;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @SpringBootTest
-@EnabledIfEnvironmentVariable(named = "ENABLE_DOCKER_TESTS", matches = "true")
+@ActiveProfiles("test")
 class DlqCompensationServiceIT extends PostgresContainerSupport {
 
     @Autowired

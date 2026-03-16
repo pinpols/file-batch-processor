@@ -1,4 +1,4 @@
-package com.example.filebatchprocessor.e2e;
+package com.example.filebatchprocessor.unit.service;
 
 import com.example.filebatchprocessor.service.BatchRecoveryService;
 import com.example.filebatchprocessor.service.RetryCompensationService;
@@ -8,7 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-class BatchCheckpointRestartE2ETest {
+class BatchCheckpointRestartTest {
 
     @Test
     void shouldRestartFailedExecutionFromExistingExecutionId() throws Exception {

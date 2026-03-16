@@ -2,6 +2,7 @@ package com.example.filebatchprocessor.integration;
 
 import com.example.filebatchprocessor.model.BusinessJobInstance;
 import com.example.filebatchprocessor.repository.BusinessJobInstanceRepository;
+import com.example.filebatchprocessor.support.PostgresContainerSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,7 +18,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 @SpringBootTest
 @ActiveProfiles("test")
-class BusinessJobInstanceRepositoryIT {
+class BusinessJobInstanceRepositoryIT extends PostgresContainerSupport {
 
     @Autowired
     private BusinessJobInstanceRepository repository;
