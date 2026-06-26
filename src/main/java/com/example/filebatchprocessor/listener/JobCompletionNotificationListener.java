@@ -1,6 +1,5 @@
 package com.example.filebatchprocessor.listener;
 
-
 import com.example.filebatchprocessor.model.BatchRunRecord;
 import com.example.filebatchprocessor.model.QualityGateResult;
 import com.example.filebatchprocessor.repository.BatchRunRecordRepository;
@@ -9,23 +8,21 @@ import com.example.filebatchprocessor.repository.QualityGateResultRepository;
 import com.example.filebatchprocessor.service.FileAssetService;
 import com.example.filebatchprocessor.service.FileProcessLogService;
 import com.example.filebatchprocessor.service.JobInstanceService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.batch.core.BatchStatus;
-
-import org.springframework.batch.core.job.JobExecution;
-import org.springframework.batch.core.listener.JobExecutionListener;
-import org.springframework.batch.core.step.StepExecution;
-import org.springframework.stereotype.Component;
-
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Collection;
 import java.util.Map;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.batch.core.BatchStatus;
+import org.springframework.batch.core.job.JobExecution;
+import org.springframework.batch.core.listener.JobExecutionListener;
+import org.springframework.batch.core.step.StepExecution;
+import org.springframework.stereotype.Component;
 
 @Component
 public class JobCompletionNotificationListener implements JobExecutionListener {
@@ -40,14 +37,17 @@ public class JobCompletionNotificationListener implements JobExecutionListener {
     private final double defaultDuplicateMaxRate;
     private final long defaultDuplicateMinLines;
 
-    public JobCompletionNotificationListener(BatchRunRecordRepository batchRunRecordRepository,
-                                             ImportedRecordRepository importedRecordRepository,
-                                             QualityGateResultRepository qualityGateResultRepository,
-                                             FileAssetService fileAssetService,
-                                             FileProcessLogService fileProcessLogService,
-                                             JobInstanceService jobInstanceService,
-                                             @org.springframework.beans.factory.annotation.Value("${batch.import.duplicate.max-rate:0.0}") double defaultDuplicateMaxRate,
-                                             @org.springframework.beans.factory.annotation.Value("${batch.import.duplicate.min-lines:100}") long defaultDuplicateMinLines) {
+    public JobCompletionNotificationListener(
+            BatchRunRecordRepository batchRunRecordRepository,
+            ImportedRecordRepository importedRecordRepository,
+            QualityGateResultRepository qualityGateResultRepository,
+            FileAssetService fileAssetService,
+            FileProcessLogService fileProcessLogService,
+            JobInstanceService jobInstanceService,
+            @org.springframework.beans.factory.annotation.Value("${batch.import.duplicate.max-rate:0.0}")
+                    double defaultDuplicateMaxRate,
+            @org.springframework.beans.factory.annotation.Value("${batch.import.duplicate.min-lines:100}")
+                    long defaultDuplicateMinLines) {
         this.batchRunRecordRepository = batchRunRecordRepository;
         this.importedRecordRepository = importedRecordRepository;
         this.qualityGateResultRepository = qualityGateResultRepository;
@@ -71,9 +71,10 @@ public class JobCompletionNotificationListener implements JobExecutionListener {
         String jobName = jobExecution.getJobInstance().getJobName();
         BatchStatus status = jobExecution.getStatus();
         Duration duration = Duration.between(
-            jobExecution.getStartTime().toInstant(ZoneOffset.UTC),
-            jobExecution.getEndTime() != null ? jobExecution.getEndTime().toInstant(ZoneOffset.UTC) : java.time.Instant.now()
-        );
+                jobExecution.getStartTime().toInstant(ZoneOffset.UTC),
+                jobExecution.getEndTime() != null
+                        ? jobExecution.getEndTime().toInstant(ZoneOffset.UTC)
+                        : java.time.Instant.now());
 
         log.info("Job [{}] completed with status: {}", jobName, status);
         log.info("Job [{}] execution time: {} seconds", jobName, duration.getSeconds());
@@ -97,18 +98,20 @@ public class JobCompletionNotificationListener implements JobExecutionListener {
     private void validateDataQuality(JobExecution jobExecution) {
         Collection<StepExecution> stepExecutions = jobExecution.getStepExecutions();
         if (stepExecutions.isEmpty()) {
-            log.warn("No step executions found for job: {}", jobExecution.getJobInstance().getJobName());
+            log.warn(
+                    "No step executions found for job: {}",
+                    jobExecution.getJobInstance().getJobName());
             return;
         }
 
         stepExecutions.forEach(step -> {
-            log.info("Step [{}] - Read: {}, Write: {}, Skip: {}, Commit: {}",
-                step.getStepName(),
-                step.getReadCount(),
-                step.getWriteCount(),
-                step.getSkipCount(),
-                step.getCommitCount()
-            );
+            log.info(
+                    "Step [{}] - Read: {}, Write: {}, Skip: {}, Commit: {}",
+                    step.getStepName(),
+                    step.getReadCount(),
+                    step.getWriteCount(),
+                    step.getSkipCount(),
+                    step.getCommitCount());
         });
     }
 
@@ -128,26 +131,25 @@ public class JobCompletionNotificationListener implements JobExecutionListener {
     }
 
     private void handleJobFailure(JobExecution jobExecution) {
-        log.error("Job [{}] failed with status: {}",
-            jobExecution.getJobInstance().getJobName(),
-            jobExecution.getStatus()
-        );
+        log.error(
+                "Job [{}] failed with status: {}",
+                jobExecution.getJobInstance().getJobName(),
+                jobExecution.getStatus());
 
         if (!jobExecution.getAllFailureExceptions().isEmpty()) {
-            log.error("Job [{}] failure exceptions:", jobExecution.getJobInstance().getJobName());
-            jobExecution.getAllFailureExceptions().forEach(ex ->
-                log.error("  - Exception: {}", ex.getMessage(), ex)
-            );
+            log.error(
+                    "Job [{}] failure exceptions:",
+                    jobExecution.getJobInstance().getJobName());
+            jobExecution.getAllFailureExceptions().forEach(ex -> log.error("  - Exception: {}", ex.getMessage(), ex));
         }
 
         jobExecution.getStepExecutions().stream()
-            .filter(step -> step.getFailureExceptions() != null && !step.getFailureExceptions().isEmpty())
-            .forEach(step -> {
-                log.error("Step [{}] failure exceptions:", step.getStepName());
-                step.getFailureExceptions().forEach(ex ->
-                    log.error("  - Exception: {}", ex.getMessage(), ex)
-                );
-            });
+                .filter(step -> step.getFailureExceptions() != null
+                        && !step.getFailureExceptions().isEmpty())
+                .forEach(step -> {
+                    log.error("Step [{}] failure exceptions:", step.getStepName());
+                    step.getFailureExceptions().forEach(ex -> log.error("  - Exception: {}", ex.getMessage(), ex));
+                });
     }
 
     private void logJobSummary(JobExecution jobExecution) {
@@ -179,8 +181,16 @@ public class JobCompletionNotificationListener implements JobExecutionListener {
             long missingName = importedRecordRepository.countMissingNameByBatchDate(batchDate);
             double missingRate = total == 0 ? 0.0 : (double) missingName / (double) total;
 
-            persistQualityGate(jobExecution, "IMPORT_REQUIRED_FIELD_COMPLETENESS", batchDate, total, missingName,
-                    missingRate, 0.01, total, missingRate <= 0.01 ? "PASS" : "FAIL",
+            persistQualityGate(
+                    jobExecution,
+                    "IMPORT_REQUIRED_FIELD_COMPLETENESS",
+                    batchDate,
+                    total,
+                    missingName,
+                    missingRate,
+                    0.01,
+                    total,
+                    missingRate <= 0.01 ? "PASS" : "FAIL",
                     "missing-name-rate=" + missingRate);
         } catch (Exception ex) {
             log.warn("Failed to evaluate post-import quality gate for executionId={}", jobExecution.getId(), ex);
@@ -221,8 +231,17 @@ public class JobCompletionNotificationListener implements JobExecutionListener {
             long duplicates = importedRecordRepository.countDuplicateBusinessKeysByBatchDate(batchDate);
             double rate = total == 0 ? 0.0 : (double) duplicates / (double) total;
             String status = rate <= maxRate ? "PASS" : "FAIL";
-            persistQualityGate(jobExecution, "IMPORT_DUPLICATE_RATE", batchDate, total, duplicates,
-                    rate, maxRate, minLines, status, "duplicate-rate=" + rate);
+            persistQualityGate(
+                    jobExecution,
+                    "IMPORT_DUPLICATE_RATE",
+                    batchDate,
+                    total,
+                    duplicates,
+                    rate,
+                    maxRate,
+                    minLines,
+                    status,
+                    "duplicate-rate=" + rate);
         } catch (Exception ex) {
             log.warn("Failed to evaluate duplicate rate gate for executionId={}", jobExecution.getId(), ex);
         }
@@ -262,9 +281,17 @@ public class JobCompletionNotificationListener implements JobExecutionListener {
             status = writeCount >= min ? "PASS" : "FAIL";
             message = "minRows=" + min + ", actualRows=" + writeCount;
         }
-        persistQualityGate(jobExecution, "EXPORT_ROW_COUNT", batchDate, total,
-                Math.max(0L, (expected == null ? 0L : Math.abs(expected - writeCount))), errorRate,
-                0.0, min == null ? 0L : min, status, message);
+        persistQualityGate(
+                jobExecution,
+                "EXPORT_ROW_COUNT",
+                batchDate,
+                total,
+                Math.max(0L, (expected == null ? 0L : Math.abs(expected - writeCount))),
+                errorRate,
+                0.0,
+                min == null ? 0L : min,
+                status,
+                message);
     }
 
     private Long parseLong(String raw) {
@@ -289,16 +316,17 @@ public class JobCompletionNotificationListener implements JobExecutionListener {
         }
     }
 
-    private void persistQualityGate(JobExecution jobExecution,
-                                    String gateType,
-                                    String batchDate,
-                                    long totalCount,
-                                    long issueCount,
-                                    double errorRate,
-                                    double maxRate,
-                                    long minLines,
-                                    String status,
-                                    String message) {
+    private void persistQualityGate(
+            JobExecution jobExecution,
+            String gateType,
+            String batchDate,
+            long totalCount,
+            long issueCount,
+            double errorRate,
+            double maxRate,
+            long minLines,
+            String status,
+            String message) {
         QualityGateResult result = new QualityGateResult();
         result.setGateType(gateType);
         result.setJobName(jobExecution.getJobInstance().getJobName());
@@ -323,12 +351,24 @@ public class JobCompletionNotificationListener implements JobExecutionListener {
                     .findByJobExecutionId(jobExecution.getId())
                     .orElseGet(BatchRunRecord::new);
 
-            long readCount = jobExecution.getStepExecutions().stream().mapToLong(StepExecution::getReadCount).sum();
-            long writeCount = jobExecution.getStepExecutions().stream().mapToLong(StepExecution::getWriteCount).sum();
-            long skipCount = jobExecution.getStepExecutions().stream().mapToLong(StepExecution::getSkipCount).sum();
-            long filterCount = jobExecution.getStepExecutions().stream().mapToLong(StepExecution::getFilterCount).sum();
-            long rollbackCount = jobExecution.getStepExecutions().stream().mapToLong(StepExecution::getRollbackCount).sum();
-            long commitCount = jobExecution.getStepExecutions().stream().mapToLong(StepExecution::getCommitCount).sum();
+            long readCount = jobExecution.getStepExecutions().stream()
+                    .mapToLong(StepExecution::getReadCount)
+                    .sum();
+            long writeCount = jobExecution.getStepExecutions().stream()
+                    .mapToLong(StepExecution::getWriteCount)
+                    .sum();
+            long skipCount = jobExecution.getStepExecutions().stream()
+                    .mapToLong(StepExecution::getSkipCount)
+                    .sum();
+            long filterCount = jobExecution.getStepExecutions().stream()
+                    .mapToLong(StepExecution::getFilterCount)
+                    .sum();
+            long rollbackCount = jobExecution.getStepExecutions().stream()
+                    .mapToLong(StepExecution::getRollbackCount)
+                    .sum();
+            long commitCount = jobExecution.getStepExecutions().stream()
+                    .mapToLong(StepExecution::getCommitCount)
+                    .sum();
             long parseErrorCount = jobExecution.getStepExecutions().stream()
                     .mapToLong(step -> step.getExecutionContext().getLong("parse.error.count", 0L))
                     .sum();
@@ -336,8 +376,9 @@ public class JobCompletionNotificationListener implements JobExecutionListener {
             String finalStatus = ("COMPLETED".equals(status) && !qualityPassed) ? "PARTIAL" : status;
             String qualityMessage = qualityPassed
                     ? "OK"
-                    : String.format("quality gate failed: read=%d write=%d skip=%d filter=%d parseErrors=%d",
-                    readCount, writeCount, skipCount, filterCount, parseErrorCount);
+                    : String.format(
+                            "quality gate failed: read=%d write=%d skip=%d filter=%d parseErrors=%d",
+                            readCount, writeCount, skipCount, filterCount, parseErrorCount);
 
             Instant start = jobExecution.getStartTime() != null
                     ? jobExecution.getStartTime().toInstant(ZoneOffset.UTC)
@@ -367,16 +408,23 @@ public class JobCompletionNotificationListener implements JobExecutionListener {
             record.setEndTime(jobExecution.getEndTime());
             record.setUpdatedAt(LocalDateTime.now());
 
-            if (jobExecution.getStatus() == BatchStatus.FAILED && !jobExecution.getAllFailureExceptions().isEmpty()) {
+            if (jobExecution.getStatus() == BatchStatus.FAILED
+                    && !jobExecution.getAllFailureExceptions().isEmpty()) {
                 String message = jobExecution.getAllFailureExceptions().get(0).getMessage();
-                record.setErrorMessage(message != null && message.length() > 1000 ? message.substring(0, 1000) : message);
+                record.setErrorMessage(
+                        message != null && message.length() > 1000 ? message.substring(0, 1000) : message);
             } else {
                 record.setErrorMessage(null);
             }
 
             if (!qualityPassed) {
-                log.warn("Data-quality gate not passed for executionId={}: read={}, write={}, skip={}, filter={}",
-                        jobExecution.getId(), readCount, writeCount, skipCount, filterCount);
+                log.warn(
+                        "Data-quality gate not passed for executionId={}: read={}, write={}, skip={}, filter={}",
+                        jobExecution.getId(),
+                        readCount,
+                        writeCount,
+                        skipCount,
+                        filterCount);
             }
 
             batchRunRecordRepository.save(record);
@@ -402,9 +450,15 @@ public class JobCompletionNotificationListener implements JobExecutionListener {
             return;
         }
 
+        Path outputFileNamePart = outputPath.getFileName();
+        if (outputFileNamePart == null) {
+            log.warn("Skip registering export file asset because path has no file name: {}", outputPath);
+            return;
+        }
+
         String batchDate = jobExecution.getJobParameters().getString("batchDate");
         var fileRecord = fileAssetService.registerOutboundFile(
-                outputPath.getFileName().toString(),
+                outputFileNamePart.toString(),
                 outputPath.toString(),
                 "DATA_EXPORT",
                 batchDate,
@@ -412,13 +466,24 @@ public class JobCompletionNotificationListener implements JobExecutionListener {
                 null,
                 "PROCESSED",
                 Map.of(
-                        "jobName", jobName,
-                        "jobExecutionId", jobExecution.getId(),
-                        "source", "JobCompletionNotificationListener"
-                )
-        );
-        fileProcessLogService.log(fileRecord.getId(), "afterJob", "EXPORT", null, "PROCESSED",
-                "SUCCESS", null, jobName, 0, null, null,
+                        "jobName",
+                        jobName,
+                        "jobExecutionId",
+                        jobExecution.getId(),
+                        "source",
+                        "JobCompletionNotificationListener"));
+        fileProcessLogService.log(
+                fileRecord.getId(),
+                "afterJob",
+                "EXPORT",
+                null,
+                "PROCESSED",
+                "SUCCESS",
+                null,
+                jobName,
+                0,
+                null,
+                null,
                 Map.of("jobExecutionId", jobExecution.getId(), "outputFileName", outputFileName));
     }
 }

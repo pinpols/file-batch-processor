@@ -5,11 +5,6 @@ import com.example.filebatchprocessor.model.FileAssetStatus;
 import com.example.filebatchprocessor.repository.FileAssetRecordRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -22,6 +17,10 @@ import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Transactional
@@ -34,21 +33,23 @@ public class FileAssetService {
     private final FileAssetStateMachineService stateMachineService;
 
     @Autowired
-    public FileAssetService(FileAssetRecordRepository repository,
-                            ObjectMapper objectMapper,
-                            FileAssetStateMachineService stateMachineService) {
+    public FileAssetService(
+            FileAssetRecordRepository repository,
+            ObjectMapper objectMapper,
+            FileAssetStateMachineService stateMachineService) {
         this.repository = repository;
         this.objectMapper = objectMapper;
         this.stateMachineService = stateMachineService;
     }
 
-    public FileAssetRecord registerInboundFile(String fileName,
-                                               String filePath,
-                                               String sourceSystem,
-                                               Long fileSize,
-                                               String fileHash,
-                                               String status,
-                                               Map<String, Object> metadata) {
+    public FileAssetRecord registerInboundFile(
+            String fileName,
+            String filePath,
+            String sourceSystem,
+            Long fileSize,
+            String fileHash,
+            String status,
+            Map<String, Object> metadata) {
         return registerFile(
                 "INBOUND",
                 fileName,
@@ -62,18 +63,18 @@ public class FileAssetService {
                 fileHash,
                 "MD5",
                 status,
-                metadata
-        );
+                metadata);
     }
 
-    public FileAssetRecord registerOutboundFile(String fileName,
-                                                String filePath,
-                                                String bizType,
-                                                String batchDate,
-                                                String tenantId,
-                                                String bizDomain,
-                                                String status,
-                                                Map<String, Object> metadata) {
+    public FileAssetRecord registerOutboundFile(
+            String fileName,
+            String filePath,
+            String bizType,
+            String batchDate,
+            String tenantId,
+            String bizDomain,
+            String status,
+            Map<String, Object> metadata) {
         return registerFile(
                 "OUTBOUND",
                 fileName,
@@ -87,8 +88,7 @@ public class FileAssetService {
                 null,
                 "MD5",
                 status,
-                metadata
-        );
+                metadata);
     }
 
     public Optional<FileAssetRecord> findById(Long id) {
@@ -132,14 +132,11 @@ public class FileAssetService {
 
     public FileAssetStateMachineService.TransitionResult markFailed(Long fileRecordId, String errorMessage) {
         return stateMachineService.transition(
-                fileRecordId,
-                FileAssetStatus.FAILED,
-                "markFailed",
-                Map.of("lastError", truncate(errorMessage, 1000))
-        );
+                fileRecordId, FileAssetStatus.FAILED, "markFailed", Map.of("lastError", truncate(errorMessage, 1000)));
     }
 
-    public FileAssetStateMachineService.TransitionResult resetToProcessed(Long fileRecordId, Map<String, Object> metadata) {
+    public FileAssetStateMachineService.TransitionResult resetToProcessed(
+            Long fileRecordId, Map<String, Object> metadata) {
         return stateMachineService.transition(fileRecordId, FileAssetStatus.PROCESSED, "resetToProcessed", metadata);
     }
 
@@ -147,41 +144,48 @@ public class FileAssetService {
         return stateMachineService.transition(fileRecordId, FileAssetStatus.READY, "resetToReady", metadata);
     }
 
-    public FileAssetStateMachineService.TransitionResult reprocessFile(Long fileRecordId, String operator, String reason) {
-        FileAssetRecord record = repository.findById(fileRecordId)
+    public FileAssetStateMachineService.TransitionResult reprocessFile(
+            Long fileRecordId, String operator, String reason) {
+        FileAssetRecord record = repository
+                .findById(fileRecordId)
                 .orElseThrow(() -> new IllegalArgumentException("File record not found: " + fileRecordId));
-        
+
         String currentStatus = record.getStatus();
         if ("PROCESSED".equals(currentStatus) || "DISPATCHED".equals(currentStatus)) {
-            return stateMachineService.transition(fileRecordId, FileAssetStatus.READY, 
-                    "reprocess", Map.of("operator", operator, "reason", reason));
+            return stateMachineService.transition(
+                    fileRecordId, FileAssetStatus.READY, "reprocess", Map.of("operator", operator, "reason", reason));
         } else if ("FAILED".equals(currentStatus)) {
-            return stateMachineService.transition(fileRecordId, FileAssetStatus.READY, 
-                    "reprocess", Map.of("operator", operator, "reason", reason));
+            return stateMachineService.transition(
+                    fileRecordId, FileAssetStatus.READY, "reprocess", Map.of("operator", operator, "reason", reason));
         } else if ("ARCHIVED".equals(currentStatus)) {
             throw new IllegalStateException("Cannot reprocess archived file: " + fileRecordId);
         } else {
-            return stateMachineService.transition(fileRecordId, FileAssetStatus.READY, 
-                    "reprocess", Map.of("operator", operator, "reason", reason));
+            return stateMachineService.transition(
+                    fileRecordId, FileAssetStatus.READY, "reprocess", Map.of("operator", operator, "reason", reason));
         }
     }
 
-    private FileAssetRecord registerFile(String fileDirection,
-                                         String fileName,
-                                         String filePath,
-                                         String sourceSystem,
-                                         String bizType,
-                                         String batchDate,
-                                         String tenantId,
-                                         String bizDomain,
-                                         Long fileSize,
-                                         String fileHash,
-                                         String hashAlgorithm,
-                                         String status,
-                                         Map<String, Object> metadata) {
+    private FileAssetRecord registerFile(
+            String fileDirection,
+            String fileName,
+            String filePath,
+            String sourceSystem,
+            String bizType,
+            String batchDate,
+            String tenantId,
+            String bizDomain,
+            Long fileSize,
+            String fileHash,
+            String hashAlgorithm,
+            String status,
+            Map<String, Object> metadata) {
         Path path = Path.of(filePath);
         if (!Files.exists(path)) {
             throw new IllegalArgumentException("File not found: " + filePath);
+        }
+        Path storedNamePart = path.getFileName();
+        if (storedNamePart == null) {
+            throw new IllegalArgumentException("File path has no file name: " + filePath);
         }
 
         String resolvedHashAlgorithm = hashAlgorithm == null ? "MD5" : hashAlgorithm;
@@ -195,7 +199,8 @@ public class FileAssetService {
             }
         }
 
-        FileAssetRecord previous = repository.findFirstByStoredPathAndLatestVersionTrueOrderByCreatedAtDesc(path.toString())
+        FileAssetRecord previous = repository
+                .findFirstByStoredPathAndLatestVersionTrueOrderByCreatedAtDesc(path.toString())
                 .orElse(null);
 
         if (previous != null) {
@@ -210,7 +215,7 @@ public class FileAssetService {
         record.setBizType(bizType);
         record.setFileDirection(fileDirection);
         record.setOriginalName(fileName);
-        record.setStoredName(path.getFileName().toString());
+        record.setStoredName(storedNamePart.toString());
         record.setStoredPath(path.toString());
         record.setStorageType("LOCAL");
         record.setFileSize(fileSize != null ? fileSize : safeSize(path));
@@ -237,7 +242,8 @@ public class FileAssetService {
             return repository.saveAndFlush(record);
         } catch (DataIntegrityViolationException ex) {
             if (idempotencyKey != null) {
-                throw new IllegalArgumentException("Duplicate file content already received: key=" + idempotencyKey, ex);
+                throw new IllegalArgumentException(
+                        "Duplicate file content already received: key=" + idempotencyKey, ex);
             }
             throw ex;
         }
@@ -318,10 +324,7 @@ public class FileAssetService {
         return raw.substring(0, maxLength);
     }
 
-    private String buildIdempotencyKey(String fileDirection,
-                                       String sourceSystem,
-                                       String batchDate,
-                                       String fileHash) {
+    private String buildIdempotencyKey(String fileDirection, String sourceSystem, String batchDate, String fileHash) {
         if (!"INBOUND".equalsIgnoreCase(fileDirection) || fileHash == null || fileHash.isBlank()) {
             return null;
         }
@@ -330,9 +333,10 @@ public class FileAssetService {
 
     private String buildInboundIdempotencyKey(String sourceSystem, String fileHash, String batchDate) {
         String normalizedSource = sourceSystem == null || sourceSystem.isBlank()
-                ? "UNKNOWN" : sourceSystem.trim().toUpperCase();
-        String normalizedBizDate = batchDate == null || batchDate.isBlank()
-                ? "NA" : batchDate.trim();
-        return "INBOUND|" + normalizedSource + "|" + normalizedBizDate + "|" + fileHash.trim().toUpperCase();
+                ? "UNKNOWN"
+                : sourceSystem.trim().toUpperCase();
+        String normalizedBizDate = batchDate == null || batchDate.isBlank() ? "NA" : batchDate.trim();
+        return "INBOUND|" + normalizedSource + "|" + normalizedBizDate + "|"
+                + fileHash.trim().toUpperCase();
     }
 }

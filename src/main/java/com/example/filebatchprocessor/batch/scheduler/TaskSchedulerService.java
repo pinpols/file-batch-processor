@@ -1,31 +1,23 @@
 package com.example.filebatchprocessor.batch.scheduler;
 
+import com.example.filebatchprocessor.exception.ErrorCodeClassifier;
+import com.example.filebatchprocessor.model.DlqRecord;
+import com.example.filebatchprocessor.model.TaskExecutionState;
+import com.example.filebatchprocessor.model.TaskExecutionStatus;
 import com.example.filebatchprocessor.observability.BatchMetrics;
 import com.example.filebatchprocessor.observability.MdcContext;
-import com.example.filebatchprocessor.model.DlqRecord;
-import com.example.filebatchprocessor.model.TaskExecutionStatus;
-import com.example.filebatchprocessor.model.TaskExecutionState;
 import com.example.filebatchprocessor.repository.DlqRecordRepository;
 import com.example.filebatchprocessor.repository.TaskExecutionStateRepository;
 import com.example.filebatchprocessor.scheduler.LocalCacheService;
 import com.example.filebatchprocessor.scheduler.OrchestrationTaskDefinition;
+import com.example.filebatchprocessor.service.BatchJobResolver;
 import com.example.filebatchprocessor.service.ExecutionDedupService;
 import com.example.filebatchprocessor.service.JobInstanceService;
 import com.example.filebatchprocessor.service.SchedulerLeaderService;
 import com.example.filebatchprocessor.service.SchedulerQueueService;
-import com.example.filebatchprocessor.service.BatchJobResolver;
 import com.example.filebatchprocessor.service.TaskExecutionAuditService;
 import com.example.filebatchprocessor.service.TaskExecutionStateService;
-import com.example.filebatchprocessor.exception.ErrorCodeClassifier;
 import com.example.filebatchprocessor.util.IdempotencyKeyBuilder;
-import lombok.extern.slf4j.Slf4j;
-import org.quartz.*;
-import org.springframework.batch.core.launch.JobLauncher;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
-
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
@@ -35,7 +27,13 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Semaphore;
-
+import lombok.extern.slf4j.Slf4j;
+import org.quartz.*;
+import org.springframework.batch.core.launch.JobLauncher;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
 
 @Slf4j
@@ -86,42 +84,45 @@ public class TaskSchedulerService {
     private final ConcurrentMap<String, Boolean> queueSlaBreached = new ConcurrentHashMap<>();
     private final Object quartzTriggerWriteLock = new Object();
 
-    public TaskSchedulerService(@Qualifier("asyncJobLauncher") JobLauncher jobLauncher,
-                                BatchJobResolver batchJobResolver,
-                                TaskGraphManager taskGraphManager,
-                                LocalCacheService localCacheService,
-                                TaskMergeService taskMergeService,
-                                ExecutionDedupService executionDedupService,
-                                TaskExecutionStateService taskExecutionStateService,
-                                TaskExecutionStateRepository taskExecutionStateRepository,
-                                SchedulerLeaderService schedulerLeaderService,
-                                SchedulerQueueService schedulerQueueService,
-                                TaskExecutionAuditService taskExecutionAuditService,
-                                JobInstanceService jobInstanceService,
-                                DlqRecordRepository dlqRecordRepository,
-                                Scheduler quartzScheduler,
-                                ThreadPoolTaskExecutor batchTaskExecutor,
-                                JdbcTemplate jdbcTemplate,
-                                SchedulerConcurrencyLimiter schedulerConcurrencyLimiter,
-                                TargetSystemCircuitBreaker circuitBreaker,
-                                BatchMetrics batchMetrics,
-                                @Value("${orchestration.scheduler.max-queue-size:2000}") int maxQueueSize,
-                                @Value("${orchestration.scheduler.max-concurrent-launches:4}") int maxConcurrentLaunches,
-                                @Value("${orchestration.scheduler.default-max-queue-wait-ms:300000}") long defaultMaxQueueWaitMs,
-                                @Value("${orchestration.scheduler.default-timeout-ms:1800000}") long defaultTimeoutMs,
-                                @Value("${orchestration.scheduler.default-dynamic-shard-max:1}") int defaultDynamicShardMax,
-                                @Value("${orchestration.scheduler.default-dependency-timeout-ms:600000}") long defaultDependencyTimeoutMs,
-                                @Value("${orchestration.scheduler.default-rerun-window-ms:86400000}") long defaultRerunWindowMs,
-                                @Value("${orchestration.scheduler.default-retry-backoff-ms:60000}") long defaultRetryBackoffMs,
-                                @Value("${orchestration.scheduler.default-retry-jitter-ratio:0}") double defaultRetryJitterRatio,
-                                @Value("${orchestration.scheduler.default-max-attempts:3}") int defaultMaxAttempts,
-                                @Value("${orchestration.scheduler.backpressure-threshold:1500}") int queueBackpressureThreshold,
-                                @Value("${orchestration.scheduler.backpressure-delay-ms:5000}") long queueBackpressureDelayMs,
-                                @Value("${orchestration.scheduler.fixed-delay.min-requeue-interval-ms:2000}") long fixedDelayMinIntervalMs,
-                                @Value("${orchestration.scheduler.fixed-delay.max-requeue-per-minute:60}") int fixedDelayMaxRequeuePerMinute,
-                                @Value("${orchestration.scheduler.fixed-delay.failure-backoff-multiplier:2.0}") double fixedDelayFailureBackoffMultiplier,
-                                @Value("${orchestration.scheduler.fixed-delay.max-backoff-ms:300000}") long fixedDelayMaxBackoffMs,
-                                @Value("${batch.dedup.window.seconds:60}") long dedupWindowSeconds) {
+    public TaskSchedulerService(
+            @Qualifier("asyncJobLauncher") JobLauncher jobLauncher,
+            BatchJobResolver batchJobResolver,
+            TaskGraphManager taskGraphManager,
+            LocalCacheService localCacheService,
+            TaskMergeService taskMergeService,
+            ExecutionDedupService executionDedupService,
+            TaskExecutionStateService taskExecutionStateService,
+            TaskExecutionStateRepository taskExecutionStateRepository,
+            SchedulerLeaderService schedulerLeaderService,
+            SchedulerQueueService schedulerQueueService,
+            TaskExecutionAuditService taskExecutionAuditService,
+            JobInstanceService jobInstanceService,
+            DlqRecordRepository dlqRecordRepository,
+            Scheduler quartzScheduler,
+            ThreadPoolTaskExecutor batchTaskExecutor,
+            JdbcTemplate jdbcTemplate,
+            SchedulerConcurrencyLimiter schedulerConcurrencyLimiter,
+            TargetSystemCircuitBreaker circuitBreaker,
+            BatchMetrics batchMetrics,
+            @Value("${orchestration.scheduler.max-queue-size:2000}") int maxQueueSize,
+            @Value("${orchestration.scheduler.max-concurrent-launches:4}") int maxConcurrentLaunches,
+            @Value("${orchestration.scheduler.default-max-queue-wait-ms:300000}") long defaultMaxQueueWaitMs,
+            @Value("${orchestration.scheduler.default-timeout-ms:1800000}") long defaultTimeoutMs,
+            @Value("${orchestration.scheduler.default-dynamic-shard-max:1}") int defaultDynamicShardMax,
+            @Value("${orchestration.scheduler.default-dependency-timeout-ms:600000}") long defaultDependencyTimeoutMs,
+            @Value("${orchestration.scheduler.default-rerun-window-ms:86400000}") long defaultRerunWindowMs,
+            @Value("${orchestration.scheduler.default-retry-backoff-ms:60000}") long defaultRetryBackoffMs,
+            @Value("${orchestration.scheduler.default-retry-jitter-ratio:0}") double defaultRetryJitterRatio,
+            @Value("${orchestration.scheduler.default-max-attempts:3}") int defaultMaxAttempts,
+            @Value("${orchestration.scheduler.backpressure-threshold:1500}") int queueBackpressureThreshold,
+            @Value("${orchestration.scheduler.backpressure-delay-ms:5000}") long queueBackpressureDelayMs,
+            @Value("${orchestration.scheduler.fixed-delay.min-requeue-interval-ms:2000}") long fixedDelayMinIntervalMs,
+            @Value("${orchestration.scheduler.fixed-delay.max-requeue-per-minute:60}")
+                    int fixedDelayMaxRequeuePerMinute,
+            @Value("${orchestration.scheduler.fixed-delay.failure-backoff-multiplier:2.0}")
+                    double fixedDelayFailureBackoffMultiplier,
+            @Value("${orchestration.scheduler.fixed-delay.max-backoff-ms:300000}") long fixedDelayMaxBackoffMs,
+            @Value("${batch.dedup.window.seconds:60}") long dedupWindowSeconds) {
         this.taskGraphManager = taskGraphManager;
         this.taskMergeService = taskMergeService;
         this.executionDedupService = executionDedupService;
@@ -160,8 +161,7 @@ public class TaskSchedulerService {
                 jobInstanceService,
                 launchPermits,
                 defaultDynamicShardMax,
-                defaultTimeoutMs
-        );
+                defaultTimeoutMs);
     }
 
     public void register(OrchestrationTaskDefinition definition) {
@@ -277,15 +277,20 @@ public class TaskSchedulerService {
                 log.warn("Failed to upsert trigger {}, retrying with force replace: {}", key, e.getMessage());
                 try {
                     quartzScheduler.unscheduleJob(key);
-                } catch (Exception ignored) {}
+                } catch (Exception unscheduleEx) {
+                    // best-effort:触发器可能本就不存在,清不掉也无妨,后面直接 scheduleJob 重建
+                    log.trace(
+                            "Ignore unschedule failure for {} before force reschedule: {}",
+                            key,
+                            unscheduleEx.getMessage());
+                }
                 quartzScheduler.scheduleJob(trigger);
             }
         }
     }
 
-    private Trigger buildFixedRateTrigger(OrchestrationTaskDefinition definition,
-                                          JobDetail jobDetail,
-                                          long fixedRateMs) {
+    private Trigger buildFixedRateTrigger(
+            OrchestrationTaskDefinition definition, JobDetail jobDetail, long fixedRateMs) {
         java.util.Date firstFireAt = java.util.Date.from(Instant.now().plusMillis(2000L));
         return TriggerBuilder.newTrigger()
                 .withIdentity(triggerKey(definition, "fixed-rate"))
@@ -329,7 +334,9 @@ public class TaskSchedulerService {
             schedulerQueueService.dequeue(runKey);
             persistSchedulerDlq(definition, "Queue is full, task dropped");
             if (definition.getTrigger() != null && definition.getTrigger().getType() == TriggerType.FIXED_DELAY) {
-                long delayMs = definition.getTrigger().getFixedDelayMs() == null ? 1000L : Math.max(1000L, definition.getTrigger().getFixedDelayMs());
+                long delayMs = definition.getTrigger().getFixedDelayMs() == null
+                        ? 1000L
+                        : Math.max(1000L, definition.getTrigger().getFixedDelayMs());
                 scheduleFixedDelayOnce(definition, Instant.now().plusMillis(delayMs));
             }
             return;
@@ -343,8 +350,7 @@ public class TaskSchedulerService {
                 "ENQUEUE",
                 TaskExecutionStatus.READY.name(),
                 null,
-                definition.getParameters()
-        );
+                definition.getParameters());
         batchTaskExecutor.submit(this::drainQueue);
     }
 
@@ -361,9 +367,15 @@ public class TaskSchedulerService {
                     && waitedMs > def.getSlaMaxQueueDelayMs()
                     && queueSlaBreached.putIfAbsent(runKey, Boolean.TRUE) == null) {
                 batchMetrics.counter("scheduler_queue_sla_breach_total", "job", String.valueOf(def.getJobName()));
-                taskExecutionAuditService.log(def.getId(), def.getJobName(), resolveBatchDate(def), runKey,
-                        "QUEUE_SLA_BREACH", TaskExecutionStatus.BLOCKED.name(),
-                        "waitedMs=" + waitedMs, def.getParameters());
+                taskExecutionAuditService.log(
+                        def.getId(),
+                        def.getJobName(),
+                        resolveBatchDate(def),
+                        runKey,
+                        "QUEUE_SLA_BREACH",
+                        TaskExecutionStatus.BLOCKED.name(),
+                        "waitedMs=" + waitedMs,
+                        def.getParameters());
             }
             if (queueManager.isQueueWaitTimeout(runKey, resolveMaxQueueWaitMs(def))) {
                 markFailed(def, "Queue wait timeout exceeded");
@@ -372,14 +384,20 @@ public class TaskSchedulerService {
             }
 
             String batchDate = resolveBatchDate(def);
-            DependencyResolver.DependencyState dependencyState = dependencyResolver.resolve(def, batchDate, resolveDependencyTimeoutMs(def), waitedMs);
+            DependencyResolver.DependencyState dependencyState =
+                    dependencyResolver.resolve(def, batchDate, resolveDependencyTimeoutMs(def), waitedMs);
             if (dependencyState == DependencyResolver.DependencyState.FAILED) {
                 markFailed(def, "Blocked by failed dependency");
                 completeRun(def, runKey);
                 continue;
             }
             if (dependencyState == DependencyResolver.DependencyState.SKIPPED) {
-                upsertState(def, TaskExecutionStatus.SKIPPED.name(), "Dependency failed and on_failure_action=SKIP", false, null);
+                upsertState(
+                        def,
+                        TaskExecutionStatus.SKIPPED.name(),
+                        "Dependency failed and on_failure_action=SKIP",
+                        false,
+                        null);
                 completeRun(def, runKey);
                 continue;
             }
@@ -432,36 +450,62 @@ public class TaskSchedulerService {
                     String batchDateParam = task.getParameters().get("batchDate");
                     mdcCtx.put("batch_date", batchDateParam != null ? batchDateParam : "");
                     String executionIdParam = task.getParameters().get("executionId");
-                        mdcCtx.put("execution_id", executionIdParam != null ? executionIdParam : "");
+                    mdcCtx.put("execution_id", executionIdParam != null ? executionIdParam : "");
                     if (targetSystem != null) {
                         mdcCtx.put("target_system", targetSystem);
                     }
                     MdcContext.withContext(mdcCtx, () -> {
                         upsertState(task, TaskExecutionStatus.RUNNING.name(), null, false, null);
-                        LaunchExecutor.LaunchResult launchResult = launchExecutor.launch(task, resolveBatchDate(task), queueManager.size());
+                        LaunchExecutor.LaunchResult launchResult =
+                                launchExecutor.launch(task, resolveBatchDate(task), queueManager.size());
                         if (launchResult.isShouldReschedule()) {
                             queueManager.requeue(task);
-                            batchMetrics.counter("scheduler_launch_reschedule_total", "job", String.valueOf(task.getJobName()));
+                            batchMetrics.counter(
+                                    "scheduler_launch_reschedule_total", "job", String.valueOf(task.getJobName()));
                             return;
                         }
                         if (!launchResult.isSuccess()) {
-                            batchMetrics.counter("scheduler_launch_failed_total", "job", String.valueOf(task.getJobName()));
+                            batchMetrics.counter(
+                                    "scheduler_launch_failed_total", "job", String.valueOf(task.getJobName()));
                             int attempt = getCurrentAttempt(task);
                             RetryPolicy.FailureClass failureClass = retryPolicy.classify(launchResult.getReason());
                             recordFixedDelayOutcome(task, false);
                             if (failureClass == RetryPolicy.FailureClass.SKIPPABLE) {
-                                upsertState(task, TaskExecutionStatus.SKIPPED.name(), launchResult.getReason(), true, null);
-                                batchMetrics.counter("scheduler_launch_skipped_total", "job", String.valueOf(task.getJobName()));
-                                taskExecutionAuditService.log(task.getId(), task.getJobName(), resolveBatchDate(task), runKey,
-                                        "LAUNCH", TaskExecutionStatus.SKIPPED.name(), launchResult.getReason(), task.getParameters());
+                                upsertState(
+                                        task, TaskExecutionStatus.SKIPPED.name(), launchResult.getReason(), true, null);
+                                batchMetrics.counter(
+                                        "scheduler_launch_skipped_total", "job", String.valueOf(task.getJobName()));
+                                taskExecutionAuditService.log(
+                                        task.getId(),
+                                        task.getJobName(),
+                                        resolveBatchDate(task),
+                                        runKey,
+                                        "LAUNCH",
+                                        TaskExecutionStatus.SKIPPED.name(),
+                                        launchResult.getReason(),
+                                        task.getParameters());
                             } else if (retryPolicy.allowRetry(task, attempt, launchResult.getReason())) {
                                 scheduleRetry(task, launchResult.getReason());
-                                taskExecutionAuditService.log(task.getId(), task.getJobName(), resolveBatchDate(task), runKey,
-                                        "RETRY_SCHEDULED", TaskExecutionStatus.READY.name(), launchResult.getReason(), task.getParameters());
+                                taskExecutionAuditService.log(
+                                        task.getId(),
+                                        task.getJobName(),
+                                        resolveBatchDate(task),
+                                        runKey,
+                                        "RETRY_SCHEDULED",
+                                        TaskExecutionStatus.READY.name(),
+                                        launchResult.getReason(),
+                                        task.getParameters());
                             } else {
                                 markFailed(task, launchResult.getReason());
-                                taskExecutionAuditService.log(task.getId(), task.getJobName(), resolveBatchDate(task), runKey,
-                                        "LAUNCH", TaskExecutionStatus.FAILED.name(), launchResult.getReason(), task.getParameters());
+                                taskExecutionAuditService.log(
+                                        task.getId(),
+                                        task.getJobName(),
+                                        resolveBatchDate(task),
+                                        runKey,
+                                        "LAUNCH",
+                                        TaskExecutionStatus.FAILED.name(),
+                                        launchResult.getReason(),
+                                        task.getParameters());
                             }
                             if (targetSystem != null) {
                                 circuitBreaker.recordResult(targetSystem, false);
@@ -469,17 +513,34 @@ public class TaskSchedulerService {
                             return;
                         }
                         if (launchResult.isPartial()) {
-                            upsertState(task, TaskExecutionStatus.PARTIAL.name(), launchResult.getReason(), false, null);
-                            batchMetrics.counter("scheduler_launch_partial_total", "job", String.valueOf(task.getJobName()));
+                            upsertState(
+                                    task, TaskExecutionStatus.PARTIAL.name(), launchResult.getReason(), false, null);
+                            batchMetrics.counter(
+                                    "scheduler_launch_partial_total", "job", String.valueOf(task.getJobName()));
                             recordFixedDelayOutcome(task, false);
-                            taskExecutionAuditService.log(task.getId(), task.getJobName(), resolveBatchDate(task), runKey,
-                                    "LAUNCH", TaskExecutionStatus.PARTIAL.name(), launchResult.getReason(), task.getParameters());
+                            taskExecutionAuditService.log(
+                                    task.getId(),
+                                    task.getJobName(),
+                                    resolveBatchDate(task),
+                                    runKey,
+                                    "LAUNCH",
+                                    TaskExecutionStatus.PARTIAL.name(),
+                                    launchResult.getReason(),
+                                    task.getParameters());
                         } else {
                             upsertState(task, TaskExecutionStatus.SUCCESS.name(), null, false, null);
-                            batchMetrics.counter("scheduler_launch_success_total", "job", String.valueOf(task.getJobName()));
+                            batchMetrics.counter(
+                                    "scheduler_launch_success_total", "job", String.valueOf(task.getJobName()));
                             recordFixedDelayOutcome(task, true);
-                            taskExecutionAuditService.log(task.getId(), task.getJobName(), resolveBatchDate(task), runKey,
-                                    "LAUNCH", TaskExecutionStatus.SUCCESS.name(), null, task.getParameters());
+                            taskExecutionAuditService.log(
+                                    task.getId(),
+                                    task.getJobName(),
+                                    resolveBatchDate(task),
+                                    runKey,
+                                    "LAUNCH",
+                                    TaskExecutionStatus.SUCCESS.name(),
+                                    null,
+                                    task.getParameters());
                         }
                         if (targetSystem != null) {
                             circuitBreaker.recordResult(targetSystem, true);
@@ -623,7 +684,8 @@ public class TaskSchedulerService {
     }
 
     private TriggerKey triggerKey(OrchestrationTaskDefinition definition, String suffix) {
-        return TriggerKey.triggerKey("tr-" + sanitize(definition.getId()) + "-" + sanitize(suffix), ORCHESTRATION_GROUP);
+        return TriggerKey.triggerKey(
+                "tr-" + sanitize(definition.getId()) + "-" + sanitize(suffix), ORCHESTRATION_GROUP);
     }
 
     private String sanitize(String text) {
@@ -637,8 +699,15 @@ public class TaskSchedulerService {
         upsertState(def, TaskExecutionStatus.FAILED.name(), reason, true, null);
         persistSchedulerDlq(def, reason);
         recordFixedDelayOutcome(def, false);
-        taskExecutionAuditService.log(def.getId(), def.getJobName(), resolveBatchDate(def), taskRunKey(def),
-                "FAILED", TaskExecutionStatus.FAILED.name(), reason, def.getParameters());
+        taskExecutionAuditService.log(
+                def.getId(),
+                def.getJobName(),
+                resolveBatchDate(def),
+                taskRunKey(def),
+                "FAILED",
+                TaskExecutionStatus.FAILED.name(),
+                reason,
+                def.getParameters());
         log.error("Task {} failed: {}", def.getId(), reason);
     }
 
@@ -649,18 +718,14 @@ public class TaskSchedulerService {
         FixedDelayBackoffState state = fixedDelayState.computeIfAbsent(def.getId(), _k -> new FixedDelayBackoffState());
         if (success) {
             state.failureStreak = 0;
-            state.lastSuccessAt = Instant.now();
             return;
         }
         state.failureStreak = Math.min(state.failureStreak + 1, 10);
-        state.lastFailureAt = Instant.now();
     }
 
     private static class FixedDelayBackoffState {
         private int failureStreak;
         private Instant lastScheduledAt;
-        private Instant lastSuccessAt;
-        private Instant lastFailureAt;
     }
 
     private void persistSchedulerDlq(OrchestrationTaskDefinition def, String reason) {
@@ -681,11 +746,12 @@ public class TaskSchedulerService {
         }
     }
 
-    private void upsertState(OrchestrationTaskDefinition def,
-                             String status,
-                             String error,
-                             boolean increaseAttempt,
-                             Instant nextRetryAt) {
+    private void upsertState(
+            OrchestrationTaskDefinition def,
+            String status,
+            String error,
+            boolean increaseAttempt,
+            Instant nextRetryAt) {
         String batchDate = resolveBatchDate(def);
         String rerunId = def.getParameters().getOrDefault("rerunId", "");
         Integer maxAttempts = def.getMaxAttempts() == null ? defaultMaxAttempts : Math.max(1, def.getMaxAttempts());
@@ -694,7 +760,8 @@ public class TaskSchedulerService {
 
         String errorCode = null;
         if (error != null && !error.isBlank() && ("FAILED".equals(status) || "READY".equals(status))) {
-            errorCode = ErrorCodeClassifier.classify(new RuntimeException(error)).name();
+            errorCode =
+                    ErrorCodeClassifier.classify(new RuntimeException(error)).name();
         }
 
         taskExecutionStateService.upsert(
@@ -708,8 +775,7 @@ public class TaskSchedulerService {
                 error,
                 errorCode,
                 increaseAttempt,
-                nextRetryAt == null ? null : LocalDateTime.ofInstant(nextRetryAt, ZoneId.systemDefault())
-        );
+                nextRetryAt == null ? null : LocalDateTime.ofInstant(nextRetryAt, ZoneId.systemDefault()));
     }
 
     private void resetPersistedSchedules(String schedName) {
@@ -718,43 +784,35 @@ public class TaskSchedulerService {
                     "DELETE FROM qrtz_fired_triggers WHERE sched_name = ? AND (trigger_group = ? OR job_group = ?)",
                     schedName,
                     ORCHESTRATION_GROUP,
-                    ORCHESTRATION_GROUP
-            );
+                    ORCHESTRATION_GROUP);
             int pausedRows = jdbcTemplate.update(
                     "DELETE FROM qrtz_paused_trigger_grps WHERE sched_name = ? AND trigger_group = ?",
                     schedName,
-                    ORCHESTRATION_GROUP
-            );
+                    ORCHESTRATION_GROUP);
             int simpleRows = jdbcTemplate.update(
                     "DELETE FROM qrtz_simple_triggers WHERE sched_name = ? AND trigger_group = ?",
                     schedName,
-                    ORCHESTRATION_GROUP
-            );
+                    ORCHESTRATION_GROUP);
             int cronRows = jdbcTemplate.update(
                     "DELETE FROM qrtz_cron_triggers WHERE sched_name = ? AND trigger_group = ?",
                     schedName,
-                    ORCHESTRATION_GROUP
-            );
+                    ORCHESTRATION_GROUP);
             int simpropRows = jdbcTemplate.update(
                     "DELETE FROM qrtz_simprop_triggers WHERE sched_name = ? AND trigger_group = ?",
                     schedName,
-                    ORCHESTRATION_GROUP
-            );
+                    ORCHESTRATION_GROUP);
             int blobRows = jdbcTemplate.update(
                     "DELETE FROM qrtz_blob_triggers WHERE sched_name = ? AND trigger_group = ?",
                     schedName,
-                    ORCHESTRATION_GROUP
-            );
+                    ORCHESTRATION_GROUP);
             int triggerRows = jdbcTemplate.update(
                     "DELETE FROM qrtz_triggers WHERE sched_name = ? AND trigger_group = ?",
                     schedName,
-                    ORCHESTRATION_GROUP
-            );
+                    ORCHESTRATION_GROUP);
             int jobRows = jdbcTemplate.update(
                     "DELETE FROM qrtz_job_details WHERE sched_name = ? AND job_group = ?",
                     schedName,
-                    ORCHESTRATION_GROUP
-            );
+                    ORCHESTRATION_GROUP);
             log.info(
                     "Reset persisted Quartz orchestration rows: schedName={}, jobs={}, triggers={}, simple={}, cron={}, simprop={}, blob={}, fired={}, paused={}",
                     schedName,
@@ -765,8 +823,7 @@ public class TaskSchedulerService {
                     simpropRows,
                     blobRows,
                     firedRows,
-                    pausedRows
-            );
+                    pausedRows);
         }
     }
 
@@ -792,8 +849,8 @@ public class TaskSchedulerService {
     private int getCurrentAttempt(OrchestrationTaskDefinition def) {
         String batchDate = resolveBatchDate(def);
         String rerunId = def.getParameters().getOrDefault("rerunId", "");
-        Optional<TaskExecutionState> state = taskExecutionStateRepository
-                .findByTaskIdAndBatchDateAndRerunId(def.getId(), batchDate, rerunId);
+        Optional<TaskExecutionState> state =
+                taskExecutionStateRepository.findByTaskIdAndBatchDateAndRerunId(def.getId(), batchDate, rerunId);
         return state.map(s -> s.getAttempt() == null ? 0 : s.getAttempt()).orElse(0);
     }
 

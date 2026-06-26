@@ -1,6 +1,5 @@
 package com.example.filebatchprocessor.config;
 
-
 import com.example.filebatchprocessor.batch.scheduler.TaskPriority;
 import com.example.filebatchprocessor.batch.scheduler.TaskSchedulerService;
 import com.example.filebatchprocessor.batch.scheduler.TriggerType;
@@ -10,25 +9,28 @@ import com.example.filebatchprocessor.model.TaskTrigger;
 import com.example.filebatchprocessor.scheduler.OrchestrationTaskDefinition;
 import com.example.filebatchprocessor.scheduler.OrchestrationTaskTrigger;
 import com.example.filebatchprocessor.service.TaskConfigService;
-import lombok.extern.slf4j.Slf4j;
-import org.quartz.Scheduler;
-import org.quartz.SchedulerException;
-import org.springframework.boot.CommandLineRunner;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.core.env.Environment;
-import org.springframework.scheduling.annotation.EnableScheduling;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
-
 import java.time.ZoneId;
 import java.util.Locale;
 import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
+import org.quartz.Scheduler;
+import org.quartz.SchedulerException;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 
 @Slf4j
 @Configuration
-@EnableConfigurationProperties({TaskDefinitionProperties.class, SchedulerConcurrencyProperties.class, ImportParseErrorGateProperties.class, CircuitBreakerProperties.class})
+@EnableConfigurationProperties({
+    TaskDefinitionProperties.class,
+    SchedulerConcurrencyProperties.class,
+    ImportParseErrorGateProperties.class,
+    CircuitBreakerProperties.class
+})
 public class TaskOrchestrationConfig {
 
     @Value("${orchestration.scheduler.pool-size:4}")
@@ -53,12 +55,13 @@ public class TaskOrchestrationConfig {
     }
 
     @Bean
-    public CommandLineRunner registerConfiguredTasks(TaskDefinitionProperties properties,
-                                                     TaskSchedulerService schedulerService,
-                                                     TaskConfigService taskConfigService,
-                                                     Scheduler quartzScheduler,
-                                                     Environment environment) {
-        return _ -> {
+    public CommandLineRunner registerConfiguredTasks(
+            TaskDefinitionProperties properties,
+            TaskSchedulerService schedulerService,
+            TaskConfigService taskConfigService,
+            Scheduler quartzScheduler,
+            Environment environment) {
+        return args -> {
             boolean startQuartzAfterRegistration = false;
             try {
                 if (quartzScheduler.isStarted() && !quartzScheduler.isInStandbyMode()) {
@@ -77,22 +80,26 @@ public class TaskOrchestrationConfig {
             }
             try {
                 if (quartzResetOnStartup) {
-                    log.warn("Quartz orchestration schedule reset is enabled; persisted orchestration rows will be cleared on startup");
+                    log.warn(
+                            "Quartz orchestration schedule reset is enabled; persisted orchestration rows will be cleared on startup");
                     schedulerService.resetPersistedSchedules();
                 } else {
-                    log.info("Quartz orchestration schedule reset is disabled (orchestration.quartz.reset-on-startup=false)");
+                    log.info(
+                            "Quartz orchestration schedule reset is disabled (orchestration.quartz.reset-on-startup=false)");
                 }
                 initializeQuartzBeforeRegistration(quartzScheduler, startQuartzAfterRegistration);
                 if (!orchestrationEnabled) {
                     log.info("Orchestration registration disabled by orchestration.enabled=false");
                     return;
                 }
-                String source = configSource == null ? "db" : configSource.trim().toLowerCase(Locale.ROOT);
+                String source =
+                        configSource == null ? "db" : configSource.trim().toLowerCase(Locale.ROOT);
                 if ("yaml".equals(source)) {
                     boolean localProfile = java.util.Arrays.stream(environment.getActiveProfiles())
                             .anyMatch(p -> "local".equalsIgnoreCase(p) || "dev".equalsIgnoreCase(p));
                     if (!localProfile) {
-                        throw new IllegalStateException("orchestration.config-source=yaml is allowed only for local/dev profile");
+                        throw new IllegalStateException(
+                                "orchestration.config-source=yaml is allowed only for local/dev profile");
                     }
                     log.info("Registering orchestration tasks from YAML");
                     for (OrchestrationTaskDefinition task : properties.getTasks()) {
@@ -107,13 +114,16 @@ public class TaskOrchestrationConfig {
                         try {
                             TaskTrigger taskTrigger = taskConfigService.getTaskTrigger(taskDefinition.getTaskId());
                             Map<String, String> parameters = resolveTaskParameters(
-                                    taskConfigService.getTaskParametersAsMap(taskDefinition.getTaskId()),
-                                    environment
-                            );
-                            var dependencyConfigs = taskConfigService.getTaskDependencyConfigs(taskDefinition.getTaskId());
-                            schedulerService.register(toOrchestrationTask(taskDefinition, taskTrigger, parameters, dependencyConfigs));
+                                    taskConfigService.getTaskParametersAsMap(taskDefinition.getTaskId()), environment);
+                            var dependencyConfigs =
+                                    taskConfigService.getTaskDependencyConfigs(taskDefinition.getTaskId());
+                            schedulerService.register(
+                                    toOrchestrationTask(taskDefinition, taskTrigger, parameters, dependencyConfigs));
                         } catch (Exception ex) {
-                            log.error("Skip task registration due to invalid config: taskId={}", taskDefinition.getTaskId(), ex);
+                            log.error(
+                                    "Skip task registration due to invalid config: taskId={}",
+                                    taskDefinition.getTaskId(),
+                                    ex);
                         }
                     }
                 }
@@ -123,8 +133,7 @@ public class TaskOrchestrationConfig {
         };
     }
 
-    private void initializeQuartzBeforeRegistration(Scheduler quartzScheduler,
-                                                    boolean startQuartzAfterRegistration) {
+    private void initializeQuartzBeforeRegistration(Scheduler quartzScheduler, boolean startQuartzAfterRegistration) {
         if (!startQuartzAfterRegistration) {
             return;
         }
@@ -139,8 +148,7 @@ public class TaskOrchestrationConfig {
         }
     }
 
-    private void resumeQuartzIfNecessary(Scheduler quartzScheduler,
-                                         boolean startQuartzAfterRegistration) {
+    private void resumeQuartzIfNecessary(Scheduler quartzScheduler, boolean startQuartzAfterRegistration) {
         if (!startQuartzAfterRegistration) {
             return;
         }
@@ -168,21 +176,26 @@ public class TaskOrchestrationConfig {
         return resolved;
     }
 
-    private OrchestrationTaskDefinition toOrchestrationTask(TaskDefinition taskDefinition,
-                                                            TaskTrigger trigger,
-                                                            Map<String, String> parameters,
-                                                            java.util.List<TaskDependency> dependencyConfigs) {
+    private OrchestrationTaskDefinition toOrchestrationTask(
+            TaskDefinition taskDefinition,
+            TaskTrigger trigger,
+            Map<String, String> parameters,
+            java.util.List<TaskDependency> dependencyConfigs) {
         OrchestrationTaskTrigger mappedTrigger = OrchestrationTaskTrigger.builder()
                 .type(TriggerType.valueOf(trigger.getTriggerType().toUpperCase(Locale.ROOT)))
                 .cron(trigger.getCronExpression())
                 .fixedRateMs(trigger.getFixedRateMs())
                 .fixedDelayMs(trigger.getFixedDelayMs())
-                .oneTimeAt(trigger.getOneTimeAt() == null
-                        ? null
-                        : trigger.getOneTimeAt().atZone(ZoneId.systemDefault()).toInstant())
+                .oneTimeAt(
+                        trigger.getOneTimeAt() == null
+                                ? null
+                                : trigger.getOneTimeAt()
+                                        .atZone(ZoneId.systemDefault())
+                                        .toInstant())
                 .build();
         TaskPriority priority = TaskPriority.NORMAL;
-        if (taskDefinition.getPriority() != null && !taskDefinition.getPriority().isBlank()) {
+        if (taskDefinition.getPriority() != null
+                && !taskDefinition.getPriority().isBlank()) {
             priority = TaskPriority.valueOf(taskDefinition.getPriority().toUpperCase(Locale.ROOT));
         }
         OrchestrationTaskDefinition orchestrationTaskDefinition = new OrchestrationTaskDefinition();
