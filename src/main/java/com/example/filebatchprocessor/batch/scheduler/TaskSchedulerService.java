@@ -648,7 +648,7 @@ public class TaskSchedulerService {
             baseAt = Instant.now().plusMillis(baseDelayMs);
         }
 
-        FixedDelayBackoffState state = fixedDelayState.computeIfAbsent(def.getId(), _k -> new FixedDelayBackoffState());
+        FixedDelayBackoffState state = fixedDelayState.computeIfAbsent(def.getId(), this::loadFixedDelayState);
         long minIntervalMs = fixedDelayMinIntervalMs;
         if (fixedDelayMaxRequeuePerMinute > 0) {
             long perMinuteInterval = Math.max(1000L, 60000L / fixedDelayMaxRequeuePerMinute);
@@ -676,6 +676,7 @@ public class TaskSchedulerService {
 
         if (scheduleOneShotEnqueue(def, candidate, "fixed-delay")) {
             state.lastScheduledAt = candidate;
+            persistFixedDelayState(def.getId(), state);
         }
     }
 
@@ -715,17 +716,62 @@ public class TaskSchedulerService {
         if (def.getTrigger() == null || def.getTrigger().getType() != TriggerType.FIXED_DELAY) {
             return;
         }
-        FixedDelayBackoffState state = fixedDelayState.computeIfAbsent(def.getId(), _k -> new FixedDelayBackoffState());
+        FixedDelayBackoffState state = fixedDelayState.computeIfAbsent(def.getId(), this::loadFixedDelayState);
         if (success) {
             state.failureStreak = 0;
-            return;
+        } else {
+            state.failureStreak = Math.min(state.failureStreak + 1, 10);
         }
-        state.failureStreak = Math.min(state.failureStreak + 1, 10);
+        persistFixedDelayState(def.getId(), state);
     }
 
     private static class FixedDelayBackoffState {
         private int failureStreak;
         private Instant lastScheduledAt;
+    }
+
+    /**
+     * 从 scheduler_fixed_delay_state 表回填退避状态（应用重启后首次访问该任务时触发），
+     * 使 fixedDelayState 内存 map 成为「写穿缓存」而非易失内存。读失败时退回全新状态，
+     * 保证调度可用性优先于退避精度（亦兼容单测中 mock 的 JdbcTemplate）。
+     */
+    private FixedDelayBackoffState loadFixedDelayState(String taskId) {
+        FixedDelayBackoffState state = new FixedDelayBackoffState();
+        try {
+            jdbcTemplate
+                    .query(
+                            "SELECT failure_streak, last_scheduled_at FROM scheduler_fixed_delay_state WHERE task_id = ?",
+                            rs -> {
+                                state.failureStreak = Math.max(0, Math.min(rs.getInt("failure_streak"), 10));
+                                java.sql.Timestamp ts = rs.getTimestamp("last_scheduled_at");
+                                state.lastScheduledAt = ts == null ? null : ts.toInstant();
+                            },
+                            taskId);
+        } catch (Exception e) {
+            log.warn("Failed to load fixed-delay backoff state for task={}, starting fresh", taskId, e);
+        }
+        return state;
+    }
+
+    private void persistFixedDelayState(String taskId, FixedDelayBackoffState state) {
+        try {
+            java.sql.Timestamp lastScheduled =
+                    state.lastScheduledAt == null ? null : java.sql.Timestamp.from(state.lastScheduledAt);
+            jdbcTemplate.update(
+                    """
+                    INSERT INTO scheduler_fixed_delay_state(task_id, failure_streak, last_scheduled_at, updated_at)
+                    VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+                    ON CONFLICT (task_id) DO UPDATE
+                    SET failure_streak = EXCLUDED.failure_streak,
+                        last_scheduled_at = EXCLUDED.last_scheduled_at,
+                        updated_at = CURRENT_TIMESTAMP
+                    """,
+                    taskId,
+                    state.failureStreak,
+                    lastScheduled);
+        } catch (Exception e) {
+            log.warn("Failed to persist fixed-delay backoff state for task={}", taskId, e);
+        }
     }
 
     private void persistSchedulerDlq(OrchestrationTaskDefinition def, String reason) {
