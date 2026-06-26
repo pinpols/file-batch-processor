@@ -1,11 +1,10 @@
 package com.example.filebatchprocessor.repository;
 
 import com.example.filebatchprocessor.model.ImportedRecord;
+import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
-
-import java.util.List;
 
 @Repository
 public interface ImportedRecordRepository extends JpaRepository<ImportedRecord, Long> {
@@ -17,13 +16,15 @@ public interface ImportedRecordRepository extends JpaRepository<ImportedRecord, 
 
     long countByBatchDate(String batchDate);
 
-    @Query("select count(r) from ImportedRecord r where r.batchDate = :batchDate and (r.name is null or trim(r.name) = '')")
+    @Query(
+            "select count(r) from ImportedRecord r where r.batchDate = :batchDate and (r.name is null or trim(r.name) = '')")
     long countMissingNameByBatchDate(String batchDate);
 
-    @Query(value = "select count(*) from (select business_key from imported_records where batch_date = :batchDate group by business_key having count(*) > 1) t", nativeQuery = true)
+    @Query(
+            value =
+                    "select count(*) from (select business_key from imported_records where batch_date = :batchDate group by business_key having count(*) > 1) t",
+            nativeQuery = true)
     long countDuplicateBusinessKeysByBatchDate(String batchDate);
 
     List<ImportedRecord> findByBatchDateOrderByIdAsc(String batchDate);
 }
-
-

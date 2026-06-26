@@ -2,9 +2,8 @@ package com.example.filebatchprocessor.service;
 
 import com.example.filebatchprocessor.model.OpsAuditLog;
 import com.example.filebatchprocessor.repository.OpsAuditLogRepository;
-import org.springframework.stereotype.Service;
-
 import java.util.List;
+import org.springframework.stereotype.Service;
 
 @Service
 public class OpsAuditService {
@@ -15,7 +14,8 @@ public class OpsAuditService {
         this.opsAuditLogRepository = opsAuditLogRepository;
     }
 
-    public void log(String action, String actor, String resourceType, String resourceId, String result, String details) {
+    public void log(
+            String action, String actor, String resourceType, String resourceId, String result, String details) {
         OpsAuditLog log = new OpsAuditLog();
         log.setAction(action);
         log.setActor(actor);
@@ -30,4 +30,3 @@ public class OpsAuditService {
         return opsAuditLogRepository.findTop500ByOrderByCreatedAtDesc();
     }
 }
-

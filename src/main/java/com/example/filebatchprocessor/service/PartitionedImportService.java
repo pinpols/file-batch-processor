@@ -3,17 +3,16 @@ package com.example.filebatchprocessor.service;
 import com.example.filebatchprocessor.exception.TransientImportException;
 import com.example.filebatchprocessor.model.ImportedRecordPartitioned;
 import com.example.filebatchprocessor.repository.ImportedRecordPartitionedRepository;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.TransientDataAccessException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
-
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.List;
 
 /**
  * 分区表导入服务：
@@ -36,11 +35,15 @@ public class PartitionedImportService {
     /**
      * 导入记录到分区表
      */
-    public ImportedRecordPartitioned importRecord(String businessKey, String name, String description, 
-                                                  String batchDate, String sourceFileName, String checksum) {
-        String normalizedBatchDate = StringUtils.hasText(batchDate)
-                ? batchDate
-                : LocalDate.now().format(BATCH_DATE_FORMATTER);
+    public ImportedRecordPartitioned importRecord(
+            String businessKey,
+            String name,
+            String description,
+            String batchDate,
+            String sourceFileName,
+            String checksum) {
+        String normalizedBatchDate =
+                StringUtils.hasText(batchDate) ? batchDate : LocalDate.now().format(BATCH_DATE_FORMATTER);
         log.info("Importing record to partitioned table: key={}, batchDate={}", businessKey, normalizedBatchDate);
 
         try {
@@ -51,7 +54,10 @@ public class PartitionedImportService {
             var existing = partitionedRepository.findByBusinessKeyAndBatchDate(businessKey, normalizedBatchDate);
             if (existing.isPresent()) {
                 // 幂等：重复导入时直接返回已存在记录，避免抛错污染日志
-                log.debug("Record already exists (idempotent hit): key={}, batchDate={}", businessKey, normalizedBatchDate);
+                log.debug(
+                        "Record already exists (idempotent hit): key={}, batchDate={}",
+                        businessKey,
+                        normalizedBatchDate);
                 return existing.get();
             }
 
@@ -74,8 +80,10 @@ public class PartitionedImportService {
             return partitionedRepository
                     .findByBusinessKeyAndBatchDate(businessKey, normalizedBatchDate)
                     .map(existing -> {
-                        log.debug("Record already exists after concurrent insert (idempotent hit): key={}, batchDate={}",
-                                businessKey, normalizedBatchDate);
+                        log.debug(
+                                "Record already exists after concurrent insert (idempotent hit): key={}, batchDate={}",
+                                businessKey,
+                                normalizedBatchDate);
                         return existing;
                     })
                     .orElseThrow(() -> e);

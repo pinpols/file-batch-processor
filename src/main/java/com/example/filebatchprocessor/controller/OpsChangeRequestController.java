@@ -2,11 +2,10 @@ package com.example.filebatchprocessor.controller;
 
 import com.example.filebatchprocessor.model.OpsChangeRequest;
 import com.example.filebatchprocessor.service.OpsChangeManagementService;
-import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.*;
-
 import java.util.List;
 import java.util.Map;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/ops/change-requests")
@@ -36,8 +35,7 @@ public class OpsChangeRequestController {
                 request.windowEnd(),
                 request.impactSummary(),
                 request.riskLevel(),
-                request.rollbackPlan()
-        );
+                request.rollbackPlan());
     }
 
     @PostMapping("/{id}/approve")
@@ -46,9 +44,10 @@ public class OpsChangeRequestController {
     }
 
     @PostMapping("/{id}/reject")
-    public OpsChangeRequest reject(@PathVariable Long id,
-                                   @RequestBody(required = false) Map<String, String> body,
-                                   Authentication authentication) {
+    public OpsChangeRequest reject(
+            @PathVariable Long id,
+            @RequestBody(required = false) Map<String, String> body,
+            Authentication authentication) {
         String reason = body == null ? "" : body.getOrDefault("reason", "");
         return opsChangeManagementService.reject(id, authentication.getName(), reason);
     }
@@ -58,15 +57,15 @@ public class OpsChangeRequestController {
         return opsChangeManagementService.apply(id, authentication.getName());
     }
 
-    public record CreateChangeRequest(String targetType,
-                                      String taskId,
-                                      String fieldName,
-                                      String newValue,
-                                      String reason,
-                                      String windowStart,
-                                      String windowEnd,
-                                      String impactSummary,
-                                      String riskLevel,
-                                      String rollbackPlan) {
-    }
+    public record CreateChangeRequest(
+            String targetType,
+            String taskId,
+            String fieldName,
+            String newValue,
+            String reason,
+            String windowStart,
+            String windowEnd,
+            String impactSummary,
+            String riskLevel,
+            String rollbackPlan) {}
 }

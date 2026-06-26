@@ -1,12 +1,13 @@
 package com.example.filebatchprocessor.unit.service;
 
-import com.example.filebatchprocessor.service.BatchRecoveryService;
-import com.example.filebatchprocessor.service.RetryCompensationService;
-import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+
+import com.example.filebatchprocessor.service.BatchRecoveryService;
+import com.example.filebatchprocessor.service.RetryCompensationService;
+import org.junit.jupiter.api.Test;
 
 class BatchCheckpointRestartTest {
 
@@ -14,7 +15,8 @@ class BatchCheckpointRestartTest {
     void shouldRestartFailedExecutionFromExistingExecutionId() throws Exception {
         RetryCompensationService retryCompensationService = mock(RetryCompensationService.class);
         BatchRecoveryService service = new BatchRecoveryService(retryCompensationService);
-        when(retryCompensationService.restartExecution(100L, "SYSTEM", "Legacy recovery request")).thenReturn(101L);
+        when(retryCompensationService.restartExecution(100L, "SYSTEM", "Legacy recovery request"))
+                .thenReturn(101L);
 
         Long restartedId = service.restartByExecutionId(100L);
 

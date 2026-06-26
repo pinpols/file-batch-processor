@@ -1,8 +1,6 @@
 package com.example.filebatchprocessor.batch.handler.support;
 
-import org.springframework.stereotype.Component;
 import com.example.filebatchprocessor.util.IdempotencyKeyBuilder;
-
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -11,16 +9,14 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
+import org.springframework.stereotype.Component;
 
 @Component
 public class ImportJobRequestResolver {
 
     private static final DateTimeFormatter BATCH_DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
 
-    public ImportJobRequest resolve(String rawParam,
-                                    String defaultInputFile,
-                                    int shardIndex,
-                                    int shardTotal) {
+    public ImportJobRequest resolve(String rawParam, String defaultInputFile, int shardIndex, int shardTotal) {
         Map<String, String> params = parseParams(rawParam);
         String inputParam = params.getOrDefault("input", defaultInputFile);
         if (inputParam == null || inputParam.isBlank()) {
@@ -29,7 +25,8 @@ public class ImportJobRequestResolver {
         String batchDate = normalizeBatchDate(params.get("batchDate"));
         String runMode = params.getOrDefault("runMode", "normal");
         String rerunId = params.getOrDefault("rerunId", "");
-        String dedupKey = params.getOrDefault("dedupKey",
+        String dedupKey = params.getOrDefault(
+                "dedupKey",
                 IdempotencyKeyBuilder.forImportRequest(inputParam, batchDate, rerunId, shardIndex, shardTotal));
 
         ImportJobRequest request = ImportJobRequest.builder()

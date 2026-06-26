@@ -1,42 +1,44 @@
 package com.example.filebatchprocessor.unit.service;
 
-import com.example.filebatchprocessor.model.OpsChangeRequest;
-import com.example.filebatchprocessor.model.TaskDefinition;
-import com.example.filebatchprocessor.model.TaskParameter;
-import com.example.filebatchprocessor.model.TaskTrigger;
-import com.example.filebatchprocessor.repository.OpsChangeRequestRepository;
-import com.example.filebatchprocessor.repository.TaskDefinitionRepository;
-import com.example.filebatchprocessor.repository.TaskParameterRepository;
-import com.example.filebatchprocessor.repository.TaskTriggerRepository;
-import com.example.filebatchprocessor.service.OpsAuditService;
-import com.example.filebatchprocessor.service.OpsChangeManagementService;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.example.filebatchprocessor.model.OpsChangeRequest;
+import com.example.filebatchprocessor.model.TaskDefinition;
+import com.example.filebatchprocessor.model.TaskParameter;
+import com.example.filebatchprocessor.repository.OpsChangeRequestRepository;
+import com.example.filebatchprocessor.repository.TaskDefinitionRepository;
+import com.example.filebatchprocessor.repository.TaskParameterRepository;
+import com.example.filebatchprocessor.repository.TaskTriggerRepository;
+import com.example.filebatchprocessor.service.OpsAuditService;
+import com.example.filebatchprocessor.service.OpsChangeManagementService;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
 @ExtendWith(MockitoExtension.class)
 class OpsChangeManagementServiceTest {
 
     @Mock
     private OpsChangeRequestRepository opsChangeRequestRepository;
+
     @Mock
     private TaskDefinitionRepository taskDefinitionRepository;
+
     @Mock
     private TaskTriggerRepository taskTriggerRepository;
+
     @Mock
     private TaskParameterRepository taskParameterRepository;
+
     @Mock
     private OpsAuditService opsAuditService;
 
@@ -49,8 +51,7 @@ class OpsChangeManagementServiceTest {
                 taskDefinitionRepository,
                 taskTriggerRepository,
                 taskParameterRepository,
-                opsAuditService
-        );
+                opsAuditService);
     }
 
     @Test
@@ -59,7 +60,8 @@ class OpsChangeManagementServiceTest {
         definition.setTaskId("task-1");
         definition.setEnabled(true);
         when(taskDefinitionRepository.findByTaskId("task-1")).thenReturn(Optional.of(definition));
-        when(opsChangeRequestRepository.save(any(OpsChangeRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(opsChangeRequestRepository.save(any(OpsChangeRequest.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
         OpsChangeRequest request = service.createRequest(
                 "operator",
@@ -72,8 +74,7 @@ class OpsChangeManagementServiceTest {
                 null,
                 "low impact",
                 "LOW",
-                "enable=true"
-        );
+                "enable=true");
 
         assertEquals("PENDING_APPROVAL", request.getStatus());
         assertEquals("TASK_DEFINITION", request.getTargetType());
@@ -87,7 +88,8 @@ class OpsChangeManagementServiceTest {
         request.setRequestNo("CR-0001");
         request.setStatus("PENDING_APPROVAL");
         when(opsChangeRequestRepository.findById(1L)).thenReturn(Optional.of(request));
-        when(opsChangeRequestRepository.save(any(OpsChangeRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(opsChangeRequestRepository.save(any(OpsChangeRequest.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
         OpsChangeRequest approved = service.approve(1L, "admin");
 
@@ -102,7 +104,8 @@ class OpsChangeManagementServiceTest {
         request.setRequestNo("CR-0002");
         request.setStatus("PENDING_APPROVAL");
         when(opsChangeRequestRepository.findById(2L)).thenReturn(Optional.of(request));
-        when(opsChangeRequestRepository.save(any(OpsChangeRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(opsChangeRequestRepository.save(any(OpsChangeRequest.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
         OpsChangeRequest rejected = service.reject(2L, "admin", "risk too high");
 
@@ -129,8 +132,10 @@ class OpsChangeManagementServiceTest {
 
         when(opsChangeRequestRepository.findById(3L)).thenReturn(Optional.of(request));
         when(taskDefinitionRepository.findByTaskId("task-3")).thenReturn(Optional.of(def));
-        when(taskDefinitionRepository.save(any(TaskDefinition.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(opsChangeRequestRepository.save(any(OpsChangeRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(taskDefinitionRepository.save(any(TaskDefinition.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(opsChangeRequestRepository.save(any(OpsChangeRequest.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
         OpsChangeRequest applied = service.apply(3L, "admin");
 
@@ -178,9 +183,12 @@ class OpsChangeManagementServiceTest {
         request.setNewValue("csv");
 
         when(opsChangeRequestRepository.findById(5L)).thenReturn(Optional.of(request));
-        when(taskParameterRepository.findByTaskIdAndParamName("task-5", "format")).thenReturn(Optional.empty());
-        when(taskParameterRepository.save(any(TaskParameter.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(opsChangeRequestRepository.save(any(OpsChangeRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(taskParameterRepository.findByTaskIdAndParamName("task-5", "format"))
+                .thenReturn(Optional.empty());
+        when(taskParameterRepository.save(any(TaskParameter.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(opsChangeRequestRepository.save(any(OpsChangeRequest.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
         service.apply(5L, "admin");
 
@@ -189,9 +197,10 @@ class OpsChangeManagementServiceTest {
 
     @Test
     void shouldThrowOnUnsupportedTargetType() {
-        assertThrows(IllegalArgumentException.class, () -> service.createRequest(
-                "op", "unknown", "task", "enabled", "true", "reason", null, null, null, null, null
-        ));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> service.createRequest(
+                        "op", "unknown", "task", "enabled", "true", "reason", null, null, null, null, null));
     }
 
     @Test
@@ -204,4 +213,3 @@ class OpsChangeManagementServiceTest {
         assertThrows(IllegalStateException.class, () -> service.approve(6L, "admin"));
     }
 }
-

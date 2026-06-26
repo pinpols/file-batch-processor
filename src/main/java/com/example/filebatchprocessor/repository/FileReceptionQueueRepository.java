@@ -1,13 +1,12 @@
 package com.example.filebatchprocessor.repository;
 
 import com.example.filebatchprocessor.model.FileReceptionQueue;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.stereotype.Repository;
-
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.stereotype.Repository;
 
 @Repository
 public interface FileReceptionQueueRepository extends JpaRepository<FileReceptionQueue, Long> {
@@ -30,13 +29,15 @@ public interface FileReceptionQueueRepository extends JpaRepository<FileReceptio
     /**
      * 查找超时的文件（未按预期时间处理）
      */
-    @Query("SELECT f FROM FileReceptionQueue f WHERE f.expectedProcessTime < :now AND f.status IN ('RECEIVED', 'WAITING')")
+    @Query(
+            "SELECT f FROM FileReceptionQueue f WHERE f.expectedProcessTime < :now AND f.status IN ('RECEIVED', 'WAITING')")
     List<FileReceptionQueue> findOverdueFiles(LocalDateTime now);
 
     /**
      * 查找需要重试的文件（失败且重试次数未超限）
      */
-    @Query("SELECT f FROM FileReceptionQueue f WHERE f.status = 'FAILED' AND f.retryCount < 3 AND f.updatedAt < :beforeTime")
+    @Query(
+            "SELECT f FROM FileReceptionQueue f WHERE f.status = 'FAILED' AND f.retryCount < 3 AND f.updatedAt < :beforeTime")
     List<FileReceptionQueue> findRetriableFiles(LocalDateTime beforeTime);
 
     /**

@@ -1,18 +1,16 @@
 package com.example.filebatchprocessor.unit.batch.scheduler;
 
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
 import com.example.filebatchprocessor.batch.scheduler.TargetSystemCircuitBreaker;
 import com.example.filebatchprocessor.config.CircuitBreakerProperties;
 import com.example.filebatchprocessor.model.TargetSystemCircuitState;
-import com.example.filebatchprocessor.repository.TargetSystemCircuitStateRepository;
 import com.example.filebatchprocessor.observability.BatchMetrics;
-import org.junit.jupiter.api.Test;
-
+import com.example.filebatchprocessor.repository.TargetSystemCircuitStateRepository;
 import java.time.LocalDateTime;
 import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
-import static org.mockito.ArgumentMatchers.anyString;
+import org.junit.jupiter.api.Test;
 
 class TargetSystemCircuitBreakerTest {
 

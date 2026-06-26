@@ -4,14 +4,9 @@ import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.ReflectUtil;
 import cn.hutool.poi.excel.ExcelReader;
 import cn.hutool.poi.excel.ExcelUtil;
+import jakarta.persistence.*;
 import jakarta.persistence.Column;
 import jakarta.persistence.Table;
-import lombok.Data;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.stereotype.Component;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.TransactionTemplate;
-
 import java.io.InputStream;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -21,19 +16,19 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
-
-import jakarta.persistence.*;
-
+import lombok.Data;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Component
 public class JdbcBatchRefresher {
 
-
     private final JdbcTemplate jdbcTemplate;
     private final TransactionTemplate transactionTemplate;
 
-    public JdbcBatchRefresher(JdbcTemplate jdbcTemplate,
-                              PlatformTransactionManager txManager) {
+    public JdbcBatchRefresher(JdbcTemplate jdbcTemplate, PlatformTransactionManager txManager) {
         this.jdbcTemplate = jdbcTemplate;
         this.transactionTemplate = new TransactionTemplate(txManager);
     }
@@ -87,24 +82,17 @@ public class JdbcBatchRefresher {
             List<T> subList = list.subList(start, end);
 
             transactionTemplate.execute(status -> {
-
-                jdbcTemplate.batchUpdate(
-                        meta.insertSql,
-                        subList,
-                        1000,
-                        (ps, entity) -> {
-
-                            for (int i = 0; i < meta.getters.size(); i++) {
-                                Object value = null;
-                                try {
-                                    value = meta.getters.get(i).invoke(entity);
-                                } catch (Throwable e) {
-                                    throw new RuntimeException(e);
-                                }
-                                ps.setObject(i + 1, value);
-                            }
+                jdbcTemplate.batchUpdate(meta.insertSql, subList, 1000, (ps, entity) -> {
+                    for (int i = 0; i < meta.getters.size(); i++) {
+                        Object value = null;
+                        try {
+                            value = meta.getters.get(i).invoke(entity);
+                        } catch (Throwable e) {
+                            throw new RuntimeException(e);
                         }
-                );
+                        ps.setObject(i + 1, value);
+                    }
+                });
 
                 return null;
             });
@@ -145,8 +133,7 @@ public class JdbcBatchRefresher {
 
                 field.setAccessible(true);
 
-                MethodHandle getter =
-                        lookup.unreflectGetter(field);
+                MethodHandle getter = lookup.unreflectGetter(field);
 
                 getters.add(getter);
             }
@@ -155,14 +142,11 @@ public class JdbcBatchRefresher {
             throw new RuntimeException(e);
         }
 
-        String placeholders = columnList.stream()
-                .map(c -> "?")
-                .collect(Collectors.joining(","));
+        String placeholders = columnList.stream().map(c -> "?").collect(Collectors.joining(","));
 
-        String insertSql =
-                "insert into " + tableName +
-                        " (" + String.join(",", columnList) + ")" +
-                        " values (" + placeholders + ")";
+        String insertSql = "insert into " + tableName + " ("
+                + String.join(",", columnList) + ")" + " values ("
+                + placeholders + ")";
 
         return new EntityMeta(tableName, insertSql, getters);
     }
@@ -176,9 +160,7 @@ public class JdbcBatchRefresher {
         final String insertSql;
         final List<MethodHandle> getters;
 
-        EntityMeta(String tableName,
-                   String insertSql,
-                   List<MethodHandle> getters) {
+        EntityMeta(String tableName, String insertSql, List<MethodHandle> getters) {
 
             this.tableName = tableName;
             this.insertSql = insertSql;
@@ -186,9 +168,7 @@ public class JdbcBatchRefresher {
         }
     }
 
-    public <T> void readAndBatchInsert(InputStream in,
-                                       Class<T> clazz,
-                                       int chunkSize) {
+    public <T> void readAndBatchInsert(InputStream in, Class<T> clazz, int chunkSize) {
 
         if (chunkSize <= 0) {
             chunkSize = 500;
@@ -204,11 +184,9 @@ public class JdbcBatchRefresher {
 
             // 1️⃣ 保存表头
             if (rowIndex == 0) {
-                headerRef.set(
-                        rowList.stream()
-                                .map(obj -> obj == null ? null : obj.toString().trim())
-                                .collect(Collectors.toList())
-                );
+                headerRef.set(rowList.stream()
+                        .map(obj -> obj == null ? null : obj.toString().trim())
+                        .collect(Collectors.toList()));
                 return;
             }
 
@@ -243,28 +221,20 @@ public class JdbcBatchRefresher {
     private <T> void batchInsert(EntityMeta meta, List<T> list) {
 
         transactionTemplate.executeWithoutResult(status -> {
-
-            jdbcTemplate.batchUpdate(
-                    meta.insertSql,
-                    list,
-                    list.size(),
-                    (ps, entity) -> {
-
-
-                        for (int i = 0; i < meta.getters.size(); i++) {
-                            Object value = null;
-                            try {
-                                value = meta.getters.get(i).invoke(entity);
-                            } catch (Throwable e) {
-                                throw new RuntimeException(e);
-                            }
-                            ps.setObject(i + 1, value);
-                        }
-                    });
+            jdbcTemplate.batchUpdate(meta.insertSql, list, list.size(), (ps, entity) -> {
+                for (int i = 0; i < meta.getters.size(); i++) {
+                    Object value = null;
+                    try {
+                        value = meta.getters.get(i).invoke(entity);
+                    } catch (Throwable e) {
+                        throw new RuntimeException(e);
+                    }
+                    ps.setObject(i + 1, value);
+                }
+            });
         });
     }
 }
-
 
 @Data
 @Table(name = "user_info")

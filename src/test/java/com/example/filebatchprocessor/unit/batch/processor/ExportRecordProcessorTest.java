@@ -1,14 +1,12 @@
 package com.example.filebatchprocessor.unit.batch.processor;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import com.example.filebatchprocessor.batch.processor.ExportRecordProcessor;
 import com.example.filebatchprocessor.exception.RecordValidationException;
 import com.example.filebatchprocessor.model.ExportRecord;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import java.time.LocalDate;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 class ExportRecordProcessorTest {
 
@@ -23,10 +21,10 @@ class ExportRecordProcessorTest {
     void shouldProcessValidRecord() {
         // Given
         ExportRecord input = createValidExportRecord();
-        
+
         // When
         ExportRecord result = processor.process(input);
-        
+
         // Then
         assertNotNull(result);
         assertEquals(input.getId(), result.getId());
@@ -40,10 +38,10 @@ class ExportRecordProcessorTest {
     void shouldFilterNullRecord() {
         // Given
         ExportRecord input = null;
-        
+
         // When
         ExportRecord result = processor.process(input);
-        
+
         // Then
         assertNull(result);
     }
@@ -53,10 +51,10 @@ class ExportRecordProcessorTest {
         // Given
         ExportRecord input = createValidExportRecord();
         input.setBusinessKey("");
-        
+
         // When
         ExportRecord result = processor.process(input);
-        
+
         // Then
         assertNull(result);
     }
@@ -66,10 +64,10 @@ class ExportRecordProcessorTest {
         // Given
         ExportRecord input = createValidExportRecord();
         input.setBusinessKey("TEST_123");
-        
+
         // When
         ExportRecord result = processor.process(input);
-        
+
         // Then
         assertNull(result);
     }
@@ -79,7 +77,7 @@ class ExportRecordProcessorTest {
         // Given
         ExportRecord input = createValidExportRecord();
         input.setId(null);
-        
+
         // When & Then
         assertThrows(RecordValidationException.class, () -> {
             processor.process(input);
@@ -91,7 +89,7 @@ class ExportRecordProcessorTest {
         // Given
         ExportRecord input = createValidExportRecord();
         input.setId(-1L);
-        
+
         // When & Then
         assertThrows(RecordValidationException.class, () -> {
             processor.process(input);
@@ -103,7 +101,7 @@ class ExportRecordProcessorTest {
         // Given
         ExportRecord input = createValidExportRecord();
         input.setName("");
-        
+
         // When & Then
         assertThrows(RecordValidationException.class, () -> {
             processor.process(input);
@@ -115,7 +113,7 @@ class ExportRecordProcessorTest {
         // Given
         ExportRecord input = createValidExportRecord();
         input.setBatchDate("");
-        
+
         // When & Then
         assertThrows(RecordValidationException.class, () -> {
             processor.process(input);
@@ -127,10 +125,10 @@ class ExportRecordProcessorTest {
         // Given
         ExportRecord input = createValidExportRecord();
         input.setName("  test\nname\twith\rspaces  ");
-        
+
         // When
         ExportRecord result = processor.process(input);
-        
+
         // Then
         assertNotNull(result);
         assertEquals("TEST NAME WITH SPACES", result.getName());
@@ -142,10 +140,10 @@ class ExportRecordProcessorTest {
         ExportRecord input = createValidExportRecord();
         String longName = "a".repeat(200); // 200 characters
         input.setName(longName);
-        
+
         // When
         ExportRecord result = processor.process(input);
-        
+
         // Then
         assertNotNull(result);
         assertEquals(100, result.getName().length()); // Should be truncated to 100
@@ -157,10 +155,10 @@ class ExportRecordProcessorTest {
         // Given
         ExportRecord input = createValidExportRecord();
         input.setDescription("test\u0001description\u0002with\u0003control\u0004chars");
-        
+
         // When
         ExportRecord result = processor.process(input);
-        
+
         // Then
         assertNotNull(result);
         assertEquals("test description with control chars", result.getDescription());
@@ -171,10 +169,10 @@ class ExportRecordProcessorTest {
         // Given
         ExportRecord input = createValidExportRecord();
         input.setBatchDate("2026-03-06T10:15:30");
-        
+
         // When
         ExportRecord result = processor.process(input);
-        
+
         // Then
         assertNotNull(result);
         assertEquals("2026-03-06", result.getBatchDate());
@@ -185,10 +183,10 @@ class ExportRecordProcessorTest {
         // Given
         ExportRecord input = createValidExportRecord();
         input.setBatchDate("invalid-date");
-        
+
         // When
         ExportRecord result = processor.process(input);
-        
+
         // Then
         assertNotNull(result);
         assertEquals("invalid-date", result.getBatchDate()); // Should return original if parsing fails
@@ -201,12 +199,12 @@ class ExportRecordProcessorTest {
         ExportRecord validRecord = createValidExportRecord();
         ExportRecord invalidRecord = createValidExportRecord();
         invalidRecord.setBusinessKey(""); // Will be filtered
-        
+
         // When
         processor.process(validRecord);
         processor.process(null); // Will be filtered
         processor.process(invalidRecord); // Will throw exception
-        
+
         // Then
         var stats = processor.getStats();
         assertEquals(3, stats.getTotalProcessed());
@@ -220,10 +218,10 @@ class ExportRecordProcessorTest {
         // Given
         processor.process(createValidExportRecord());
         processor.process(null);
-        
+
         // When
         processor.resetStats();
-        
+
         // Then
         var stats = processor.getStats();
         assertEquals(0, stats.getTotalProcessed());
@@ -236,19 +234,19 @@ class ExportRecordProcessorTest {
     void shouldCalculateSuccessRate() {
         // Given
         processor.resetStats();
-        
+
         // When
         for (int i = 0; i < 8; i++) {
             processor.process(createValidExportRecord());
         }
         processor.process(null); // 1 filtered
-        
+
         // Then
         var stats = processor.getStats();
         assertEquals(9, stats.getTotalProcessed());
         assertEquals(8, stats.getTotalTransformed());
         assertEquals(1, stats.getTotalFiltered());
-        assertEquals(8.0/9.0, stats.getSuccessRate(), 0.01);
+        assertEquals(8.0 / 9.0, stats.getSuccessRate(), 0.01);
     }
 
     private ExportRecord createValidExportRecord() {

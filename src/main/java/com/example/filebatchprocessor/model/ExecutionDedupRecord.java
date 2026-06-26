@@ -1,11 +1,10 @@
 package com.example.filebatchprocessor.model;
 
 import jakarta.persistence.*;
+import java.time.LocalDateTime;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-
-import java.time.LocalDateTime;
 
 /**
  * 跨实例去重锁记录：同一时间窗内，同一 dedupKey 只允许一个执行请求落地。

@@ -1,9 +1,8 @@
 package com.example.filebatchprocessor.observability;
 
-import org.slf4j.MDC;
-
 import java.util.Map;
 import java.util.function.Supplier;
+import org.slf4j.MDC;
 
 /**
  * Utility for safe MDC context management, especially for batch job/task execution.

@@ -1,30 +1,30 @@
 package com.example.filebatchprocessor.integration.repository;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import com.example.filebatchprocessor.model.FileAssetRecord;
 import com.example.filebatchprocessor.model.FileDispatchRecord;
 import com.example.filebatchprocessor.repository.FileAssetRecordRepository;
 import com.example.filebatchprocessor.repository.FileDispatchRecordRepository;
 import com.example.filebatchprocessor.support.PostgresContainerSupport;
+import java.time.LocalDateTime;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.context.TestPropertySource;
 
-import java.time.LocalDateTime;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 @SpringBootTest
-@TestPropertySource(properties = {
-        "spring.flyway.enabled=true",
-        "spring.jpa.hibernate.ddl-auto=validate",
-        "spring.batch.job.enabled=false",
-        "batch.alert.enabled=false",
-        "orchestration.enabled=false"
-})
+@TestPropertySource(
+        properties = {
+            "spring.flyway.enabled=true",
+            "spring.jpa.hibernate.ddl-auto=validate",
+            "spring.batch.job.enabled=false",
+            "batch.alert.enabled=false",
+            "orchestration.enabled=false"
+        })
 class FileDispatchRecordRepositoryIT extends PostgresContainerSupport {
 
     @Autowired
@@ -52,7 +52,8 @@ class FileDispatchRecordRepositoryIT extends PostgresContainerSupport {
         dispatchRecord.setMaxAttempts(3);
         fileDispatchRecordRepository.saveAndFlush(dispatchRecord);
 
-        var byDispatchKey = fileDispatchRecordRepository.findByDispatchKey(fileRecord.getFileNo() + "|1|HTTP|http://target");
+        var byDispatchKey =
+                fileDispatchRecordRepository.findByDispatchKey(fileRecord.getFileNo() + "|1|HTTP|http://target");
         var byLegacyTaskId = fileDispatchRecordRepository.findByLegacyDistributionTaskId(9001L);
 
         assertTrue(byDispatchKey.isPresent());

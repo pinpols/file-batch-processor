@@ -1,12 +1,20 @@
 package com.example.filebatchprocessor.unit.service;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import com.example.filebatchprocessor.batch.scheduler.TaskSchedulerService;
 import com.example.filebatchprocessor.model.TaskExecutionState;
 import com.example.filebatchprocessor.model.TaskExecutionStatus;
 import com.example.filebatchprocessor.repository.TaskExecutionStateRepository;
+import com.example.filebatchprocessor.service.MisfirePolicyProperties;
 import com.example.filebatchprocessor.service.MisfirePolicyService;
 import com.example.filebatchprocessor.service.SchedulerLeaderService;
-import com.example.filebatchprocessor.service.MisfirePolicyProperties;
+import java.time.LocalDateTime;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -14,22 +22,15 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.LocalDateTime;
-import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
 @ExtendWith(MockitoExtension.class)
 class MisfirePolicyServiceTest {
 
     @Mock
     private TaskExecutionStateRepository taskExecutionStateRepository;
+
     @Mock
     private TaskSchedulerService taskSchedulerService;
+
     @Mock
     private SchedulerLeaderService schedulerLeaderService;
 
@@ -43,11 +44,7 @@ class MisfirePolicyServiceTest {
         properties.setRecoveryDelayMs(5_000);
         properties.setMaxRecoveryAttempts(3);
         service = new MisfirePolicyService(
-                taskExecutionStateRepository,
-                taskSchedulerService,
-                schedulerLeaderService,
-                properties
-        );
+                taskExecutionStateRepository, taskSchedulerService, schedulerLeaderService, properties);
     }
 
     @Test
@@ -84,7 +81,8 @@ class MisfirePolicyServiceTest {
         stale.setAttempt(3);
         stale.setNextRetryAt(LocalDateTime.now().minusMinutes(5));
         when(taskExecutionStateRepository.findAll()).thenReturn(List.of(stale));
-        when(taskExecutionStateRepository.save(any(TaskExecutionState.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(taskExecutionStateRepository.save(any(TaskExecutionState.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
         service.detectAndHandleMisfires();
 

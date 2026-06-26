@@ -1,8 +1,10 @@
 package com.example.filebatchprocessor.unit.service;
 
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
 import com.example.filebatchprocessor.model.FileDistributionTask;
-import com.example.filebatchprocessor.model.FileAssetRecord;
-import com.example.filebatchprocessor.model.FileDispatchRecord;
 import com.example.filebatchprocessor.repository.FileDistributionTaskRepository;
 import com.example.filebatchprocessor.repository.RecordTraceRepository;
 import com.example.filebatchprocessor.service.FileAssetService;
@@ -10,13 +12,8 @@ import com.example.filebatchprocessor.service.FileDispatchRecordService;
 import com.example.filebatchprocessor.service.FileDistributionService;
 import com.example.filebatchprocessor.service.FileProcessLogService;
 import com.example.filebatchprocessor.service.RetryCompensationService;
-import org.junit.jupiter.api.Test;
-
 import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import org.junit.jupiter.api.Test;
 
 class FileDistributionServiceTest {
 
@@ -28,9 +25,14 @@ class FileDistributionServiceTest {
         FileDispatchRecordService fileDispatchRecordService = mock(FileDispatchRecordService.class);
         FileProcessLogService fileProcessLogService = mock(FileProcessLogService.class);
         RetryCompensationService retryCompensationService = mock(RetryCompensationService.class);
-        
+
         FileDistributionService service = new FileDistributionService(
-                repository, traceRepository, fileAssetService, fileDispatchRecordService, fileProcessLogService, retryCompensationService);
+                repository,
+                traceRepository,
+                fileAssetService,
+                fileDispatchRecordService,
+                fileProcessLogService,
+                retryCompensationService);
 
         when(repository.findByStatus("PENDING")).thenReturn(java.util.List.of());
 
@@ -48,9 +50,14 @@ class FileDistributionServiceTest {
         FileDispatchRecordService fileDispatchRecordService = mock(FileDispatchRecordService.class);
         FileProcessLogService fileProcessLogService = mock(FileProcessLogService.class);
         RetryCompensationService retryCompensationService = mock(RetryCompensationService.class);
-        
+
         FileDistributionService service = new FileDistributionService(
-                repository, traceRepository, fileAssetService, fileDispatchRecordService, fileProcessLogService, retryCompensationService);
+                repository,
+                traceRepository,
+                fileAssetService,
+                fileDispatchRecordService,
+                fileProcessLogService,
+                retryCompensationService);
 
         FileDistributionTask task = new FileDistributionTask();
         task.setId(1L);
@@ -70,11 +77,17 @@ class FileDistributionServiceTest {
         FileDispatchRecordService fileDispatchRecordService = mock(FileDispatchRecordService.class);
         FileProcessLogService fileProcessLogService = mock(FileProcessLogService.class);
         RetryCompensationService retryCompensationService = mock(RetryCompensationService.class);
-        
-        FileDistributionService service = new FileDistributionService(
-                repository, traceRepository, fileAssetService, fileDispatchRecordService, fileProcessLogService, retryCompensationService);
 
-        when(fileDispatchRecordService.findAckTimeoutCandidates(any(), anyInt())).thenReturn(java.util.List.of());
+        FileDistributionService service = new FileDistributionService(
+                repository,
+                traceRepository,
+                fileAssetService,
+                fileDispatchRecordService,
+                fileProcessLogService,
+                retryCompensationService);
+
+        when(fileDispatchRecordService.findAckTimeoutCandidates(any(), anyInt()))
+                .thenReturn(java.util.List.of());
 
         var result = service.findAckTimeoutTasks(30);
 

@@ -1,8 +1,8 @@
 package com.example.filebatchprocessor.config;
 
+import org.springframework.boot.quartz.autoconfigure.SchedulerFactoryBeanCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.boot.quartz.autoconfigure.SchedulerFactoryBeanCustomizer;
 import org.springframework.transaction.PlatformTransactionManager;
 
 @Configuration

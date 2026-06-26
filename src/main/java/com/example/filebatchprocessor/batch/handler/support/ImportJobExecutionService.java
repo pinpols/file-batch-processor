@@ -1,5 +1,11 @@
 package com.example.filebatchprocessor.batch.handler.support;
 
+import java.time.Duration;
+import java.time.Instant;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.BatchStatus;
 import org.springframework.batch.core.job.Job;
@@ -10,13 +16,6 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Component;
 
-import java.time.Duration;
-import java.time.Instant;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.TimeUnit;
-
 @Slf4j
 @Component
 public class ImportJobExecutionService {
@@ -24,18 +23,14 @@ public class ImportJobExecutionService {
     private final JobLauncher jobLauncher;
     private final ThreadPoolTaskExecutor batchTaskExecutor;
 
-    public ImportJobExecutionService(@Qualifier("asyncJobLauncher") JobLauncher jobLauncher,
-                                     ThreadPoolTaskExecutor batchTaskExecutor) {
+    public ImportJobExecutionService(
+            @Qualifier("asyncJobLauncher") JobLauncher jobLauncher, ThreadPoolTaskExecutor batchTaskExecutor) {
         this.jobLauncher = jobLauncher;
         this.batchTaskExecutor = batchTaskExecutor;
     }
 
-    public BatchStatus executeWithRetry(Job job,
-                                        JobParameters params,
-                                        int maxRetries,
-                                        long backoffMs,
-                                        long maxDurationMs,
-                                        long timeoutMs) {
+    public BatchStatus executeWithRetry(
+            Job job, JobParameters params, int maxRetries, long backoffMs, long maxDurationMs, long timeoutMs) {
         int attempt = 0;
         Instant start = Instant.now();
         while (true) {
@@ -74,13 +69,15 @@ public class ImportJobExecutionService {
             JobExecution execution = jobLauncher.run(job, params);
             return execution.getStatus();
         }
-        CompletableFuture<JobExecution> future = CompletableFuture.supplyAsync(() -> {
-            try {
-                return jobLauncher.run(job, params);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        }, batchTaskExecutor);
+        CompletableFuture<JobExecution> future = CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        return jobLauncher.run(job, params);
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                },
+                batchTaskExecutor);
         try {
             JobExecution execution = future.get(timeoutMs, TimeUnit.MILLISECONDS);
             return execution.getStatus();

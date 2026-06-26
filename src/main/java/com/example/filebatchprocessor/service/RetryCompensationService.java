@@ -8,13 +8,6 @@ import com.example.filebatchprocessor.model.CompensationStatus;
 import com.example.filebatchprocessor.repository.BusinessJobInstanceRepository;
 import com.example.filebatchprocessor.repository.CompensationRecordRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.batch.core.BatchStatus;
-import org.springframework.batch.core.job.JobExecution;
-import org.springframework.batch.core.launch.JobOperator;
-import org.springframework.batch.core.repository.explore.JobExplorer;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -23,6 +16,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.batch.core.BatchStatus;
+import org.springframework.batch.core.job.JobExecution;
+import org.springframework.batch.core.launch.JobOperator;
+import org.springframework.batch.core.repository.explore.JobExplorer;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Transactional
@@ -37,12 +36,13 @@ public class RetryCompensationService {
     private final JobExplorer jobExplorer;
     private final ObjectMapper objectMapper;
 
-    public RetryCompensationService(CompensationRecordRepository compensationRecordRepository,
-                                    BusinessJobInstanceRepository businessJobInstanceRepository,
-                                    JobExecutionLogService jobExecutionLogService,
-                                    JobOperator jobOperator,
-                                    JobExplorer jobExplorer,
-                                    ObjectMapper objectMapper) {
+    public RetryCompensationService(
+            CompensationRecordRepository compensationRecordRepository,
+            BusinessJobInstanceRepository businessJobInstanceRepository,
+            JobExecutionLogService jobExecutionLogService,
+            JobOperator jobOperator,
+            JobExplorer jobExplorer,
+            ObjectMapper objectMapper) {
         this.compensationRecordRepository = compensationRecordRepository;
         this.businessJobInstanceRepository = businessJobInstanceRepository;
         this.jobExecutionLogService = jobExecutionLogService;
@@ -66,16 +66,21 @@ public class RetryCompensationService {
         record.setReason(truncate(blankToNull(request.reason()), 500));
         record.setRequestPayload(toJson(request.requestPayload()));
         CompensationRecord saved = compensationRecordRepository.save(record);
-        logEvent(saved.getTargetJobInstanceId(), "COMPENSATION_REQUESTED", "WARN",
+        logEvent(
+                saved.getTargetJobInstanceId(),
+                "COMPENSATION_REQUESTED",
+                "WARN",
                 "Compensation requested: " + saved.getActionType(),
-                saved.getOperatorName(), buildAuditPayload(saved));
+                saved.getOperatorName(),
+                buildAuditPayload(saved));
         return saved;
     }
 
-    public void completeCompensation(Long compensationRecordId,
-                                     Long targetJobInstanceId,
-                                     Long restartedSpringExecutionId,
-                                     Map<String, ?> resultPayload) {
+    public void completeCompensation(
+            Long compensationRecordId,
+            Long targetJobInstanceId,
+            Long restartedSpringExecutionId,
+            Map<String, ?> resultPayload) {
         if (compensationRecordId == null) {
             return;
         }
@@ -88,17 +93,22 @@ public class RetryCompensationService {
             record.setCompletedAt(LocalDateTime.now());
             record.setResultPayload(toJson(resultPayload));
             compensationRecordRepository.save(record);
-            logEvent(record.getTargetJobInstanceId(), "COMPENSATION_COMPLETED", "INFO",
+            logEvent(
+                    record.getTargetJobInstanceId(),
+                    "COMPENSATION_COMPLETED",
+                    "INFO",
                     "Compensation completed: " + record.getActionType(),
-                    record.getOperatorName(), buildAuditPayload(record));
+                    record.getOperatorName(),
+                    buildAuditPayload(record));
         });
     }
 
-    public void failCompensation(Long compensationRecordId,
-                                 Long targetJobInstanceId,
-                                 Throwable throwable,
-                                 String errorMessage,
-                                 Map<String, ?> resultPayload) {
+    public void failCompensation(
+            Long compensationRecordId,
+            Long targetJobInstanceId,
+            Throwable throwable,
+            String errorMessage,
+            Map<String, ?> resultPayload) {
         if (compensationRecordId == null) {
             return;
         }
@@ -108,22 +118,32 @@ public class RetryCompensationService {
             }
             record.setStatus(CompensationStatus.FAILED.name());
             record.setCompletedAt(LocalDateTime.now());
-            record.setErrorCode(throwable == null ? null : ErrorCodeClassifier.classify(throwable).name());
-            record.setErrorMessage(truncate(errorMessage == null && throwable != null ? throwable.getMessage() : errorMessage, 2000));
+            record.setErrorCode(
+                    throwable == null
+                            ? null
+                            : ErrorCodeClassifier.classify(throwable).name());
+            record.setErrorMessage(
+                    truncate(errorMessage == null && throwable != null ? throwable.getMessage() : errorMessage, 2000));
             record.setResultPayload(toJson(resultPayload));
             compensationRecordRepository.save(record);
-            logEvent(record.getTargetJobInstanceId(), "COMPENSATION_FAILED", "ERROR",
+            logEvent(
+                    record.getTargetJobInstanceId(),
+                    "COMPENSATION_FAILED",
+                    "ERROR",
                     "Compensation failed: " + record.getActionType(),
-                    record.getOperatorName(), buildAuditPayload(record));
+                    record.getOperatorName(),
+                    buildAuditPayload(record));
         });
     }
 
     public Long restartExecution(long executionId, String operatorName, String reason) throws Exception {
         JobExecution execution = loadRestartableExecution(executionId);
-        Long targetJobInstanceId = businessJobInstanceRepository.findBySpringBatchExecutionId(executionId)
+        Long targetJobInstanceId = businessJobInstanceRepository
+                .findBySpringBatchExecutionId(executionId)
                 .map(BusinessJobInstance::getId)
                 .orElse(null);
-        Long relatedFileId = businessJobInstanceRepository.findBySpringBatchExecutionId(executionId)
+        Long relatedFileId = businessJobInstanceRepository
+                .findBySpringBatchExecutionId(executionId)
                 .map(BusinessJobInstance::getRelatedFileId)
                 .orElse(null);
         CompensationRecord record = startCompensation(new StartRequest(
@@ -139,26 +159,27 @@ public class RetryCompensationService {
                 Map.of(
                         "executionId", executionId,
                         "jobName", execution.getJobInstance().getJobName(),
-                        "batchStatus", execution.getStatus().name()
-                )
-        ));
+                        "batchStatus", execution.getStatus().name())));
         try {
             long restartedId = jobOperator.restart(executionId);
-            completeCompensation(record.getId(), targetJobInstanceId, restartedId, Map.of(
-                    "executionId", executionId,
-                    "restartedExecutionId", restartedId
-            ));
+            completeCompensation(
+                    record.getId(),
+                    targetJobInstanceId,
+                    restartedId,
+                    Map.of(
+                            "executionId", executionId,
+                            "restartedExecutionId", restartedId));
             return restartedId;
         } catch (Exception ex) {
-            failCompensation(record.getId(), targetJobInstanceId, ex, ex.getMessage(), Map.of(
-                    "executionId", executionId
-            ));
+            failCompensation(
+                    record.getId(), targetJobInstanceId, ex, ex.getMessage(), Map.of("executionId", executionId));
             throw ex;
         }
     }
 
     public Long restartLatestFailed(String jobName, String operatorName, String reason) throws Exception {
-        List<JobExecution> running = jobExplorer.findRunningJobExecutions(jobName).stream().toList();
+        List<JobExecution> running =
+                jobExplorer.findRunningJobExecutions(jobName).stream().toList();
         if (!running.isEmpty()) {
             throw new IllegalStateException("Job is currently running: " + jobName);
         }
@@ -218,12 +239,13 @@ public class RetryCompensationService {
         return payload;
     }
 
-    private void logEvent(Long targetJobInstanceId,
-                          String eventType,
-                          String level,
-                          String message,
-                          String operatorName,
-                          Map<String, ?> payload) {
+    private void logEvent(
+            Long targetJobInstanceId,
+            String eventType,
+            String level,
+            String message,
+            String operatorName,
+            Map<String, ?> payload) {
         if (targetJobInstanceId == null) {
             return;
         }
@@ -257,15 +279,15 @@ public class RetryCompensationService {
         return value == null || value.isBlank() ? null : value;
     }
 
-    public record StartRequest(CompensationActionType actionType,
-                               Long targetJobInstanceId,
-                               Long targetStepInstanceId,
-                               Long relatedFileId,
-                               Long relatedDlqRecordId,
-                               Long legacyDistributionTaskId,
-                               Long sourceSpringExecutionId,
-                               String operatorName,
-                               String reason,
-                               Map<String, ?> requestPayload) {
-    }
+    public record StartRequest(
+            CompensationActionType actionType,
+            Long targetJobInstanceId,
+            Long targetStepInstanceId,
+            Long relatedFileId,
+            Long relatedDlqRecordId,
+            Long legacyDistributionTaskId,
+            Long sourceSpringExecutionId,
+            String operatorName,
+            String reason,
+            Map<String, ?> requestPayload) {}
 }

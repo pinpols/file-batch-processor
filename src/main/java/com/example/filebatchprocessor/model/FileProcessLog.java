@@ -7,23 +7,24 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
+import java.time.LocalDateTime;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
-import java.time.LocalDateTime;
-
 @Getter
 @Setter
 @NoArgsConstructor
 @Entity
-@Table(name = "file_process_log", indexes = {
-        @Index(name = "idx_file_process_log_file", columnList = "file_record_id,created_at"),
-        @Index(name = "idx_file_process_log_task", columnList = "task_id,created_at"),
-        @Index(name = "idx_file_process_log_result", columnList = "result,created_at")
-})
+@Table(
+        name = "file_process_log",
+        indexes = {
+            @Index(name = "idx_file_process_log_file", columnList = "file_record_id,created_at"),
+            @Index(name = "idx_file_process_log_task", columnList = "task_id,created_at"),
+            @Index(name = "idx_file_process_log_result", columnList = "result,created_at")
+        })
 public class FileProcessLog {
 
     @Id

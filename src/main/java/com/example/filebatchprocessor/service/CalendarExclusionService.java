@@ -1,15 +1,13 @@
 package com.example.filebatchprocessor.service;
 
-import lombok.Data;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.stereotype.Service;
-
 import java.time.*;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
+import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
 
 /**
  * 日历排除服务
@@ -118,12 +116,12 @@ public class CalendarExclusionService {
         for (Map.Entry<String, List<String>> entry : properties.getHolidays().entrySet()) {
             String calendarName = entry.getKey();
             List<String> holidayStrings = entry.getValue();
-            
+
             Set<LocalDate> holidays = holidayStrings.stream()
-                .map(this::parseHolidayString)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
-            
+                    .map(this::parseHolidayString)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toSet());
+
             holidayCache.put(calendarName, holidays);
             log.info("Initialized {} holidays for calendar: {}", holidays.size(), calendarName);
         }
@@ -133,15 +131,16 @@ public class CalendarExclusionService {
      * 初始化时间窗口数据
      */
     private void initializeTimeWindows() {
-        for (Map.Entry<String, List<String>> entry : properties.getExcludeTimeWindows().entrySet()) {
+        for (Map.Entry<String, List<String>> entry :
+                properties.getExcludeTimeWindows().entrySet()) {
             String calendarName = entry.getKey();
             List<String> windowStrings = entry.getValue();
-            
+
             List<TimeWindow> windows = windowStrings.stream()
-                .map(this::parseTimeWindowString)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toList());
-            
+                    .map(this::parseTimeWindowString)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
+
             timeWindowCache.put(calendarName, windows);
             log.info("Initialized {} time windows for calendar: {}", windows.size(), calendarName);
         }
@@ -156,11 +155,7 @@ public class CalendarExclusionService {
             String[] parts = holidayString.split("-");
             if (parts.length == 3) {
                 // 完整日期：YYYY-MM-DD
-                return LocalDate.of(
-                    Integer.parseInt(parts[0]),
-                    Integer.parseInt(parts[1]),
-                    Integer.parseInt(parts[2])
-                );
+                return LocalDate.of(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]), Integer.parseInt(parts[2]));
             } else if (parts.length == 2) {
                 // 重复日期：MM-DD，使用当前年份
                 int year = Year.now().getValue();
@@ -213,8 +208,7 @@ public class CalendarExclusionService {
      * 添加时间窗口
      */
     public void addTimeWindow(String calendarName, LocalTime startTime, LocalTime endTime) {
-        timeWindowCache.computeIfAbsent(calendarName, k -> new ArrayList<>())
-            .add(new TimeWindow(startTime, endTime));
+        timeWindowCache.computeIfAbsent(calendarName, k -> new ArrayList<>()).add(new TimeWindow(startTime, endTime));
         log.info("Added time window {}-{} to calendar: {}", startTime, endTime, calendarName);
     }
 
@@ -226,11 +220,11 @@ public class CalendarExclusionService {
         List<TimeWindow> timeWindows = timeWindowCache.getOrDefault(calendarName, Collections.emptyList());
 
         return CalendarInfo.builder()
-            .calendarName(calendarName)
-            .holidays(new ArrayList<>(holidays))
-            .timeWindows(timeWindows)
-            .excludeWeekends(properties.isExcludeWeekends())
-            .build();
+                .calendarName(calendarName)
+                .holidays(new ArrayList<>(holidays))
+                .timeWindows(timeWindows)
+                .excludeWeekends(properties.isExcludeWeekends())
+                .build();
     }
 
     /**

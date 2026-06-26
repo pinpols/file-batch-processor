@@ -1,11 +1,10 @@
 package com.example.filebatchprocessor.unit.service.distribution;
 
-import com.example.filebatchprocessor.service.distribution.SftpConcurrencyLimiter;
-import org.junit.jupiter.api.Test;
-
-import java.util.concurrent.Semaphore;
-
 import static org.junit.jupiter.api.Assertions.*;
+
+import com.example.filebatchprocessor.service.distribution.SftpConcurrencyLimiter;
+import java.util.concurrent.Semaphore;
+import org.junit.jupiter.api.Test;
 
 class SftpConcurrencyLimiterTest {
 

@@ -1,11 +1,11 @@
 package com.example.filebatchprocessor.unit.batch.handler.support;
 
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
 import com.example.filebatchprocessor.batch.handler.support.ImportJobDedupGuard;
 import com.example.filebatchprocessor.service.ExecutionDedupService;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
 
 class ImportJobDedupGuardTest {
 

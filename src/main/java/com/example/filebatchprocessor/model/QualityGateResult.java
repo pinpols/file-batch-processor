@@ -1,21 +1,22 @@
 package com.example.filebatchprocessor.model;
 
 import jakarta.persistence.*;
+import java.time.LocalDateTime;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-
-import java.time.LocalDateTime;
 
 @Getter
 @Setter
 @NoArgsConstructor
 @Entity
-@Table(name = "quality_gate_results", indexes = {
-        @Index(name = "idx_quality_gate_created_at", columnList = "created_at"),
-        @Index(name = "idx_quality_gate_job_batch", columnList = "job_name,batch_date"),
-        @Index(name = "idx_quality_gate_status", columnList = "status")
-})
+@Table(
+        name = "quality_gate_results",
+        indexes = {
+            @Index(name = "idx_quality_gate_created_at", columnList = "created_at"),
+            @Index(name = "idx_quality_gate_job_batch", columnList = "job_name,batch_date"),
+            @Index(name = "idx_quality_gate_status", columnList = "status")
+        })
 public class QualityGateResult {
 
     @Id

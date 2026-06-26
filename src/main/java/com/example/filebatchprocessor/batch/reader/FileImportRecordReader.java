@@ -5,6 +5,13 @@ import com.example.filebatchprocessor.batch.reader.spi.FixedRecordLineParser;
 import com.example.filebatchprocessor.batch.reader.spi.RecordLineParser;
 import com.example.filebatchprocessor.batch.reader.spi.RecordLineParserFactory;
 import com.example.filebatchprocessor.model.FileRecord;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.util.zip.Adler32;
+import java.util.zip.Checksum;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.batch.core.ExitStatus;
@@ -14,14 +21,6 @@ import org.springframework.batch.infrastructure.item.ExecutionContext;
 import org.springframework.batch.infrastructure.item.ItemStreamException;
 import org.springframework.batch.infrastructure.item.ItemStreamReader;
 import org.springframework.core.io.Resource;
-
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
-import java.util.zip.Adler32;
-import java.util.zip.Checksum;
 
 /**
  * 导入文件读取器，支持自定义分隔符的 CSV 和简单定长格式，并支持任务分片。
@@ -47,14 +46,18 @@ public class FileImportRecordReader implements ItemStreamReader<FileRecord>, Ste
         this(resource, 0, 1, "CSV", ",", null);
     }
 
-    public FileImportRecordReader(Resource resource, Integer shardIndex, Integer shardTotal,
-                                  String format, String delimiter) {
+    public FileImportRecordReader(
+            Resource resource, Integer shardIndex, Integer shardTotal, String format, String delimiter) {
         this(resource, shardIndex, shardTotal, format, delimiter, null);
     }
 
-    public FileImportRecordReader(Resource resource, Integer shardIndex, Integer shardTotal,
-                                  String format, String delimiter,
-                                  RecordLineParserFactory parserFactory) {
+    public FileImportRecordReader(
+            Resource resource,
+            Integer shardIndex,
+            Integer shardTotal,
+            String format,
+            String delimiter,
+            RecordLineParserFactory parserFactory) {
         this.resource = resource;
         this.shardIndex = shardIndex == null ? 0 : shardIndex;
         int total = shardTotal == null ? 1 : shardTotal;

@@ -1,5 +1,12 @@
 package com.example.filebatchprocessor.unit.service;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
+
 import com.example.filebatchprocessor.model.SchedulerQueueRecord;
 import com.example.filebatchprocessor.repository.SchedulerQueueRecordRepository;
 import com.example.filebatchprocessor.service.SchedulerQueueService;
@@ -10,13 +17,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class SchedulerQueueServiceTest {
@@ -44,7 +44,9 @@ class SchedulerQueueServiceTest {
 
     @Test
     void shouldRejectDuplicateEnqueue() {
-        doThrow(new DataIntegrityViolationException("duplicate")).when(repository).save(any(SchedulerQueueRecord.class));
+        doThrow(new DataIntegrityViolationException("duplicate"))
+                .when(repository)
+                .save(any(SchedulerQueueRecord.class));
 
         boolean enqueued = service.tryEnqueue("rk1", "taskA", "2026-03-14", "rerun-1");
 
@@ -57,4 +59,3 @@ class SchedulerQueueServiceTest {
         verify(repository).deleteById("rk2");
     }
 }
-

@@ -8,14 +8,13 @@ import com.example.filebatchprocessor.repository.OpsChangeRequestRepository;
 import com.example.filebatchprocessor.repository.TaskDefinitionRepository;
 import com.example.filebatchprocessor.repository.TaskParameterRepository;
 import com.example.filebatchprocessor.repository.TaskTriggerRepository;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Transactional
@@ -32,11 +31,12 @@ public class OpsChangeManagementService {
     private final TaskParameterRepository taskParameterRepository;
     private final OpsAuditService opsAuditService;
 
-    public OpsChangeManagementService(OpsChangeRequestRepository opsChangeRequestRepository,
-                                      TaskDefinitionRepository taskDefinitionRepository,
-                                      TaskTriggerRepository taskTriggerRepository,
-                                      TaskParameterRepository taskParameterRepository,
-                                      OpsAuditService opsAuditService) {
+    public OpsChangeManagementService(
+            OpsChangeRequestRepository opsChangeRequestRepository,
+            TaskDefinitionRepository taskDefinitionRepository,
+            TaskTriggerRepository taskTriggerRepository,
+            TaskParameterRepository taskParameterRepository,
+            OpsAuditService opsAuditService) {
         this.opsChangeRequestRepository = opsChangeRequestRepository;
         this.taskDefinitionRepository = taskDefinitionRepository;
         this.taskTriggerRepository = taskTriggerRepository;
@@ -44,23 +44,25 @@ public class OpsChangeManagementService {
         this.opsAuditService = opsAuditService;
     }
 
-    public OpsChangeRequest createRequest(String actor,
-                                          String targetType,
-                                          String taskId,
-                                          String fieldName,
-                                          String newValue,
-                                          String reason,
-                                          String windowStart,
-                                          String windowEnd,
-                                          String impactSummary,
-                                          String riskLevel,
-                                          String rollbackPlan) {
+    public OpsChangeRequest createRequest(
+            String actor,
+            String targetType,
+            String taskId,
+            String fieldName,
+            String newValue,
+            String reason,
+            String windowStart,
+            String windowEnd,
+            String impactSummary,
+            String riskLevel,
+            String rollbackPlan) {
         validateTargetType(targetType);
         String normalizedTarget = targetType.trim().toUpperCase(Locale.ROOT);
         String oldValue = loadOldValue(normalizedTarget, taskId, fieldName);
 
         OpsChangeRequest request = new OpsChangeRequest();
-        request.setRequestNo("CR-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase(Locale.ROOT));
+        request.setRequestNo(
+                "CR-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase(Locale.ROOT));
         request.setTargetType(normalizedTarget);
         request.setTaskId(taskId);
         request.setFieldName(fieldName);
@@ -75,8 +77,14 @@ public class OpsChangeManagementService {
         request.setRiskLevel(riskLevel);
         request.setRollbackPlan(rollbackPlan);
         OpsChangeRequest saved = opsChangeRequestRepository.save(request);
-        opsAuditService.log("CHANGE_REQUEST_CREATE", actor, "OPS_CHANGE_REQUEST", saved.getRequestNo(), "SUCCESS",
-                "target=" + normalizedTarget + ", taskId=" + taskId + ", field=" + fieldName + ", window=" + windowStart + "~" + windowEnd);
+        opsAuditService.log(
+                "CHANGE_REQUEST_CREATE",
+                actor,
+                "OPS_CHANGE_REQUEST",
+                saved.getRequestNo(),
+                "SUCCESS",
+                "target=" + normalizedTarget + ", taskId=" + taskId + ", field=" + fieldName + ", window=" + windowStart
+                        + "~" + windowEnd);
         return saved;
     }
 
@@ -89,7 +97,8 @@ public class OpsChangeManagementService {
         request.setApprovedBy(actor);
         request.setApprovedAt(LocalDateTime.now());
         OpsChangeRequest saved = opsChangeRequestRepository.save(request);
-        opsAuditService.log("CHANGE_REQUEST_APPROVE", actor, "OPS_CHANGE_REQUEST", saved.getRequestNo(), "SUCCESS", null);
+        opsAuditService.log(
+                "CHANGE_REQUEST_APPROVE", actor, "OPS_CHANGE_REQUEST", saved.getRequestNo(), "SUCCESS", null);
         return saved;
     }
 
@@ -103,7 +112,8 @@ public class OpsChangeManagementService {
         request.setRejectReason(rejectReason);
         request.setApprovedAt(LocalDateTime.now());
         OpsChangeRequest saved = opsChangeRequestRepository.save(request);
-        opsAuditService.log("CHANGE_REQUEST_REJECT", actor, "OPS_CHANGE_REQUEST", saved.getRequestNo(), "SUCCESS", rejectReason);
+        opsAuditService.log(
+                "CHANGE_REQUEST_REJECT", actor, "OPS_CHANGE_REQUEST", saved.getRequestNo(), "SUCCESS", rejectReason);
         return saved;
     }
 
@@ -140,7 +150,8 @@ public class OpsChangeManagementService {
     }
 
     private void applyTaskDefinitionChange(OpsChangeRequest request) {
-        TaskDefinition def = taskDefinitionRepository.findByTaskId(request.getTaskId())
+        TaskDefinition def = taskDefinitionRepository
+                .findByTaskId(request.getTaskId())
                 .orElseThrow(() -> new IllegalArgumentException("Task definition not found: " + request.getTaskId()));
         String field = request.getFieldName();
         String value = request.getNewValue();
@@ -156,7 +167,8 @@ public class OpsChangeManagementService {
     }
 
     private void applyTaskTriggerChange(OpsChangeRequest request) {
-        TaskTrigger trigger = taskTriggerRepository.findByTaskId(request.getTaskId())
+        TaskTrigger trigger = taskTriggerRepository
+                .findByTaskId(request.getTaskId())
                 .orElseThrow(() -> new IllegalArgumentException("Task trigger not found: " + request.getTaskId()));
         String field = request.getFieldName();
         String value = request.getNewValue();
@@ -174,7 +186,8 @@ public class OpsChangeManagementService {
 
     private void applyTaskParameterChange(OpsChangeRequest request) {
         String paramName = request.getFieldName();
-        TaskParameter param = taskParameterRepository.findByTaskIdAndParamName(request.getTaskId(), paramName)
+        TaskParameter param = taskParameterRepository
+                .findByTaskIdAndParamName(request.getTaskId(), paramName)
                 .orElseGet(() -> {
                     TaskParameter p = new TaskParameter();
                     p.setTaskId(request.getTaskId());
@@ -191,15 +204,18 @@ public class OpsChangeManagementService {
         return switch (targetType) {
             case "TASK_DEFINITION" -> loadTaskDefinitionOldValue(taskId, fieldName);
             case "TASK_TRIGGER" -> loadTaskTriggerOldValue(taskId, fieldName);
-            case "TASK_PARAMETER" -> taskParameterRepository.findByTaskIdAndParamName(taskId, fieldName)
-                    .map(TaskParameter::getParamValue)
-                    .orElse(null);
+            case "TASK_PARAMETER" ->
+                taskParameterRepository
+                        .findByTaskIdAndParamName(taskId, fieldName)
+                        .map(TaskParameter::getParamValue)
+                        .orElse(null);
             default -> null;
         };
     }
 
     private String loadTaskDefinitionOldValue(String taskId, String fieldName) {
-        TaskDefinition def = taskDefinitionRepository.findByTaskId(taskId)
+        TaskDefinition def = taskDefinitionRepository
+                .findByTaskId(taskId)
                 .orElseThrow(() -> new IllegalArgumentException("Task definition not found: " + taskId));
         return switch (fieldName) {
             case "enabled" -> String.valueOf(def.getEnabled());
@@ -230,21 +246,24 @@ public class OpsChangeManagementService {
     }
 
     private String loadTaskTriggerOldValue(String taskId, String fieldName) {
-        TaskTrigger trigger = taskTriggerRepository.findByTaskId(taskId)
+        TaskTrigger trigger = taskTriggerRepository
+                .findByTaskId(taskId)
                 .orElseThrow(() -> new IllegalArgumentException("Task trigger not found: " + taskId));
         return switch (fieldName) {
             case "triggerType" -> trigger.getTriggerType();
             case "cronExpression" -> trigger.getCronExpression();
             case "fixedRateMs" -> asString(trigger.getFixedRateMs());
             case "fixedDelayMs" -> asString(trigger.getFixedDelayMs());
-            case "oneTimeAt" -> trigger.getOneTimeAt() == null ? null : trigger.getOneTimeAt().toString();
+            case "oneTimeAt" ->
+                trigger.getOneTimeAt() == null ? null : trigger.getOneTimeAt().toString();
             case "enabled" -> String.valueOf(trigger.getEnabled());
             default -> null;
         };
     }
 
     private OpsChangeRequest getById(Long id) {
-        return opsChangeRequestRepository.findById(id)
+        return opsChangeRequestRepository
+                .findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Change request not found: " + id));
     }
 
@@ -253,7 +272,9 @@ public class OpsChangeManagementService {
             throw new IllegalArgumentException("targetType is required");
         }
         String normalized = targetType.trim().toUpperCase(Locale.ROOT);
-        if (!"TASK_DEFINITION".equals(normalized) && !"TASK_TRIGGER".equals(normalized) && !"TASK_PARAMETER".equals(normalized)) {
+        if (!"TASK_DEFINITION".equals(normalized)
+                && !"TASK_TRIGGER".equals(normalized)
+                && !"TASK_PARAMETER".equals(normalized)) {
             throw new IllegalArgumentException("Unsupported targetType: " + targetType);
         }
     }

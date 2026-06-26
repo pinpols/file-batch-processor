@@ -1,15 +1,14 @@
 package com.example.filebatchprocessor.service;
 
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.extern.slf4j.Slf4j;
 import org.quartz.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
-
-import jakarta.annotation.PostConstruct;
-import jakarta.annotation.PreDestroy;
-import java.util.UUID;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * 增强的集群调度服务
@@ -88,15 +87,17 @@ public class EnhancedClusterSchedulerService {
      */
     private void validateClusterConfiguration() throws SchedulerException {
         SchedulerMetaData metaData = quartzScheduler.getMetaData();
-        
+
         if (!metaData.isJobStoreClustered()) {
-            throw new IllegalStateException("Quartz job store is not configured for clustering. " +
-                "Please configure org.quartz.jobStore.class=org.quartz.impl.jdbcjobstore.JobStoreTX " +
-                "and org.quartz.jobStore.isClustered=true");
+            throw new IllegalStateException("Quartz job store is not configured for clustering. "
+                    + "Please configure org.quartz.jobStore.class=org.quartz.impl.jdbcjobstore.JobStoreTX "
+                    + "and org.quartz.jobStore.isClustered=true");
         }
 
-        log.info("Quartz cluster validation passed. InstanceId: {}, SchedulerId: {}", 
-                instanceId, metaData.getSchedulerInstanceId());
+        log.info(
+                "Quartz cluster validation passed. InstanceId: {}, SchedulerId: {}",
+                instanceId,
+                metaData.getSchedulerInstanceId());
     }
 
     /**
@@ -113,7 +114,10 @@ public class EnhancedClusterSchedulerService {
      */
     private void startClusterHealthCheck() {
         // 定期检查集群状态
-        log.info("Cluster health check started with interval: {}ms, maxFailureCount={}", checkinIntervalMs, maxFailureCount);
+        log.info(
+                "Cluster health check started with interval: {}ms, maxFailureCount={}",
+                checkinIntervalMs,
+                maxFailureCount);
     }
 
     /**
@@ -140,25 +144,25 @@ public class EnhancedClusterSchedulerService {
     public ClusterStatus getClusterStatus() {
         try {
             SchedulerMetaData metaData = quartzScheduler.getMetaData();
-            
+
             return ClusterStatus.builder()
-                .clusterEnabled(metaData.isJobStoreClustered())
-                .instanceId(instanceId)
-                .schedulerName(metaData.getSchedulerName())
-                .schedulerInstanceId(metaData.getSchedulerInstanceId())
-                .isStarted(metaData.isStarted())
-                .isShutdown(metaData.isShutdown())
-                .isInStandbyMode(metaData.isInStandbyMode())
-                .numJobsExecuted(metaData.getNumberOfJobsExecuted())
-                .runningSince(metaData.getRunningSince())
-                .build();
+                    .clusterEnabled(metaData.isJobStoreClustered())
+                    .instanceId(instanceId)
+                    .schedulerName(metaData.getSchedulerName())
+                    .schedulerInstanceId(metaData.getSchedulerInstanceId())
+                    .isStarted(metaData.isStarted())
+                    .isShutdown(metaData.isShutdown())
+                    .isInStandbyMode(metaData.isInStandbyMode())
+                    .numJobsExecuted(metaData.getNumberOfJobsExecuted())
+                    .runningSince(metaData.getRunningSince())
+                    .build();
         } catch (SchedulerException e) {
             log.error("Failed to get cluster status", e);
             return ClusterStatus.builder()
-                .clusterEnabled(false)
-                .instanceId(instanceId)
-                .error(e.getMessage())
-                .build();
+                    .clusterEnabled(false)
+                    .instanceId(instanceId)
+                    .error(e.getMessage())
+                    .build();
         }
     }
 

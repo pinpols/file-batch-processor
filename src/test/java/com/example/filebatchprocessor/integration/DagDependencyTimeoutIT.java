@@ -1,5 +1,8 @@
 package com.example.filebatchprocessor.integration;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import com.example.filebatchprocessor.model.DagDefinition;
 import com.example.filebatchprocessor.model.DagNode;
 import com.example.filebatchprocessor.model.DagNodeRun;
@@ -14,6 +17,7 @@ import com.example.filebatchprocessor.repository.TaskDefinitionRepository;
 import com.example.filebatchprocessor.repository.TaskDependencyRepository;
 import com.example.filebatchprocessor.service.DagOrchestratorService;
 import com.example.filebatchprocessor.support.PostgresContainerSupport;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,11 +25,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest
 @ActiveProfiles("test")
@@ -35,16 +34,22 @@ class DagDependencyTimeoutIT extends PostgresContainerSupport {
 
     @Autowired
     private DagOrchestratorService dagOrchestratorService;
+
     @Autowired
     private DagDefinitionRepository dagDefinitionRepository;
+
     @Autowired
     private DagNodeRepository dagNodeRepository;
+
     @Autowired
     private DagRunRepository dagRunRepository;
+
     @Autowired
     private DagNodeRunRepository dagNodeRunRepository;
+
     @Autowired
     private TaskDefinitionRepository taskDefinitionRepository;
+
     @Autowired
     private TaskDependencyRepository taskDependencyRepository;
 
@@ -77,8 +82,7 @@ class DagDependencyTimeoutIT extends PostgresContainerSupport {
         assertTrue(
                 nodeRuns.get(1).getErrorMessage() != null
                         && nodeRuns.get(1).getErrorMessage().contains("DAG max duration exceeded"),
-                "downstream node should fail with max-duration reason"
-        );
+                "downstream node should fail with max-duration reason");
     }
 
     @Test
@@ -95,7 +99,8 @@ class DagDependencyTimeoutIT extends PostgresContainerSupport {
         taskDependencyRepository.save(dependency);
 
         dagDefinitionRepository.save(dag(dagId, false, 60_000L));
-        dagNodeRepository.saveAll(List.of(node(dagId, upstream.getTaskId(), 1), node(dagId, downstream.getTaskId(), 2)));
+        dagNodeRepository.saveAll(
+                List.of(node(dagId, upstream.getTaskId(), 1), node(dagId, downstream.getTaskId(), 2)));
 
         DagRun run = dagOrchestratorService.executeDag(dagId, "2026-03-14", "dep-skip-case");
 
@@ -104,7 +109,8 @@ class DagDependencyTimeoutIT extends PostgresContainerSupport {
         assertEquals(2, nodeRuns.size());
         assertEquals("FAILED", nodeRuns.get(0).getStatus());
         assertEquals("SKIPPED", nodeRuns.get(1).getStatus());
-        assertTrue(nodeRuns.get(1).getErrorMessage() != null && nodeRuns.get(1).getErrorMessage().contains("policy=SKIP"));
+        assertTrue(nodeRuns.get(1).getErrorMessage() != null
+                && nodeRuns.get(1).getErrorMessage().contains("policy=SKIP"));
     }
 
     private TaskDefinition task(String taskId, String jobName) {

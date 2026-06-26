@@ -1,5 +1,15 @@
 package com.example.filebatchprocessor.unit.service;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import com.example.filebatchprocessor.model.DagDefinition;
 import com.example.filebatchprocessor.model.DagNode;
 import com.example.filebatchprocessor.model.DagRun;
@@ -13,6 +23,9 @@ import com.example.filebatchprocessor.repository.TaskDependencyRepository;
 import com.example.filebatchprocessor.repository.TaskParameterRepository;
 import com.example.filebatchprocessor.service.DagOrchestratorService;
 import com.example.filebatchprocessor.service.TaskExecutionStateService;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -28,43 +41,39 @@ import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.batch.core.step.StepExecution;
 import org.springframework.beans.factory.ObjectProvider;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.atLeastOnce;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
 @ExtendWith(MockitoExtension.class)
 class DagOrchestratorServiceTest {
 
     @Mock
     private DagDefinitionRepository dagDefinitionRepository;
+
     @Mock
     private DagNodeRepository dagNodeRepository;
+
     @Mock
     private DagRunRepository dagRunRepository;
+
     @Mock
     private DagNodeRunRepository dagNodeRunRepository;
+
     @Mock
     private TaskDefinitionRepository taskDefinitionRepository;
+
     @Mock
     private TaskParameterRepository taskParameterRepository;
+
     @Mock
     private TaskDependencyRepository taskDependencyRepository;
+
     @Mock
     private TaskExecutionStateService taskExecutionStateService;
+
     @Mock
     private JobLauncher jobLauncher;
+
     @Mock
     private ObjectProvider<Map<String, Job>> jobsProvider;
+
     @Mock
     private Job job;
 
@@ -82,8 +91,7 @@ class DagOrchestratorServiceTest {
                 taskDependencyRepository,
                 taskExecutionStateService,
                 jobLauncher,
-                jobsProvider
-        );
+                jobsProvider);
     }
 
     @Test
@@ -107,7 +115,8 @@ class DagOrchestratorServiceTest {
             }
             return run;
         });
-        when(dagNodeRepository.findByDagIdAndEnabledTrueOrderByNodeOrderAscIdAsc("dag-1")).thenReturn(List.of());
+        when(dagNodeRepository.findByDagIdAndEnabledTrueOrderByNodeOrderAscIdAsc("dag-1"))
+                .thenReturn(List.of());
 
         DagRun result = service.executeDag("dag-1", "2026-03-14", "r1");
 
@@ -128,7 +137,8 @@ class DagOrchestratorServiceTest {
         node.setDagId("dag-2");
         node.setTaskId("task-1");
         node.setNodeOrder(1);
-        when(dagNodeRepository.findByDagIdAndEnabledTrueOrderByNodeOrderAscIdAsc("dag-2")).thenReturn(List.of(node));
+        when(dagNodeRepository.findByDagIdAndEnabledTrueOrderByNodeOrderAscIdAsc("dag-2"))
+                .thenReturn(List.of(node));
 
         TaskDefinition taskDefinition = new TaskDefinition();
         taskDefinition.setTaskId("task-1");
@@ -157,10 +167,19 @@ class DagOrchestratorServiceTest {
         DagRun result = service.executeDag("dag-2", "2026-03-14", "r1");
 
         assertEquals("SUCCESS", result.getStatus());
-        verify(taskExecutionStateService, atLeastOnce()).upsert(
-                anyString(), anyString(), anyString(), anyString(),
-                anyInt(), any(), any(), any(), any(), anyBoolean(), any()
-        );
+        verify(taskExecutionStateService, atLeastOnce())
+                .upsert(
+                        anyString(),
+                        anyString(),
+                        anyString(),
+                        anyString(),
+                        anyInt(),
+                        any(),
+                        any(),
+                        any(),
+                        any(),
+                        anyBoolean(),
+                        any());
         ArgumentCaptor<DagRun> captor = ArgumentCaptor.forClass(DagRun.class);
         verify(dagRunRepository, atLeastOnce()).save(captor.capture());
     }

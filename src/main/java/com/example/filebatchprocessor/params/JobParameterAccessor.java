@@ -1,8 +1,7 @@
 package com.example.filebatchprocessor.params;
 
-import org.springframework.batch.core.job.parameters.JobParameters;
-
 import java.util.Map;
+import org.springframework.batch.core.job.parameters.JobParameters;
 
 public class JobParameterAccessor {
 

@@ -1,24 +1,23 @@
 package com.example.filebatchprocessor.unit.service;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import com.example.filebatchprocessor.model.TaskExecutionState;
 import com.example.filebatchprocessor.model.TaskExecutionStatus;
 import com.example.filebatchprocessor.repository.TaskExecutionStateRepository;
 import com.example.filebatchprocessor.service.TaskExecutionStateService;
+import java.time.LocalDateTime;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.time.LocalDateTime;
-import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class TaskExecutionStateServiceTest {
@@ -50,8 +49,7 @@ class TaskExecutionStateServiceTest {
                 null,
                 null,
                 true,
-                null
-        );
+                null);
 
         assertEquals("t1", saved.getTaskId());
         assertEquals(1, saved.getAttempt());
@@ -72,19 +70,8 @@ class TaskExecutionStateServiceTest {
         when(repository.save(any(TaskExecutionState.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         LocalDateTime nextRetry = LocalDateTime.now().plusMinutes(5);
-        TaskExecutionState saved = service.upsert(
-                "t2",
-                "2026-03-14",
-                "r2",
-                "success",
-                5,
-                null,
-                null,
-                "none",
-                null,
-                false,
-                nextRetry
-        );
+        TaskExecutionState saved =
+                service.upsert("t2", "2026-03-14", "r2", "success", 5, null, null, "none", null, false, nextRetry);
 
         assertEquals(2, saved.getAttempt());
         assertEquals("SUCCESS", saved.getStatus());
@@ -105,4 +92,3 @@ class TaskExecutionStateServiceTest {
         assertEquals("", captor.getValue().getRerunId());
     }
 }
-

@@ -5,16 +5,15 @@ import com.example.filebatchprocessor.model.FileAssetStatus;
 import com.example.filebatchprocessor.model.FileRetentionPolicy;
 import com.example.filebatchprocessor.repository.FileAssetRecordRepository;
 import com.example.filebatchprocessor.repository.FileRetentionPolicyRepository;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.LocalDateTime;
+import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.time.LocalDateTime;
-import java.util.List;
 
 @Slf4j
 @Service
@@ -27,12 +26,14 @@ public class FileArchivalService {
 
     @Value("${file.archive.enabled:true}")
     private boolean enabled;
+
     @Value("${file.archive.dry-run:true}")
     private boolean dryRun;
 
-    public FileArchivalService(FileAssetRecordRepository fileAssetRepository,
-                             FileRetentionPolicyRepository retentionPolicyRepository,
-                             FileAssetStateMachineService stateMachineService) {
+    public FileArchivalService(
+            FileAssetRecordRepository fileAssetRepository,
+            FileRetentionPolicyRepository retentionPolicyRepository,
+            FileAssetStateMachineService stateMachineService) {
         this.fileAssetRepository = fileAssetRepository;
         this.retentionPolicyRepository = retentionPolicyRepository;
         this.stateMachineService = stateMachineService;
@@ -43,33 +44,31 @@ public class FileArchivalService {
         if (!enabled) {
             return;
         }
-        
+
         log.info("Starting file archival job");
-        
+
         List<FileRetentionPolicy> policies = retentionPolicyRepository.findByEnabledTrue();
         int archivedCount = 0;
         int deletedCount = 0;
         int failedCount = 0;
-        
+
         for (FileRetentionPolicy policy : policies) {
             try {
                 List<FileAssetRecord> filesToArchive = fileAssetRepository.findFilesForArchive(
-                        policy.getFileCategory(),
-                        LocalDateTime.now().minusDays(policy.getRetentionDays()),
-                        100);
-                
+                        policy.getFileCategory(), LocalDateTime.now().minusDays(policy.getRetentionDays()), 100);
+
                 for (FileAssetRecord file : filesToArchive) {
                     try {
                         if (!isTerminalState(file.getStatus())) {
                             log.debug("Skipping file {} - not in terminal state", file.getId());
                             continue;
                         }
-                        
+
                         if (hasActiveDependencies(file)) {
                             log.debug("Skipping file {} - has active dependencies", file.getId());
                             continue;
                         }
-                        
+
                         if (policy.getArchiveBeforeDelete()) {
                             if (!dryRun) {
                                 archiveFile(file);
@@ -90,15 +89,17 @@ public class FileArchivalService {
                 log.error("Failed to process policy {}: {}", policy.getPolicyName(), e.getMessage());
             }
         }
-        
-        log.info("Archive job completed: archived={}, deleted={}, failed={}, dryRun={}", 
-                archivedCount, deletedCount, failedCount, dryRun);
+
+        log.info(
+                "Archive job completed: archived={}, deleted={}, failed={}, dryRun={}",
+                archivedCount,
+                deletedCount,
+                failedCount,
+                dryRun);
     }
 
     private boolean isTerminalState(String status) {
-        return "PROCESSED".equals(status) || 
-               "DISPATCHED".equals(status) || 
-               "ARCHIVED".equals(status);
+        return "PROCESSED".equals(status) || "DISPATCHED".equals(status) || "ARCHIVED".equals(status);
     }
 
     private boolean hasActiveDependencies(FileAssetRecord file) {
@@ -122,7 +123,7 @@ public class FileArchivalService {
                 log.warn("Failed to delete physical file: {}", file.getStoredPath(), e);
             }
         }
-        
+
         file.setDeletedFlag(true);
         file.setDeletedTime(LocalDateTime.now());
         fileAssetRepository.save(file);
@@ -130,25 +131,27 @@ public class FileArchivalService {
     }
 
     public void archiveFileManually(Long fileId, String operator) {
-        FileAssetRecord file = fileAssetRepository.findById(fileId)
+        FileAssetRecord file = fileAssetRepository
+                .findById(fileId)
                 .orElseThrow(() -> new IllegalArgumentException("File not found: " + fileId));
-        
+
         if (!isTerminalState(file.getStatus())) {
             throw new IllegalStateException("File is not in terminal state: " + file.getStatus());
         }
-        
-        stateMachineService.transition(fileId, FileAssetStatus.ARCHIVED, 
-                "manual-archive", java.util.Map.of("operator", operator));
+
+        stateMachineService.transition(
+                fileId, FileAssetStatus.ARCHIVED, "manual-archive", java.util.Map.of("operator", operator));
     }
 
     public void deleteFileManually(Long fileId, String operator) {
-        FileAssetRecord file = fileAssetRepository.findById(fileId)
+        FileAssetRecord file = fileAssetRepository
+                .findById(fileId)
                 .orElseThrow(() -> new IllegalArgumentException("File not found: " + fileId));
-        
+
         if (!"ARCHIVED".equals(file.getStatus())) {
             throw new IllegalStateException("File must be archived before deletion: " + file.getStatus());
         }
-        
+
         deleteFile(file);
     }
 }

@@ -3,9 +3,8 @@ package com.example.filebatchprocessor.service;
 import com.example.filebatchprocessor.model.TaskExecutionAudit;
 import com.example.filebatchprocessor.repository.TaskExecutionAuditRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.stereotype.Service;
-
 import java.util.Map;
+import org.springframework.stereotype.Service;
 
 @Service
 public class TaskExecutionAuditService {
@@ -18,14 +17,15 @@ public class TaskExecutionAuditService {
         this.objectMapper = objectMapper;
     }
 
-    public void log(String taskId,
-                    String jobName,
-                    String batchDate,
-                    String runKey,
-                    String eventType,
-                    String status,
-                    String reason,
-                    Map<String, String> params) {
+    public void log(
+            String taskId,
+            String jobName,
+            String batchDate,
+            String runKey,
+            String eventType,
+            String status,
+            String reason,
+            Map<String, String> params) {
         TaskExecutionAudit audit = new TaskExecutionAudit();
         audit.setTaskId(taskId);
         audit.setJobName(jobName);

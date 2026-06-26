@@ -1,14 +1,12 @@
 package com.example.filebatchprocessor.exception;
 
-import org.springframework.dao.DataAccessException;
-
 import java.io.IOException;
 import java.net.SocketTimeoutException;
+import org.springframework.dao.DataAccessException;
 
 public final class ErrorCodeClassifier {
 
-    private ErrorCodeClassifier() {
-    }
+    private ErrorCodeClassifier() {}
 
     public static ErrorCode classify(Throwable t) {
         if (t == null) {

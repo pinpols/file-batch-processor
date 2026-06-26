@@ -1,11 +1,10 @@
 package com.example.filebatchprocessor.repository;
 
 import com.example.filebatchprocessor.model.TaskTrigger;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
-
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
 
 /**
  * 任务触发器 Repository：管理任务执行计划的数据访问

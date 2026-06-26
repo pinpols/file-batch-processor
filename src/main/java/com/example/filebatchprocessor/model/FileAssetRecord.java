@@ -8,27 +8,28 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import java.time.LocalDateTime;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
-import java.time.LocalDateTime;
-
 @Getter
 @Setter
 @NoArgsConstructor
 @Entity
-@Table(name = "file_record", indexes = {
-        @Index(name = "uk_file_record_file_no", columnList = "file_no", unique = true),
-        @Index(name = "idx_file_record_status", columnList = "status"),
-        @Index(name = "idx_file_record_source_biz_date", columnList = "source_system,biz_date"),
-        @Index(name = "idx_file_record_hash", columnList = "file_hash"),
-        @Index(name = "idx_file_record_parent", columnList = "parent_file_id"),
-        @Index(name = "idx_file_record_tenant_domain", columnList = "tenant_id,biz_domain"),
-        @Index(name = "idx_file_record_stored_path_latest", columnList = "stored_path,latest_version")
-})
+@Table(
+        name = "file_record",
+        indexes = {
+            @Index(name = "uk_file_record_file_no", columnList = "file_no", unique = true),
+            @Index(name = "idx_file_record_status", columnList = "status"),
+            @Index(name = "idx_file_record_source_biz_date", columnList = "source_system,biz_date"),
+            @Index(name = "idx_file_record_hash", columnList = "file_hash"),
+            @Index(name = "idx_file_record_parent", columnList = "parent_file_id"),
+            @Index(name = "idx_file_record_tenant_domain", columnList = "tenant_id,biz_domain"),
+            @Index(name = "idx_file_record_stored_path_latest", columnList = "stored_path,latest_version")
+        })
 public class FileAssetRecord {
 
     @Id

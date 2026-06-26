@@ -1,25 +1,5 @@
 package com.example.filebatchprocessor.unit.service;
 
-import com.example.filebatchprocessor.model.BusinessJobInstance;
-import com.example.filebatchprocessor.model.BusinessJobInstanceStatus;
-import com.example.filebatchprocessor.repository.BusinessJobInstanceRepository;
-import com.example.filebatchprocessor.service.JobExecutionLogService;
-import com.example.filebatchprocessor.service.JobInstanceParameters;
-import com.example.filebatchprocessor.service.JobInstanceService;
-import com.example.filebatchprocessor.service.JobStepInstanceService;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.junit.jupiter.api.Test;
-import org.springframework.batch.core.BatchStatus;
-import org.springframework.batch.core.ExitStatus;
-import org.springframework.batch.core.job.JobExecution;
-import org.springframework.batch.core.job.JobInstance;
-import org.springframework.batch.core.job.parameters.JobParametersBuilder;
-import org.springframework.batch.core.step.StepExecution;
-
-import java.time.LocalDateTime;
-import java.util.Optional;
-import java.util.Set;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
@@ -28,6 +8,25 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.example.filebatchprocessor.model.BusinessJobInstance;
+import com.example.filebatchprocessor.model.BusinessJobInstanceStatus;
+import com.example.filebatchprocessor.repository.BusinessJobInstanceRepository;
+import com.example.filebatchprocessor.service.JobExecutionLogService;
+import com.example.filebatchprocessor.service.JobInstanceParameters;
+import com.example.filebatchprocessor.service.JobInstanceService;
+import com.example.filebatchprocessor.service.JobStepInstanceService;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.LocalDateTime;
+import java.util.Optional;
+import java.util.Set;
+import org.junit.jupiter.api.Test;
+import org.springframework.batch.core.BatchStatus;
+import org.springframework.batch.core.ExitStatus;
+import org.springframework.batch.core.job.JobExecution;
+import org.springframework.batch.core.job.JobInstance;
+import org.springframework.batch.core.job.parameters.JobParametersBuilder;
+import org.springframework.batch.core.step.StepExecution;
+
 class JobInstanceServiceTest {
 
     @Test
@@ -35,12 +34,8 @@ class JobInstanceServiceTest {
         BusinessJobInstanceRepository repository = mock(BusinessJobInstanceRepository.class);
         JobStepInstanceService jobStepInstanceService = mock(JobStepInstanceService.class);
         JobExecutionLogService jobExecutionLogService = mock(JobExecutionLogService.class);
-        JobInstanceService service = new JobInstanceService(
-                repository,
-                jobStepInstanceService,
-                jobExecutionLogService,
-                new ObjectMapper()
-        );
+        JobInstanceService service =
+                new JobInstanceService(repository, jobStepInstanceService, jobExecutionLogService, new ObjectMapper());
 
         when(repository.save(any(BusinessJobInstance.class))).thenAnswer(invocation -> {
             BusinessJobInstance instance = invocation.getArgument(0);
@@ -60,8 +55,7 @@ class JobInstanceServiceTest {
                 false,
                 true,
                 900L,
-                java.util.Map.of("batchDate", "2026-03-15")
-        ));
+                java.util.Map.of("batchDate", "2026-03-15")));
 
         assertEquals(700L, created.getId());
         assertEquals("task-import", created.getTaskId());
@@ -72,8 +66,15 @@ class JobInstanceServiceTest {
         assertEquals(900L, created.getRelatedFileId());
         assertNotNull(created.getRequestPayload());
 
-        verify(jobExecutionLogService).log(eq(700L), eq(null), eq("INSTANCE_CREATED"), eq("INFO"),
-                eq("Business job instance created"), eq("tester"), any());
+        verify(jobExecutionLogService)
+                .log(
+                        eq(700L),
+                        eq(null),
+                        eq("INSTANCE_CREATED"),
+                        eq("INFO"),
+                        eq("Business job instance created"),
+                        eq("tester"),
+                        any());
     }
 
     @Test
@@ -81,12 +82,8 @@ class JobInstanceServiceTest {
         BusinessJobInstanceRepository repository = mock(BusinessJobInstanceRepository.class);
         JobStepInstanceService jobStepInstanceService = mock(JobStepInstanceService.class);
         JobExecutionLogService jobExecutionLogService = mock(JobExecutionLogService.class);
-        JobInstanceService service = new JobInstanceService(
-                repository,
-                jobStepInstanceService,
-                jobExecutionLogService,
-                new ObjectMapper()
-        );
+        JobInstanceService service =
+                new JobInstanceService(repository, jobStepInstanceService, jobExecutionLogService, new ObjectMapper());
 
         BusinessJobInstance stored = new BusinessJobInstance();
         stored.setId(701L);
@@ -106,10 +103,11 @@ class JobInstanceServiceTest {
 
         when(jobExecution.getId()).thenReturn(401L);
         when(jobExecution.getJobInstance()).thenReturn(springJobInstance);
-        when(jobExecution.getJobParameters()).thenReturn(new JobParametersBuilder()
-                .addLong(JobInstanceParameters.BUSINESS_JOB_INSTANCE_ID, 701L)
-                .addString(JobInstanceParameters.BUSINESS_JOB_INSTANCE_NO, "JI-20260315-XYZ12345")
-                .toJobParameters());
+        when(jobExecution.getJobParameters())
+                .thenReturn(new JobParametersBuilder()
+                        .addLong(JobInstanceParameters.BUSINESS_JOB_INSTANCE_ID, 701L)
+                        .addString(JobInstanceParameters.BUSINESS_JOB_INSTANCE_NO, "JI-20260315-XYZ12345")
+                        .toJobParameters());
         when(jobExecution.getStatus()).thenReturn(BatchStatus.COMPLETED);
         when(jobExecution.getExitStatus()).thenReturn(ExitStatus.COMPLETED);
         when(jobExecution.getStepExecutions()).thenReturn(Set.of(stepExecution));
@@ -134,9 +132,23 @@ class JobInstanceServiceTest {
         assertNotNull(stored.getResultSummary());
 
         verify(jobStepInstanceService).replaceFromSpringBatch(701L, jobExecution, "scheduler");
-        verify(jobExecutionLogService).log(eq(701L), eq(null), eq("JOB_STARTED"), eq("INFO"),
-                eq("Spring Batch job started"), eq("scheduler"), any());
-        verify(jobExecutionLogService).log(eq(701L), eq(null), eq("JOB_FINISHED"), eq("INFO"),
-                eq("Spring Batch job finished: PARTIAL_SUCCESS"), eq("scheduler"), any());
+        verify(jobExecutionLogService)
+                .log(
+                        eq(701L),
+                        eq(null),
+                        eq("JOB_STARTED"),
+                        eq("INFO"),
+                        eq("Spring Batch job started"),
+                        eq("scheduler"),
+                        any());
+        verify(jobExecutionLogService)
+                .log(
+                        eq(701L),
+                        eq(null),
+                        eq("JOB_FINISHED"),
+                        eq("INFO"),
+                        eq("Spring Batch job finished: PARTIAL_SUCCESS"),
+                        eq("scheduler"),
+                        any());
     }
 }

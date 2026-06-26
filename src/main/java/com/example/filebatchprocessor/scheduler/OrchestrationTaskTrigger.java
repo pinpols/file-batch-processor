@@ -1,12 +1,11 @@
 package com.example.filebatchprocessor.scheduler;
 
 import com.example.filebatchprocessor.batch.scheduler.TriggerType;
+import java.time.Instant;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.AllArgsConstructor;
-
-import java.time.Instant;
 
 @Data
 @Builder
@@ -19,4 +18,3 @@ public class OrchestrationTaskTrigger {
     private Long fixedDelayMs;
     private Instant oneTimeAt;
 }
-

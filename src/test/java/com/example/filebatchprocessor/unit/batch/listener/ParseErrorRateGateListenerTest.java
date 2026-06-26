@@ -1,16 +1,16 @@
 package com.example.filebatchprocessor.unit.batch.listener;
 
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
 import com.example.filebatchprocessor.batch.listener.ParseErrorRateGateListener;
-import com.example.filebatchprocessor.observability.BatchMetrics;
 import com.example.filebatchprocessor.config.ImportParseErrorGateProperties;
+import com.example.filebatchprocessor.observability.BatchMetrics;
 import com.example.filebatchprocessor.repository.QualityGateResultRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.batch.core.ExitStatus;
 import org.springframework.batch.core.step.StepExecution;
 import org.springframework.batch.test.MetaDataInstanceFactory;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
 
 class ParseErrorRateGateListenerTest {
 
@@ -21,7 +21,8 @@ class ParseErrorRateGateListenerTest {
         ImportParseErrorGateProperties properties = new ImportParseErrorGateProperties();
         properties.setMinLines(50L);
         properties.setMaxRate(0.2);
-        ParseErrorRateGateListener listener = new ParseErrorRateGateListener(batchMetrics, properties, qualityGateResultRepository);
+        ParseErrorRateGateListener listener =
+                new ParseErrorRateGateListener(batchMetrics, properties, qualityGateResultRepository);
 
         StepExecution stepExecution = MetaDataInstanceFactory.createStepExecution();
         stepExecution.getExecutionContext().putLong("read.count", 10L);
@@ -40,7 +41,8 @@ class ParseErrorRateGateListenerTest {
         ImportParseErrorGateProperties properties = new ImportParseErrorGateProperties();
         properties.setMinLines(1L);
         properties.setMaxRate(0.2);
-        ParseErrorRateGateListener listener = new ParseErrorRateGateListener(batchMetrics, properties, qualityGateResultRepository);
+        ParseErrorRateGateListener listener =
+                new ParseErrorRateGateListener(batchMetrics, properties, qualityGateResultRepository);
 
         StepExecution stepExecution = MetaDataInstanceFactory.createStepExecution();
         stepExecution.getExecutionContext().putLong("read.count", 1L);
@@ -65,7 +67,8 @@ class ParseErrorRateGateListenerTest {
         rule.setMaxRate(0.1);
         properties.getRules().put("job", rule);
 
-        ParseErrorRateGateListener listener = new ParseErrorRateGateListener(batchMetrics, properties, qualityGateResultRepository);
+        ParseErrorRateGateListener listener =
+                new ParseErrorRateGateListener(batchMetrics, properties, qualityGateResultRepository);
 
         StepExecution stepExecution = MetaDataInstanceFactory.createStepExecution();
         stepExecution.getExecutionContext().putLong("read.count", 1L);

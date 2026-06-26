@@ -1,11 +1,10 @@
 package com.example.filebatchprocessor.unit.batch.scheduler;
 
-import com.example.filebatchprocessor.scheduler.OrchestrationTaskDefinition;
-import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import com.example.filebatchprocessor.scheduler.OrchestrationTaskDefinition;
+import org.junit.jupiter.api.Test;
 
 class RetryPolicyTest {
 
@@ -18,10 +17,8 @@ class RetryPolicyTest {
 
     @Test
     void shouldAllowRetryOnlyWithinMaxAttemptsForRetryableErrors() {
-        OrchestrationTaskDefinition task = OrchestrationTaskDefinition.builder()
-                .id("t1")
-                .maxAttempts(3)
-                .build();
+        OrchestrationTaskDefinition task =
+                OrchestrationTaskDefinition.builder().id("t1").maxAttempts(3).build();
 
         String retryableError = "Connection timeout";
         String nonRetryableError = "Record already exists";

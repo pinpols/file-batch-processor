@@ -1,10 +1,10 @@
 package com.example.filebatchprocessor.unit.util;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import com.example.filebatchprocessor.scheduler.OrchestrationTaskDefinition;
 import com.example.filebatchprocessor.util.IdempotencyKeyBuilder;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class IdempotencyKeyBuilderTest {
 

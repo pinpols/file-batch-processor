@@ -1,25 +1,23 @@
 package com.example.filebatchprocessor.unit.service;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.*;
+
 import com.example.filebatchprocessor.model.FileAssetRecord;
 import com.example.filebatchprocessor.model.FileAssetStatus;
 import com.example.filebatchprocessor.model.FileRetentionPolicy;
 import com.example.filebatchprocessor.repository.FileAssetRecordRepository;
 import com.example.filebatchprocessor.repository.FileRetentionPolicyRepository;
-import com.example.filebatchprocessor.service.FileAssetStateMachineService;
 import com.example.filebatchprocessor.service.FileArchivalService;
+import com.example.filebatchprocessor.service.FileAssetStateMachineService;
+import java.time.LocalDateTime;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.time.LocalDateTime;
-import java.util.List;
-
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class FileArchivalServiceTest {
@@ -60,7 +58,8 @@ class FileArchivalServiceTest {
     void shouldArchiveFileManually() {
         when(fileAssetRepository.findById(1L)).thenReturn(java.util.Optional.of(testFile));
         when(stateMachineService.transition(eq(1L), eq(FileAssetStatus.ARCHIVED), any(), any()))
-                .thenReturn(new FileAssetStateMachineService.TransitionResult(testFile, FileAssetStatus.PROCESSED, FileAssetStatus.ARCHIVED));
+                .thenReturn(new FileAssetStateMachineService.TransitionResult(
+                        testFile, FileAssetStatus.PROCESSED, FileAssetStatus.ARCHIVED));
 
         fileArchivalService.archiveFileManually(1L, "operator");
 
@@ -72,8 +71,8 @@ class FileArchivalServiceTest {
         testFile.setStatus("PROCESSING");
         when(fileAssetRepository.findById(1L)).thenReturn(java.util.Optional.of(testFile));
 
-        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
-                () -> fileArchivalService.archiveFileManually(1L, "operator"));
+        org.junit.jupiter.api.Assertions.assertThrows(
+                IllegalStateException.class, () -> fileArchivalService.archiveFileManually(1L, "operator"));
     }
 
     @Test

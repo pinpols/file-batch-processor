@@ -99,7 +99,19 @@ public class ImportJobRequest {
         }
 
         public ImportJobRequest build() {
-            return new ImportJobRequest(inputFile, batchDate, runMode, rerunId, dedupKey, priority, maxRetries, backoffMs, maxDurationMs, timeoutMs, fileFormat, fileDelimiter);
+            return new ImportJobRequest(
+                    inputFile,
+                    batchDate,
+                    runMode,
+                    rerunId,
+                    dedupKey,
+                    priority,
+                    maxRetries,
+                    backoffMs,
+                    maxDurationMs,
+                    timeoutMs,
+                    fileFormat,
+                    fileDelimiter);
         }
     }
 }

@@ -1,11 +1,10 @@
 package com.example.filebatchprocessor.batch.scheduler;
 
 import com.example.filebatchprocessor.config.SchedulerConcurrencyProperties;
-import org.springframework.stereotype.Component;
-
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Semaphore;
+import org.springframework.stereotype.Component;
 
 @Component
 public class SchedulerConcurrencyLimiter {
@@ -34,7 +33,6 @@ public class SchedulerConcurrencyLimiter {
     public interface Permit {
         void release();
 
-        Permit NOOP = () -> {
-        };
+        Permit NOOP = () -> {};
     }
 }

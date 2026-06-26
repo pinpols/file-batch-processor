@@ -3,9 +3,8 @@ package com.example.filebatchprocessor.service.distribution;
 import com.example.filebatchprocessor.exception.BusinessException;
 import com.example.filebatchprocessor.exception.ErrorCode;
 import com.example.filebatchprocessor.model.FileDistributionTask;
-import org.springframework.stereotype.Component;
-
 import java.util.List;
+import org.springframework.stereotype.Component;
 
 @Component
 public class FileDistributorDispatcher {
@@ -28,7 +27,8 @@ public class FileDistributorDispatcher {
         FileDistributor distributor = distributors.stream()
                 .filter(d -> d.supports(targetSystem))
                 .findFirst()
-                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_ARGUMENT, "Unknown distribution target: " + targetSystem));
+                .orElseThrow(() -> new BusinessException(
+                        ErrorCode.INVALID_ARGUMENT, "Unknown distribution target: " + targetSystem));
         distributor.distribute(task, jobInstanceId);
     }
 }

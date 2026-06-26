@@ -27,4 +27,3 @@ public class FixedRecordLineParser implements RecordLineParser {
         return line.substring(start, realEnd);
     }
 }
-

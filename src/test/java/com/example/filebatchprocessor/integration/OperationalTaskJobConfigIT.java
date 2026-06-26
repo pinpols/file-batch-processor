@@ -1,5 +1,13 @@
 package com.example.filebatchprocessor.integration;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import com.example.filebatchprocessor.batch.config.OperationalTaskJobConfig;
 import com.example.filebatchprocessor.listener.JobCompletionNotificationListener;
 import com.example.filebatchprocessor.model.FileDistributionTask;
@@ -19,22 +27,6 @@ import com.example.filebatchprocessor.service.PartitionedImportService;
 import com.example.filebatchprocessor.service.distribution.FileDistributorDispatcher;
 import com.example.filebatchprocessor.service.distribution.HttpFileDistributor;
 import com.sun.net.httpserver.HttpServer;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-import org.springframework.batch.core.BatchStatus;
-import org.springframework.batch.core.job.Job;
-import org.springframework.batch.core.job.JobExecution;
-import org.springframework.batch.core.job.parameters.JobParametersBuilder;
-import org.springframework.batch.core.launch.support.TaskExecutorJobLauncher;
-import org.springframework.batch.core.repository.JobRepository;
-import org.springframework.batch.core.repository.support.ResourcelessJobRepository;
-import org.springframework.batch.infrastructure.support.transaction.ResourcelessTransactionManager;
-import org.springframework.batch.core.step.tasklet.Tasklet;
-import org.springframework.core.task.SyncTaskExecutor;
-import org.springframework.transaction.PlatformTransactionManager;
-
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -49,14 +41,21 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.springframework.batch.core.BatchStatus;
+import org.springframework.batch.core.job.Job;
+import org.springframework.batch.core.job.JobExecution;
+import org.springframework.batch.core.job.parameters.JobParametersBuilder;
+import org.springframework.batch.core.launch.support.TaskExecutorJobLauncher;
+import org.springframework.batch.core.repository.JobRepository;
+import org.springframework.batch.core.repository.support.ResourcelessJobRepository;
+import org.springframework.batch.core.step.tasklet.Tasklet;
+import org.springframework.batch.infrastructure.support.transaction.ResourcelessTransactionManager;
+import org.springframework.core.task.SyncTaskExecutor;
+import org.springframework.transaction.PlatformTransactionManager;
 
 class OperationalTaskJobConfigIT {
 
@@ -91,11 +90,11 @@ class OperationalTaskJobConfigIT {
 
         fileReceptionService = new FileReceptionService(fileReceptionQueueRepository);
         fileDistributionService = new FileDistributionService(fileDistributionTaskRepository, recordTraceRepository);
-        PartitionedImportService partitionedImportService = new PartitionedImportService(importedRecordPartitionedRepository);
+        PartitionedImportService partitionedImportService =
+                new PartitionedImportService(importedRecordPartitionedRepository);
         FileExportService fileExportService = new FileExportService();
-        FileDistributorDispatcher fileDistributorDispatcher = new FileDistributorDispatcher(
-                List.of(new HttpFileDistributor(fileDistributionService))
-        );
+        FileDistributorDispatcher fileDistributorDispatcher =
+                new FileDistributorDispatcher(List.of(new HttpFileDistributor(fileDistributionService)));
 
         JobRepository jobRepository = new ResourcelessJobRepository();
         PlatformTransactionManager transactionManager = new ResourcelessTransactionManager();
@@ -107,18 +106,19 @@ class OperationalTaskJobConfigIT {
         jobLauncher.setTaskExecutor(new SyncTaskExecutor());
         jobLauncher.afterPropertiesSet();
 
-        Tasklet partitionedImportTasklet = config.partitionedImportTasklet(importedRecordRepository, partitionedImportService);
+        Tasklet partitionedImportTasklet =
+                config.partitionedImportTasklet(importedRecordRepository, partitionedImportService);
         Tasklet fileExportTasklet = config.fileExportTasklet(importedRecordPartitionedRepository, fileExportService);
         Tasklet fileReceptionTasklet = config.fileReceptionTasklet(fileReceptionService);
-        Tasklet fileDistributionTasklet = config.fileDistributionTasklet(fileDistributionService, fileDistributorDispatcher);
+        Tasklet fileDistributionTasklet =
+                config.fileDistributionTasklet(fileDistributionService, fileDistributorDispatcher);
 
         jobs = new JobLauncherBundle(
                 jobLauncher,
                 config.partitionedImportJob(config.partitionedImportStep(partitionedImportTasklet), listener),
                 config.fileExportJob(config.fileExportStep(fileExportTasklet), listener),
                 config.fileReceptionJob(config.fileReceptionStep(fileReceptionTasklet), listener),
-                config.fileDistributionJob(config.fileDistributionStep(fileDistributionTasklet), listener)
-        );
+                config.fileDistributionJob(config.fileDistributionStep(fileDistributionTasklet), listener));
     }
 
     @AfterEach
@@ -136,9 +136,9 @@ class OperationalTaskJobConfigIT {
 
         FileReceptionQueue queue = fileReceptionService.receiveFile("reception.csv", source.toString(), "ERP");
 
-        JobExecution execution = jobs.jobLauncher.run(jobs.fileReceptionJob, new JobParametersBuilder()
-                .addLong("run.id", System.nanoTime())
-                .toJobParameters());
+        JobExecution execution = jobs.jobLauncher.run(
+                jobs.fileReceptionJob,
+                new JobParametersBuilder().addLong("run.id", System.nanoTime()).toJobParameters());
 
         assertEquals(BatchStatus.COMPLETED, execution.getStatus());
 
@@ -164,15 +164,11 @@ class OperationalTaskJobConfigIT {
 
         String targetUrl = "http://127.0.0.1:" + server.getAddress().getPort() + "/upload";
         FileDistributionTask task = fileDistributionService.createDistributionTask(
-                "distribution.csv",
-                payload.toString(),
-                "HTTP",
-                targetUrl
-        );
+                "distribution.csv", payload.toString(), "HTTP", targetUrl);
 
-        JobExecution execution = jobs.jobLauncher.run(jobs.fileDistributionJob, new JobParametersBuilder()
-                .addLong("run.id", System.nanoTime())
-                .toJobParameters());
+        JobExecution execution = jobs.jobLauncher.run(
+                jobs.fileDistributionJob,
+                new JobParametersBuilder().addLong("run.id", System.nanoTime()).toJobParameters());
 
         assertEquals(BatchStatus.COMPLETED, execution.getStatus());
         assertEquals(1, requestCount.get());
@@ -195,15 +191,18 @@ class OperationalTaskJobConfigIT {
         record.setBatchDate(batchDate);
         importedRecordRepository.save(record);
 
-        JobExecution execution = jobs.jobLauncher.run(jobs.partitionedImportJob, new JobParametersBuilder()
-                .addString("batchDate", batchDate)
-                .addLong("run.id", System.nanoTime())
-                .toJobParameters());
+        JobExecution execution = jobs.jobLauncher.run(
+                jobs.partitionedImportJob,
+                new JobParametersBuilder()
+                        .addString("batchDate", batchDate)
+                        .addLong("run.id", System.nanoTime())
+                        .toJobParameters());
 
         assertEquals(BatchStatus.COMPLETED, execution.getStatus());
 
         ImportedRecordPartitioned imported = partitionedStore.values().stream()
-                .filter(row -> record.getBusinessKey().equals(row.getBusinessKey()) && batchDate.equals(row.getBatchDate()))
+                .filter(row ->
+                        record.getBusinessKey().equals(row.getBusinessKey()) && batchDate.equals(row.getBatchDate()))
                 .findFirst()
                 .orElseThrow();
         assertEquals("Alice", imported.getName());
@@ -225,12 +224,14 @@ class OperationalTaskJobConfigIT {
         row.setUpdatedAt(LocalDateTime.now());
         importedRecordPartitionedRepository.save(row);
 
-        JobExecution execution = jobs.jobLauncher.run(jobs.fileExportJob, new JobParametersBuilder()
-                .addString("batchDate", batchDate)
-                .addString("format", "csv")
-                .addString("outputDir", tempDir.toString())
-                .addLong("run.id", System.nanoTime())
-                .toJobParameters());
+        JobExecution execution = jobs.jobLauncher.run(
+                jobs.fileExportJob,
+                new JobParametersBuilder()
+                        .addString("batchDate", batchDate)
+                        .addString("format", "csv")
+                        .addString("outputDir", tempDir.toString())
+                        .addLong("run.id", System.nanoTime())
+                        .toJobParameters());
 
         assertEquals(BatchStatus.COMPLETED, execution.getStatus());
 
@@ -248,11 +249,13 @@ class OperationalTaskJobConfigIT {
         when(repository.findByFileName(anyString())).thenAnswer(invocation -> receptionStore.values().stream()
                 .filter(queue -> invocation.getArgument(0).equals(queue.getFileName()))
                 .findFirst());
-        when(repository.findById(any(Long.class))).thenAnswer(invocation -> Optional.ofNullable(receptionStore.get(invocation.getArgument(0))));
-        when(repository.findByStatusOrderByCreatedAtAsc(anyString())).thenAnswer(invocation -> receptionStore.values().stream()
-                .filter(queue -> invocation.getArgument(0).equals(queue.getStatus()))
-                .sorted(Comparator.comparing(FileReceptionQueue::getCreatedAt))
-                .toList());
+        when(repository.findById(any(Long.class)))
+                .thenAnswer(invocation -> Optional.ofNullable(receptionStore.get(invocation.getArgument(0))));
+        when(repository.findByStatusOrderByCreatedAtAsc(anyString()))
+                .thenAnswer(invocation -> receptionStore.values().stream()
+                        .filter(queue -> invocation.getArgument(0).equals(queue.getStatus()))
+                        .sorted(Comparator.comparing(FileReceptionQueue::getCreatedAt))
+                        .toList());
         when(repository.save(any(FileReceptionQueue.class))).thenAnswer(invocation -> {
             FileReceptionQueue queue = invocation.getArgument(0);
             if (queue.getId() == null) {
@@ -266,7 +269,8 @@ class OperationalTaskJobConfigIT {
 
     private FileDistributionTaskRepository fileDistributionTaskRepository() {
         FileDistributionTaskRepository repository = mock(FileDistributionTaskRepository.class);
-        when(repository.findById(any(Long.class))).thenAnswer(invocation -> Optional.ofNullable(distributionStore.get(invocation.getArgument(0))));
+        when(repository.findById(any(Long.class)))
+                .thenAnswer(invocation -> Optional.ofNullable(distributionStore.get(invocation.getArgument(0))));
         when(repository.findByStatus(anyString())).thenAnswer(invocation -> distributionStore.values().stream()
                 .filter(task -> invocation.getArgument(0).equals(task.getStatus()))
                 .toList());
@@ -283,10 +287,11 @@ class OperationalTaskJobConfigIT {
 
     private ImportedRecordRepository importedRecordRepository() {
         ImportedRecordRepository repository = mock(ImportedRecordRepository.class);
-        when(repository.findByBatchDateOrderByIdAsc(anyString())).thenAnswer(invocation -> importedStore.values().stream()
-                .filter(record -> invocation.getArgument(0).equals(record.getBatchDate()))
-                .sorted(Comparator.comparing(ImportedRecord::getId))
-                .toList());
+        when(repository.findByBatchDateOrderByIdAsc(anyString()))
+                .thenAnswer(invocation -> importedStore.values().stream()
+                        .filter(record -> invocation.getArgument(0).equals(record.getBatchDate()))
+                        .sorted(Comparator.comparing(ImportedRecord::getId))
+                        .toList());
         when(repository.save(any(ImportedRecord.class))).thenAnswer(invocation -> {
             ImportedRecord record = invocation.getArgument(0);
             if (record.getId() == null) {
@@ -300,10 +305,11 @@ class OperationalTaskJobConfigIT {
 
     private ImportedRecordPartitionedRepository importedRecordPartitionedRepository() {
         ImportedRecordPartitionedRepository repository = mock(ImportedRecordPartitionedRepository.class);
-        when(repository.findByBusinessKeyAndBatchDate(anyString(), anyString())).thenAnswer(invocation -> partitionedStore.values().stream()
-                .filter(record -> invocation.getArgument(0).equals(record.getBusinessKey())
-                        && invocation.getArgument(1).equals(record.getBatchDate()))
-                .findFirst());
+        when(repository.findByBusinessKeyAndBatchDate(anyString(), anyString()))
+                .thenAnswer(invocation -> partitionedStore.values().stream()
+                        .filter(record -> invocation.getArgument(0).equals(record.getBusinessKey())
+                                && invocation.getArgument(1).equals(record.getBatchDate()))
+                        .findFirst());
         when(repository.findByBatchDate(anyString())).thenAnswer(invocation -> partitionedStore.values().stream()
                 .filter(record -> invocation.getArgument(0).equals(record.getBatchDate()))
                 .toList());
@@ -328,10 +334,10 @@ class OperationalTaskJobConfigIT {
         return repository;
     }
 
-    private record JobLauncherBundle(TaskExecutorJobLauncher jobLauncher,
-                                     Job partitionedImportJob,
-                                     Job fileExportJob,
-                                     Job fileReceptionJob,
-                                     Job fileDistributionJob) {
-    }
+    private record JobLauncherBundle(
+            TaskExecutorJobLauncher jobLauncher,
+            Job partitionedImportJob,
+            Job fileExportJob,
+            Job fileReceptionJob,
+            Job fileDistributionJob) {}
 }

@@ -2,12 +2,11 @@ package com.example.filebatchprocessor.controller;
 
 import com.example.filebatchprocessor.model.QualityGateResult;
 import com.example.filebatchprocessor.repository.QualityGateResultRepository;
+import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/quality")

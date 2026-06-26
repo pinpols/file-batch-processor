@@ -1,6 +1,12 @@
 package com.example.filebatchprocessor.integration;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import com.example.filebatchprocessor.support.PostgresContainerSupport;
+import java.time.Instant;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIf;
@@ -22,26 +28,20 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.testcontainers.DockerClientFactory;
 
-import java.time.Instant;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 @SpringBootTest
 @ActiveProfiles("test")
 @EnabledIf("isDockerAvailable")
-@TestPropertySource(properties = {
-        "orchestration.enabled=false",
-        "spring.quartz.auto-startup=true",
-        "spring.quartz.job-store-type=jdbc",
-        "spring.quartz.overwrite-existing-jobs=true",
-        "spring.quartz.jdbc.initialize-schema=always",
-        "spring.quartz.properties.org.quartz.jobStore.driverDelegateClass=org.quartz.impl.jdbcjobstore.PostgreSQLDelegate",
-        "spring.quartz.properties.org.quartz.jobStore.tablePrefix=QRTZ_",
-        "spring.quartz.properties.org.quartz.threadPool.threadCount=2"
-})
+@TestPropertySource(
+        properties = {
+            "orchestration.enabled=false",
+            "spring.quartz.auto-startup=true",
+            "spring.quartz.job-store-type=jdbc",
+            "spring.quartz.overwrite-existing-jobs=true",
+            "spring.quartz.jdbc.initialize-schema=always",
+            "spring.quartz.properties.org.quartz.jobStore.driverDelegateClass=org.quartz.impl.jdbcjobstore.PostgreSQLDelegate",
+            "spring.quartz.properties.org.quartz.jobStore.tablePrefix=QRTZ_",
+            "spring.quartz.properties.org.quartz.threadPool.threadCount=2"
+        })
 class QuartzJdbcSimpleTriggerIT extends PostgresContainerSupport {
 
     @Autowired

@@ -1,11 +1,11 @@
 package com.example.filebatchprocessor.model;
 
 import jakarta.persistence.*;
+import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import java.time.LocalDateTime;
 
 /**
  * 文件分发任务：管理文件发送到目标系统的任务
@@ -15,11 +15,13 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "file_distribution_task", indexes = {
-        @Index(name = "idx_status_dist", columnList = "status"),
-        @Index(name = "idx_target_system", columnList = "target_system"),
-        @Index(name = "idx_created_at_dist", columnList = "created_at")
-})
+@Table(
+        name = "file_distribution_task",
+        indexes = {
+            @Index(name = "idx_status_dist", columnList = "status"),
+            @Index(name = "idx_target_system", columnList = "target_system"),
+            @Index(name = "idx_created_at_dist", columnList = "created_at")
+        })
 public class FileDistributionTask {
 
     @Id

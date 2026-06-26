@@ -1,34 +1,35 @@
 package com.example.filebatchprocessor.unit.service;
 
-import com.example.filebatchprocessor.model.TaskDefinition;
-import com.example.filebatchprocessor.model.TaskTrigger;
-import com.example.filebatchprocessor.repository.TaskDefinitionRepository;
-import com.example.filebatchprocessor.repository.TaskTriggerRepository;
-import com.example.filebatchprocessor.service.OpsAuditService;
-import com.example.filebatchprocessor.service.OpsTaskAdminService;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.example.filebatchprocessor.model.TaskDefinition;
+import com.example.filebatchprocessor.model.TaskTrigger;
+import com.example.filebatchprocessor.repository.TaskDefinitionRepository;
+import com.example.filebatchprocessor.repository.TaskTriggerRepository;
+import com.example.filebatchprocessor.service.OpsAuditService;
+import com.example.filebatchprocessor.service.OpsTaskAdminService;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
 @ExtendWith(MockitoExtension.class)
 class OpsTaskAdminServiceTest {
 
     @Mock
     private TaskDefinitionRepository taskDefinitionRepository;
+
     @Mock
     private TaskTriggerRepository taskTriggerRepository;
+
     @Mock
     private OpsAuditService opsAuditService;
 
@@ -67,7 +68,8 @@ class OpsTaskAdminServiceTest {
         def.setTaskId("task-2");
         def.setEnabled(true);
         when(taskDefinitionRepository.findByTaskId("task-2")).thenReturn(Optional.of(def));
-        when(taskDefinitionRepository.save(any(TaskDefinition.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(taskDefinitionRepository.save(any(TaskDefinition.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
         TaskDefinition saved = service.toggleTask("task-2", false, "operator");
 
@@ -81,4 +83,3 @@ class OpsTaskAdminServiceTest {
         assertThrows(IllegalArgumentException.class, () -> service.toggleTask("missing", true, "operator"));
     }
 }
-

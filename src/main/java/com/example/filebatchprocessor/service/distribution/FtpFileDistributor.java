@@ -2,9 +2,8 @@ package com.example.filebatchprocessor.service.distribution;
 
 import com.example.filebatchprocessor.model.FileDistributionTask;
 import com.example.filebatchprocessor.service.FileDistributionService;
-import org.springframework.stereotype.Component;
-
 import java.net.URI;
+import org.springframework.stereotype.Component;
 
 @Component
 public class FtpFileDistributor implements FileDistributor {
@@ -52,9 +51,13 @@ public class FtpFileDistributor implements FileDistributor {
                 password = parts.length > 1 ? parts[1] : "";
             }
 
-            fileDistributionService.distributeByFTP(task.getId(), host, port, username, password, remoteDir, jobInstanceId);
+            fileDistributionService.distributeByFTP(
+                    task.getId(), host, port, username, password, remoteDir, jobInstanceId);
         } catch (Exception ex) {
-            fileDistributionService.markAsFailed(task.getId(), "Invalid FTP target address: " + targetAddress + ", " + ex.getMessage(), jobInstanceId);
+            fileDistributionService.markAsFailed(
+                    task.getId(),
+                    "Invalid FTP target address: " + targetAddress + ", " + ex.getMessage(),
+                    jobInstanceId);
         }
     }
 }

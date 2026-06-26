@@ -1,21 +1,22 @@
 package com.example.filebatchprocessor.model;
 
 import jakarta.persistence.*;
+import java.time.LocalDateTime;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-
-import java.time.LocalDateTime;
 
 @Getter
 @Setter
 @NoArgsConstructor
 @Entity
-@Table(name = "record_trace", indexes = {
-        @Index(name = "idx_record_trace_business_key", columnList = "business_key"),
-        @Index(name = "idx_record_trace_business_batch", columnList = "business_key,batch_date"),
-        @Index(name = "idx_record_trace_created_at", columnList = "created_at")
-})
+@Table(
+        name = "record_trace",
+        indexes = {
+            @Index(name = "idx_record_trace_business_key", columnList = "business_key"),
+            @Index(name = "idx_record_trace_business_batch", columnList = "business_key,batch_date"),
+            @Index(name = "idx_record_trace_created_at", columnList = "created_at")
+        })
 public class RecordTrace {
 
     @Id

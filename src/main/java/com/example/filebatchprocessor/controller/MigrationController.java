@@ -1,11 +1,10 @@
 package com.example.filebatchprocessor.controller;
 
 import com.example.filebatchprocessor.service.MigrationService;
-import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.*;
-
 import java.util.List;
 import java.util.Map;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/ops/migration")
@@ -40,8 +39,7 @@ public class MigrationController {
         return Map.of(
                 "status", "STARTED",
                 "message", "File record backfill started",
-                "operator", operator
-        );
+                "operator", operator);
     }
 
     @PostMapping("/switch/{tableType}")

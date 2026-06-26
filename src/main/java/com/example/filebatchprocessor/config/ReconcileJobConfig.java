@@ -1,12 +1,19 @@
 package com.example.filebatchprocessor.config;
 
 import com.example.filebatchprocessor.listener.JobCompletionNotificationListener;
-import com.example.filebatchprocessor.model.ReconcileRunRecord;
 import com.example.filebatchprocessor.model.ReconcileDiffRecord;
+import com.example.filebatchprocessor.model.ReconcileRunRecord;
 import com.example.filebatchprocessor.params.ReconcileJobParams;
 import com.example.filebatchprocessor.repository.ImportedRecordPartitionedRepository;
 import com.example.filebatchprocessor.repository.ReconcileDiffRecordRepository;
 import com.example.filebatchprocessor.repository.ReconcileRunRecordRepository;
+import java.io.BufferedReader;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.security.MessageDigest;
+import java.util.HexFormat;
+import java.util.List;
+import java.util.Map;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.builder.JobBuilder;
@@ -21,18 +28,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.FileSystemResource;
-import org.springframework.transaction.PlatformTransactionManager;
-
-import java.io.BufferedReader;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.nio.file.Files;
-import java.util.HexFormat;
-import java.util.List;
-import java.util.Map;
-
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.transaction.PlatformTransactionManager;
 
 @Configuration
 public class ReconcileJobConfig {
@@ -44,11 +42,12 @@ public class ReconcileJobConfig {
     private final ReconcileDiffRecordRepository reconcileDiffRecordRepository;
 
     @Autowired
-    public ReconcileJobConfig(JobRepository jobRepository,
-                             PlatformTransactionManager transactionManager,
-                             ImportedRecordPartitionedRepository importedRecordPartitionedRepository,
-                             ReconcileRunRecordRepository reconcileRunRecordRepository,
-                             ReconcileDiffRecordRepository reconcileDiffRecordRepository) {
+    public ReconcileJobConfig(
+            JobRepository jobRepository,
+            PlatformTransactionManager transactionManager,
+            ImportedRecordPartitionedRepository importedRecordPartitionedRepository,
+            ReconcileRunRecordRepository reconcileRunRecordRepository,
+            ReconcileDiffRecordRepository reconcileDiffRecordRepository) {
         this.jobRepository = jobRepository;
         this.transactionManager = transactionManager;
         this.importedRecordPartitionedRepository = importedRecordPartitionedRepository;
@@ -58,8 +57,7 @@ public class ReconcileJobConfig {
 
     @Bean
     @StepScope
-    public Tasklet fileVsDbCountReconcileTasklet(
-            @Value("#{jobParameters}") Map<String, Object> jobParameters) {
+    public Tasklet fileVsDbCountReconcileTasklet(@Value("#{jobParameters}") Map<String, Object> jobParameters) {
 
         ReconcileJobParams params = ReconcileJobParams.from(jobParameters);
         params.validate();
@@ -164,7 +162,8 @@ public class ReconcileJobConfig {
 
     private List<String> sampleTargetBusinessKeys(String batchDate, int limit) {
         java.util.ArrayList<String> keys = new java.util.ArrayList<>();
-        Page<?> p = importedRecordPartitionedRepository.findByBatchDateOrderByBusinessKeyAsc(batchDate, PageRequest.of(0, Math.max(1, limit)));
+        Page<?> p = importedRecordPartitionedRepository.findByBatchDateOrderByBusinessKeyAsc(
+                batchDate, PageRequest.of(0, Math.max(1, limit)));
         p.forEach(r -> keys.add(((com.example.filebatchprocessor.model.ImportedRecordPartitioned) r).getBusinessKey()));
         return keys;
     }
@@ -214,11 +213,13 @@ public class ReconcileJobConfig {
         int page = 0;
         int size = 500;
         while (true) {
-            Page<?> p = importedRecordPartitionedRepository.findByBatchDateOrderByBusinessKeyAsc(batchDate, PageRequest.of(page, size));
+            Page<?> p = importedRecordPartitionedRepository.findByBatchDateOrderByBusinessKeyAsc(
+                    batchDate, PageRequest.of(page, size));
             p.forEach(r -> {
                 try {
                     var rec = (com.example.filebatchprocessor.model.ImportedRecordPartitioned) r;
-                    String line = rec.getBusinessKey() + "," + (rec.getName() == null ? "" : rec.getName()) + "," + (rec.getDescription() == null ? "" : rec.getDescription());
+                    String line = rec.getBusinessKey() + "," + (rec.getName() == null ? "" : rec.getName()) + ","
+                            + (rec.getDescription() == null ? "" : rec.getDescription());
                     md.update(line.getBytes(StandardCharsets.UTF_8));
                     md.update((byte) '\n');
                 } catch (Exception ignored) {
@@ -240,8 +241,7 @@ public class ReconcileJobConfig {
     }
 
     @Bean
-    public Job reconcileImportJob(Step reconcileImportStep,
-                                  JobCompletionNotificationListener listener) {
+    public Job reconcileImportJob(Step reconcileImportStep, JobCompletionNotificationListener listener) {
         return new JobBuilder("reconcileImportJob", jobRepository)
                 .incrementer(new RunIdIncrementer())
                 .listener(listener)

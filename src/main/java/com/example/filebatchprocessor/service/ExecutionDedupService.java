@@ -35,8 +35,12 @@ public class ExecutionDedupService {
             dedupRecordRepository.save(record);
             return true;
         } catch (DataIntegrityViolationException ex) {
-            log.info("Duplicate request rejected by DB dedup lock: dedupKey={}, batchDate={}, rerunId={}, bucket={}",
-                    dedupKey, batchDate, rerunId, bucket);
+            log.info(
+                    "Duplicate request rejected by DB dedup lock: dedupKey={}, batchDate={}, rerunId={}, bucket={}",
+                    dedupKey,
+                    batchDate,
+                    rerunId,
+                    bucket);
             return false;
         }
     }

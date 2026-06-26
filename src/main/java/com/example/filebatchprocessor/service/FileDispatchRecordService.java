@@ -4,9 +4,6 @@ import com.example.filebatchprocessor.model.FileAssetRecord;
 import com.example.filebatchprocessor.model.FileDispatchRecord;
 import com.example.filebatchprocessor.repository.FileDispatchRecordRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -14,6 +11,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Transactional
@@ -35,34 +34,37 @@ public class FileDispatchRecordService {
     private final JobExecutionLogService jobExecutionLogService;
     private final ObjectMapper objectMapper;
 
-    public FileDispatchRecordService(FileDispatchRecordRepository repository,
-                                     JobExecutionLogService jobExecutionLogService,
-                                     ObjectMapper objectMapper) {
+    public FileDispatchRecordService(
+            FileDispatchRecordRepository repository,
+            JobExecutionLogService jobExecutionLogService,
+            ObjectMapper objectMapper) {
         this.repository = repository;
         this.jobExecutionLogService = jobExecutionLogService;
         this.objectMapper = objectMapper;
     }
 
-    public FileDispatchRecord createPendingDispatch(FileAssetRecord fileRecord,
-                                                    Long legacyDistributionTaskId,
-                                                    String targetSystem,
-                                                    String targetAddress,
-                                                    Integer maxAttempts) {
-        return createPendingDispatch(fileRecord, legacyDistributionTaskId, targetSystem, targetAddress,
-                maxAttempts, false, null, null);
+    public FileDispatchRecord createPendingDispatch(
+            FileAssetRecord fileRecord,
+            Long legacyDistributionTaskId,
+            String targetSystem,
+            String targetAddress,
+            Integer maxAttempts) {
+        return createPendingDispatch(
+                fileRecord, legacyDistributionTaskId, targetSystem, targetAddress, maxAttempts, false, null, null);
     }
 
-    public FileDispatchRecord createPendingDispatch(FileAssetRecord fileRecord,
-                                                    Long legacyDistributionTaskId,
-                                                    String targetSystem,
-                                                    String targetAddress,
-                                                    Integer maxAttempts,
-                                                    boolean ackRequired,
-                                                    Integer ackTimeoutMinutes,
-                                                    Long createdJobInstanceId) {
+    public FileDispatchRecord createPendingDispatch(
+            FileAssetRecord fileRecord,
+            Long legacyDistributionTaskId,
+            String targetSystem,
+            String targetAddress,
+            Integer maxAttempts,
+            boolean ackRequired,
+            Integer ackTimeoutMinutes,
+            Long createdJobInstanceId) {
         String dispatchChannel = normalizeChannel(targetSystem);
-        String dispatchKey = fileRecord.getFileNo() + "|" + fileRecord.getVersionNo() + "|" +
-                dispatchChannel + "|" + normalize(targetAddress);
+        String dispatchKey = fileRecord.getFileNo() + "|" + fileRecord.getVersionNo() + "|" + dispatchChannel + "|"
+                + normalize(targetAddress);
 
         Optional<FileDispatchRecord> existing = repository.findByDispatchKey(dispatchKey);
         if (existing.isPresent()) {
@@ -76,8 +78,12 @@ public class FileDispatchRecordService {
                 record.setCreatedJobInstanceId(createdJobInstanceId);
             }
             FileDispatchRecord saved = repository.save(record);
-            logJobEvent(createdJobInstanceId, "DISPATCH_CREATED", "INFO",
-                    "Existing dispatch record linked to task", saved,
+            logJobEvent(
+                    createdJobInstanceId,
+                    "DISPATCH_CREATED",
+                    "INFO",
+                    "Existing dispatch record linked to task",
+                    saved,
                     dispatchCreatePayload(legacyDistributionTaskId, ackRequired, saved.getAckTimeoutMinutes()));
             return saved;
         }
@@ -99,8 +105,12 @@ public class FileDispatchRecordService {
         record.setAttemptCount(0);
         record.setMaxAttempts(maxAttempts == null ? 3 : maxAttempts);
         FileDispatchRecord saved = repository.save(record);
-        logJobEvent(createdJobInstanceId, "DISPATCH_CREATED", "INFO",
-                "Dispatch record created", saved,
+        logJobEvent(
+                createdJobInstanceId,
+                "DISPATCH_CREATED",
+                "INFO",
+                "Dispatch record created",
+                saved,
                 dispatchCreatePayload(legacyDistributionTaskId, ackRequired, saved.getAckTimeoutMinutes()));
         return saved;
     }
@@ -133,16 +143,16 @@ public class FileDispatchRecordService {
             record.setLastDispatchTime(LocalDateTime.now());
             record.setLastDispatchJobInstanceId(jobInstanceId);
             repository.save(record);
-            logJobEvent(jobInstanceId, "DISPATCH_STARTED", "INFO",
-                    "Outbound dispatch started", record, null);
+            logJobEvent(jobInstanceId, "DISPATCH_STARTED", "INFO", "Outbound dispatch started", record, null);
         });
     }
 
-    public void markSuccess(Long legacyDistributionTaskId,
-                            Long jobInstanceId,
-                            boolean ackRequired,
-                            Integer ackTimeoutMinutes,
-                            Map<String, Object> responsePayload) {
+    public void markSuccess(
+            Long legacyDistributionTaskId,
+            Long jobInstanceId,
+            boolean ackRequired,
+            Integer ackTimeoutMinutes,
+            Map<String, Object> responsePayload) {
         findByLegacyDistributionTaskId(legacyDistributionTaskId).ifPresent(record -> {
             record.setDispatchStatus(DISPATCH_SUCCESS);
             record.setAttemptCount(record.getAttemptCount() + 1);
@@ -177,7 +187,8 @@ public class FileDispatchRecordService {
             if (record.getAckDeadlineAt() != null) {
                 payload.put("ackDeadlineAt", record.getAckDeadlineAt().toString());
             }
-            logJobEvent(jobInstanceId,
+            logJobEvent(
+                    jobInstanceId,
                     Boolean.TRUE.equals(record.getAckRequired()) ? "DISPATCH_ACK_PENDING" : "DISPATCH_SUCCEEDED",
                     "INFO",
                     Boolean.TRUE.equals(record.getAckRequired())
@@ -197,8 +208,12 @@ public class FileDispatchRecordService {
             record.setNextRetryAt(LocalDateTime.now());
             record.setErrorMsg(truncate(errorMessage, 1000));
             repository.save(record);
-            logJobEvent(jobInstanceId, "DISPATCH_RETRY_PENDING", "WARN",
-                    "Outbound dispatch moved to retry pending", record,
+            logJobEvent(
+                    jobInstanceId,
+                    "DISPATCH_RETRY_PENDING",
+                    "WARN",
+                    "Outbound dispatch moved to retry pending",
+                    record,
                     messagePayload(errorMessage));
         });
     }
@@ -211,8 +226,12 @@ public class FileDispatchRecordService {
             record.setLastDispatchJobInstanceId(jobInstanceId);
             record.setErrorMsg(truncate(errorMessage, 1000));
             repository.save(record);
-            logJobEvent(jobInstanceId, "DISPATCH_FAILED", "ERROR",
-                    "Outbound dispatch failed", record,
+            logJobEvent(
+                    jobInstanceId,
+                    "DISPATCH_FAILED",
+                    "ERROR",
+                    "Outbound dispatch failed",
+                    record,
                     messagePayload(errorMessage));
         });
     }
@@ -225,7 +244,8 @@ public class FileDispatchRecordService {
                 record.setResendCount(record.getResendCount() + 1);
             }
             repository.save(record);
-            logJobEvent(jobInstanceId,
+            logJobEvent(
+                    jobInstanceId,
                     resend ? "DISPATCH_RESEND_REQUESTED" : "DISPATCH_RETRY_REQUESTED",
                     "INFO",
                     resend ? "Dispatch resend requested" : "Dispatch retry requested",
@@ -234,12 +254,13 @@ public class FileDispatchRecordService {
         });
     }
 
-    public Optional<FileDispatchRecord> markAckReceived(Long legacyDistributionTaskId,
-                                                        Long jobInstanceId,
-                                                        boolean accepted,
-                                                        String operatorName,
-                                                        String ackMessage,
-                                                        Map<String, Object> ackPayload) {
+    public Optional<FileDispatchRecord> markAckReceived(
+            Long legacyDistributionTaskId,
+            Long jobInstanceId,
+            boolean accepted,
+            String operatorName,
+            String ackMessage,
+            Map<String, Object> ackPayload) {
         return findByLegacyDistributionTaskId(legacyDistributionTaskId).map(record -> {
             record.setAckRequired(Boolean.TRUE);
             record.setAckStatus(accepted ? ACK_ACKED : ACK_REJECTED);
@@ -260,7 +281,8 @@ public class FileDispatchRecordService {
             if (operatorName != null && !operatorName.isBlank()) {
                 payload.put("operatorName", operatorName);
             }
-            logJobEvent(jobInstanceId,
+            logJobEvent(
+                    jobInstanceId,
                     accepted ? "DISPATCH_ACKED" : "DISPATCH_ACK_REJECTED",
                     accepted ? "INFO" : "WARN",
                     accepted ? "Dispatch ack received" : "Dispatch ack rejected",
@@ -270,10 +292,8 @@ public class FileDispatchRecordService {
         });
     }
 
-    public Optional<FileDispatchRecord> markAckTimeout(Long legacyDistributionTaskId,
-                                                       Long jobInstanceId,
-                                                       String message,
-                                                       Map<String, Object> extra) {
+    public Optional<FileDispatchRecord> markAckTimeout(
+            Long legacyDistributionTaskId, Long jobInstanceId, String message, Map<String, Object> extra) {
         return findByLegacyDistributionTaskId(legacyDistributionTaskId).map(record -> {
             record.setAckRequired(Boolean.TRUE);
             record.setAckStatus(ACK_TIMEOUT);
@@ -285,8 +305,7 @@ public class FileDispatchRecordService {
             }
             record.setDispatchStatus(DISPATCH_RETRY_PENDING);
             FileDispatchRecord saved = repository.save(record);
-            logJobEvent(jobInstanceId, "DISPATCH_ACK_TIMEOUT", "WARN",
-                    "Dispatch ack timed out", saved, extra);
+            logJobEvent(jobInstanceId, "DISPATCH_ACK_TIMEOUT", "WARN", "Dispatch ack timed out", saved, extra);
             return saved;
         });
     }
@@ -298,18 +317,18 @@ public class FileDispatchRecordService {
         if (record.getLastDispatchTime() == null) {
             return false;
         }
-        int minutes = normalizeAckTimeoutMinutes(record.getAckTimeoutMinutes() == null
-                ? fallbackAckTimeoutMinutes
-                : record.getAckTimeoutMinutes());
+        int minutes = normalizeAckTimeoutMinutes(
+                record.getAckTimeoutMinutes() == null ? fallbackAckTimeoutMinutes : record.getAckTimeoutMinutes());
         return !record.getLastDispatchTime().plusMinutes(minutes).isAfter(now);
     }
 
-    private void logJobEvent(Long jobInstanceId,
-                             String eventType,
-                             String level,
-                             String message,
-                             FileDispatchRecord record,
-                             Map<String, Object> extra) {
+    private void logJobEvent(
+            Long jobInstanceId,
+            String eventType,
+            String level,
+            String message,
+            FileDispatchRecord record,
+            Map<String, Object> extra) {
         if (jobInstanceId == null) {
             return;
         }
@@ -345,7 +364,8 @@ public class FileDispatchRecordService {
     }
 
     private String generateDispatchNo() {
-        return "FD-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase();
+        return "FD-"
+                + UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase();
     }
 
     private String truncate(String raw, int maxLength) {
@@ -366,9 +386,8 @@ public class FileDispatchRecordService {
         }
     }
 
-    private Map<String, Object> dispatchCreatePayload(Long legacyDistributionTaskId,
-                                                      boolean ackRequired,
-                                                      Integer ackTimeoutMinutes) {
+    private Map<String, Object> dispatchCreatePayload(
+            Long legacyDistributionTaskId, boolean ackRequired, Integer ackTimeoutMinutes) {
         Map<String, Object> payload = new LinkedHashMap<>();
         if (legacyDistributionTaskId != null) {
             payload.put("legacyDistributionTaskId", legacyDistributionTaskId);

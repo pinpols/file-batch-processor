@@ -1,15 +1,14 @@
 package com.example.filebatchprocessor.service;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
 
 @Service
 public class FileReceptionGuardService {
@@ -28,25 +27,28 @@ public class FileReceptionGuardService {
             @Value("${batch.file.reception.partial.done-marker-suffix:.done}") String doneMarkerSuffix,
             @Value("${batch.file.reception.partial.stable-size-check-enabled:true}") boolean stableSizeCheckEnabled,
             @Value("${batch.file.reception.partial.stable-size-check-rounds:2}") int stableSizeCheckRounds,
-            @Value("${batch.file.reception.partial.stable-size-check-interval-ms:200}") long stableSizeCheckIntervalMs) {
+            @Value("${batch.file.reception.partial.stable-size-check-interval-ms:200}")
+                    long stableSizeCheckIntervalMs) {
         this.temporarySuffixes = Arrays.stream(temporarySuffixes.split(","))
                 .map(String::trim)
                 .filter(s -> !s.isEmpty())
                 .map(s -> s.toLowerCase(Locale.ROOT))
                 .toList();
         this.requireDoneMarker = requireDoneMarker;
-        this.doneMarkerSuffix = doneMarkerSuffix == null || doneMarkerSuffix.isBlank() ? ".done" : doneMarkerSuffix.trim();
+        this.doneMarkerSuffix =
+                doneMarkerSuffix == null || doneMarkerSuffix.isBlank() ? ".done" : doneMarkerSuffix.trim();
         this.stableSizeCheckEnabled = stableSizeCheckEnabled;
         this.stableSizeCheckRounds = Math.max(1, stableSizeCheckRounds);
         this.stableSizeCheckIntervalMs = Math.max(0L, stableSizeCheckIntervalMs);
     }
 
-    FileReceptionGuardService(List<String> temporarySuffixes,
-                              boolean requireDoneMarker,
-                              String doneMarkerSuffix,
-                              boolean stableSizeCheckEnabled,
-                              int stableSizeCheckRounds,
-                              long stableSizeCheckIntervalMs) {
+    FileReceptionGuardService(
+            List<String> temporarySuffixes,
+            boolean requireDoneMarker,
+            String doneMarkerSuffix,
+            boolean stableSizeCheckEnabled,
+            int stableSizeCheckRounds,
+            long stableSizeCheckIntervalMs) {
         this.temporarySuffixes = temporarySuffixes;
         this.requireDoneMarker = requireDoneMarker;
         this.doneMarkerSuffix = doneMarkerSuffix;

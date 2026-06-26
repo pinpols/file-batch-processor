@@ -2,12 +2,11 @@ package com.example.filebatchprocessor.service;
 
 import com.example.filebatchprocessor.model.SchedulerQueueRecord;
 import com.example.filebatchprocessor.repository.SchedulerQueueRecordRepository;
+import java.time.LocalDateTime;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.time.LocalDateTime;
 
 @Slf4j
 @Service

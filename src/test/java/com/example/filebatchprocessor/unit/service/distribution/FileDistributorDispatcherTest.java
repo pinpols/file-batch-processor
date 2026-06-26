@@ -1,13 +1,12 @@
 package com.example.filebatchprocessor.service.distribution;
 
-import com.example.filebatchprocessor.exception.BusinessException;
-import com.example.filebatchprocessor.model.FileDistributionTask;
-import org.junit.jupiter.api.Test;
-
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
+
+import com.example.filebatchprocessor.exception.BusinessException;
+import com.example.filebatchprocessor.model.FileDistributionTask;
+import java.util.List;
+import org.junit.jupiter.api.Test;
 
 class FileDistributorDispatcherTest {
 

@@ -3,12 +3,11 @@ package com.example.filebatchprocessor.service;
 import com.example.filebatchprocessor.model.TaskDefinition;
 import com.example.filebatchprocessor.repository.TaskDefinitionRepository;
 import com.example.filebatchprocessor.repository.TaskTriggerRepository;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Transactional
@@ -18,9 +17,10 @@ public class OpsTaskAdminService {
     private final TaskTriggerRepository taskTriggerRepository;
     private final OpsAuditService opsAuditService;
 
-    public OpsTaskAdminService(TaskDefinitionRepository taskDefinitionRepository,
-                               TaskTriggerRepository taskTriggerRepository,
-                               OpsAuditService opsAuditService) {
+    public OpsTaskAdminService(
+            TaskDefinitionRepository taskDefinitionRepository,
+            TaskTriggerRepository taskTriggerRepository,
+            OpsAuditService opsAuditService) {
         this.taskDefinitionRepository = taskDefinitionRepository;
         this.taskTriggerRepository = taskTriggerRepository;
         this.opsAuditService = opsAuditService;
@@ -35,14 +35,17 @@ public class OpsTaskAdminService {
                     row.put("priority", def.getPriority());
                     row.put("enabled", def.getEnabled());
                     row.put("allowParallel", def.getAllowParallel());
-                    row.put("trigger", taskTriggerRepository.findByTaskId(def.getTaskId()).orElse(null));
+                    row.put(
+                            "trigger",
+                            taskTriggerRepository.findByTaskId(def.getTaskId()).orElse(null));
                     return row;
                 })
                 .toList();
     }
 
     public TaskDefinition toggleTask(String taskId, boolean enabled, String actor) {
-        TaskDefinition def = taskDefinitionRepository.findByTaskId(taskId)
+        TaskDefinition def = taskDefinitionRepository
+                .findByTaskId(taskId)
                 .orElseThrow(() -> new IllegalArgumentException("Task definition not found: " + taskId));
         def.setEnabled(enabled);
         TaskDefinition saved = taskDefinitionRepository.save(def);
@@ -50,4 +53,3 @@ public class OpsTaskAdminService {
         return saved;
     }
 }
-

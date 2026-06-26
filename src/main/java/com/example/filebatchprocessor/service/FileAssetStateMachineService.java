@@ -7,41 +7,37 @@ import com.example.filebatchprocessor.repository.FileAssetRecordRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.time.LocalDateTime;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Transactional
 public class FileAssetStateMachineService {
 
-    private static final Map<FileAssetStatus, EnumSet<FileAssetStatus>> ALLOWED_TRANSITIONS =
-            buildAllowedTransitions();
+    private static final Map<FileAssetStatus, EnumSet<FileAssetStatus>> ALLOWED_TRANSITIONS = buildAllowedTransitions();
 
     private final FileAssetRecordRepository repository;
     private final FileProcessLogService processLogService;
     private final ObjectMapper objectMapper;
 
     @Autowired
-    public FileAssetStateMachineService(FileAssetRecordRepository repository,
-                                        FileProcessLogService processLogService,
-                                        ObjectMapper objectMapper) {
+    public FileAssetStateMachineService(
+            FileAssetRecordRepository repository, FileProcessLogService processLogService, ObjectMapper objectMapper) {
         this.repository = repository;
         this.processLogService = processLogService;
         this.objectMapper = objectMapper;
     }
 
-    public TransitionResult transition(Long fileRecordId,
-                                       FileAssetStatus targetStatus,
-                                       String reason,
-                                       Map<String, Object> metadataDelta) {
-        FileAssetRecord record = repository.findById(fileRecordId)
+    public TransitionResult transition(
+            Long fileRecordId, FileAssetStatus targetStatus, String reason, Map<String, Object> metadataDelta) {
+        FileAssetRecord record = repository
+                .findById(fileRecordId)
                 .orElseThrow(() -> new IllegalArgumentException("File record not found: " + fileRecordId));
 
         FileAssetStatus currentStatus = FileAssetStatus.from(record.getStatus());
@@ -50,7 +46,7 @@ public class FileAssetStateMachineService {
         applyStatus(record, targetStatus);
         mergeMetadata(record, metadataDelta);
         FileAssetRecord saved = repository.save(record);
-        
+
         processLogService.log(
                 fileRecordId,
                 "STATE_TRANSITION",
@@ -63,14 +59,14 @@ public class FileAssetStateMachineService {
                 0,
                 null,
                 reason,
-                metadataDelta
-        );
-        
+                metadataDelta);
+
         return new TransitionResult(saved, currentStatus, targetStatus);
     }
 
     public TransitionResult annotate(Long fileRecordId, Map<String, Object> metadataDelta) {
-        FileAssetRecord record = repository.findById(fileRecordId)
+        FileAssetRecord record = repository
+                .findById(fileRecordId)
                 .orElseThrow(() -> new IllegalArgumentException("File record not found: " + fileRecordId));
         FileAssetStatus currentStatus = FileAssetStatus.from(record.getStatus());
         mergeMetadata(record, metadataDelta);
@@ -82,14 +78,13 @@ public class FileAssetStateMachineService {
         return record;
     }
 
-    private void validateTransition(Long fileRecordId,
-                                    FileAssetStatus currentStatus,
-                                    FileAssetStatus targetStatus,
-                                    String reason) {
+    private void validateTransition(
+            Long fileRecordId, FileAssetStatus currentStatus, FileAssetStatus targetStatus, String reason) {
         if (currentStatus == targetStatus) {
             return;
         }
-        EnumSet<FileAssetStatus> allowed = ALLOWED_TRANSITIONS.getOrDefault(currentStatus, EnumSet.noneOf(FileAssetStatus.class));
+        EnumSet<FileAssetStatus> allowed =
+                ALLOWED_TRANSITIONS.getOrDefault(currentStatus, EnumSet.noneOf(FileAssetStatus.class));
         if (!allowed.contains(targetStatus)) {
             throw new InvalidFileStateTransitionException(fileRecordId, currentStatus, targetStatus, reason);
         }
@@ -162,7 +157,7 @@ public class FileAssetStateMachineService {
         Map<String, Object> merged = new LinkedHashMap<>();
         if (record.getMetadata() != null && !record.getMetadata().isBlank()) {
             try {
-                merged.putAll(objectMapper.readValue(record.getMetadata(), new TypeReference<>() { }));
+                merged.putAll(objectMapper.readValue(record.getMetadata(), new TypeReference<>() {}));
             } catch (JsonProcessingException e) {
                 throw new IllegalStateException("Failed to parse file asset metadata JSON", e);
             }
@@ -182,13 +177,16 @@ public class FileAssetStateMachineService {
         transitions.put(FileAssetStatus.READY, EnumSet.of(FileAssetStatus.PROCESSING, FileAssetStatus.FAILED));
         transitions.put(FileAssetStatus.PROCESSING, EnumSet.of(FileAssetStatus.PROCESSED, FileAssetStatus.FAILED));
         transitions.put(FileAssetStatus.PROCESSED, EnumSet.of(FileAssetStatus.DISPATCHING, FileAssetStatus.ARCHIVED));
-        transitions.put(FileAssetStatus.DISPATCHING, EnumSet.of(FileAssetStatus.PROCESSED, FileAssetStatus.DISPATCHED, FileAssetStatus.FAILED));
-        transitions.put(FileAssetStatus.DISPATCHED, EnumSet.of(FileAssetStatus.PROCESSED, FileAssetStatus.FAILED, FileAssetStatus.ARCHIVED));
+        transitions.put(
+                FileAssetStatus.DISPATCHING,
+                EnumSet.of(FileAssetStatus.PROCESSED, FileAssetStatus.DISPATCHED, FileAssetStatus.FAILED));
+        transitions.put(
+                FileAssetStatus.DISPATCHED,
+                EnumSet.of(FileAssetStatus.PROCESSED, FileAssetStatus.FAILED, FileAssetStatus.ARCHIVED));
         transitions.put(FileAssetStatus.FAILED, EnumSet.of(FileAssetStatus.READY, FileAssetStatus.PROCESSED));
         transitions.put(FileAssetStatus.ARCHIVED, EnumSet.noneOf(FileAssetStatus.class));
         return transitions;
     }
 
-    public record TransitionResult(FileAssetRecord record, FileAssetStatus from, FileAssetStatus to) {
-    }
+    public record TransitionResult(FileAssetRecord record, FileAssetStatus from, FileAssetStatus to) {}
 }

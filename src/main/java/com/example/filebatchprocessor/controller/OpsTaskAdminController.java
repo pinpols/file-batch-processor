@@ -1,11 +1,10 @@
 package com.example.filebatchprocessor.controller;
 
 import com.example.filebatchprocessor.service.OpsTaskAdminService;
-import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.*;
-
 import java.util.List;
 import java.util.Map;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/ops/tasks")
@@ -23,14 +22,11 @@ public class OpsTaskAdminController {
     }
 
     @PostMapping("/{taskId}/toggle")
-    public Map<String, Object> toggleTask(@PathVariable String taskId,
-                                          @RequestParam boolean enabled,
-                                          Authentication authentication) {
+    public Map<String, Object> toggleTask(
+            @PathVariable String taskId, @RequestParam boolean enabled, Authentication authentication) {
         var updated = opsTaskAdminService.toggleTask(taskId, enabled, authentication.getName());
         return Map.of(
                 "taskId", updated.getTaskId(),
-                "enabled", updated.getEnabled()
-        );
+                "enabled", updated.getEnabled());
     }
 }
-

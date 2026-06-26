@@ -1,21 +1,19 @@
 package com.example.filebatchprocessor.integration;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import com.example.filebatchprocessor.model.BusinessJobInstance;
 import com.example.filebatchprocessor.repository.BusinessJobInstanceRepository;
 import com.example.filebatchprocessor.support.PostgresContainerSupport;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ActiveProfiles;
 
-import java.util.List;
-import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.*;
 @SpringBootTest
 @ActiveProfiles("test")
 class BusinessJobInstanceRepositoryIT extends PostgresContainerSupport {
@@ -90,7 +88,8 @@ class BusinessJobInstanceRepositoryIT extends PostgresContainerSupport {
             repository.save(instance);
         }
 
-        Page<BusinessJobInstance> result = repository.findByTaskIdOrderByCreatedAtDesc("task-004", PageRequest.of(0, 10));
+        Page<BusinessJobInstance> result =
+                repository.findByTaskIdOrderByCreatedAtDesc("task-004", PageRequest.of(0, 10));
 
         assertFalse(result.isEmpty());
     }
@@ -107,7 +106,8 @@ class BusinessJobInstanceRepositoryIT extends PostgresContainerSupport {
             repository.save(instance);
         }
 
-        Page<BusinessJobInstance> result = repository.findByTaskIdOrderByCreatedAtDesc("task-005", PageRequest.of(0, 10));
+        Page<BusinessJobInstance> result =
+                repository.findByTaskIdOrderByCreatedAtDesc("task-005", PageRequest.of(0, 10));
 
         assertEquals(5, result.getTotalElements());
     }

@@ -4,6 +4,9 @@ import com.example.filebatchprocessor.exception.BusinessException;
 import com.example.filebatchprocessor.exception.ErrorCode;
 import com.example.filebatchprocessor.model.FileDistributionTask;
 import com.example.filebatchprocessor.service.FileDistributionService;
+import java.io.File;
+import java.io.IOException;
+import java.util.concurrent.Semaphore;
 import lombok.extern.slf4j.Slf4j;
 import net.schmizz.sshj.SSHClient;
 import net.schmizz.sshj.sftp.SFTPClient;
@@ -11,10 +14,6 @@ import net.schmizz.sshj.transport.verification.PromiscuousVerifier;
 import net.schmizz.sshj.xfer.FileSystemFile;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-
-import java.io.File;
-import java.io.IOException;
-import java.util.concurrent.Semaphore;
 
 @Slf4j
 @Component
@@ -38,8 +37,7 @@ public class SftpFileDistributor implements FileDistributor {
     @Value("${sftp.remoteDir:/upload}")
     private String sftpRemoteDir;
 
-    public SftpFileDistributor(FileDistributionService fileDistributionService,
-                              SftpConcurrencyLimiter limiter) {
+    public SftpFileDistributor(FileDistributionService fileDistributionService, SftpConcurrencyLimiter limiter) {
         this.fileDistributionService = fileDistributionService;
         this.limiter = limiter;
     }
@@ -59,15 +57,24 @@ public class SftpFileDistributor implements FileDistributor {
         if (task == null) {
             return;
         }
-        if (sftpHost == null || sftpHost.isBlank() || sftpUsername == null || sftpUsername.isBlank() || sftpPassword == null || sftpPassword.isBlank()) {
-            fileDistributionService.markAsFailed(task.getId(), "SFTP config missing: sftp.host/username/password", jobInstanceId);
+        if (sftpHost == null
+                || sftpHost.isBlank()
+                || sftpUsername == null
+                || sftpUsername.isBlank()
+                || sftpPassword == null
+                || sftpPassword.isBlank()) {
+            fileDistributionService.markAsFailed(
+                    task.getId(), "SFTP config missing: sftp.host/username/password", jobInstanceId);
             return;
         }
 
         Semaphore semaphore = limiter.semaphoreForHost(sftpHost);
         boolean acquired = semaphore.tryAcquire();
         if (!acquired) {
-            fileDistributionService.markAsFailed(task.getId(), "SFTP throttled: too many concurrent connections for host=" + sftpHost, jobInstanceId);
+            fileDistributionService.markAsFailed(
+                    task.getId(),
+                    "SFTP throttled: too many concurrent connections for host=" + sftpHost,
+                    jobInstanceId);
             return;
         }
 
@@ -100,7 +107,8 @@ public class SftpFileDistributor implements FileDistributor {
             fileDistributionService.markAsSuccess(task.getId(), jobInstanceId, false, null, null);
         } catch (Exception e) {
             log.error("SFTP distribution failed for taskId={}", task.getId(), e);
-            fileDistributionService.markAsFailed(task.getId(), "SFTP transfer failed: " + e.getMessage(), jobInstanceId);
+            fileDistributionService.markAsFailed(
+                    task.getId(), "SFTP transfer failed: " + e.getMessage(), jobInstanceId);
         } finally {
             semaphore.release();
         }

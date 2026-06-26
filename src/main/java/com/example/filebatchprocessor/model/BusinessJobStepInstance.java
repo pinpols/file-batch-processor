@@ -8,23 +8,27 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import java.time.LocalDateTime;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
-import java.time.LocalDateTime;
-
 @Getter
 @Setter
 @NoArgsConstructor
 @Entity
-@Table(name = "job_step_instance", indexes = {
-        @Index(name = "uk_job_step_instance_job_step_attempt", columnList = "job_instance_id,step_code,attempt_no", unique = true),
-        @Index(name = "idx_job_step_instance_job_order", columnList = "job_instance_id,step_order_no"),
-        @Index(name = "idx_job_step_instance_status", columnList = "status")
-})
+@Table(
+        name = "job_step_instance",
+        indexes = {
+            @Index(
+                    name = "uk_job_step_instance_job_step_attempt",
+                    columnList = "job_instance_id,step_code,attempt_no",
+                    unique = true),
+            @Index(name = "idx_job_step_instance_job_order", columnList = "job_instance_id,step_order_no"),
+            @Index(name = "idx_job_step_instance_status", columnList = "status")
+        })
 public class BusinessJobStepInstance {
 
     @Id

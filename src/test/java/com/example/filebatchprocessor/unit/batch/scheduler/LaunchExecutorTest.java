@@ -1,24 +1,23 @@
 package com.example.filebatchprocessor.unit.batch.scheduler;
 
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
 import com.example.filebatchprocessor.batch.scheduler.LaunchExecutor;
 import com.example.filebatchprocessor.batch.scheduler.TaskPriority;
 import com.example.filebatchprocessor.model.BusinessJobInstance;
 import com.example.filebatchprocessor.scheduler.OrchestrationTaskDefinition;
 import com.example.filebatchprocessor.service.BatchJobResolver;
 import com.example.filebatchprocessor.service.JobInstanceService;
+import java.util.Optional;
+import java.util.concurrent.Semaphore;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.batch.core.BatchStatus;
 import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.JobExecution;
 import org.springframework.batch.core.launch.JobLauncher;
-
-import java.util.Optional;
-import java.util.concurrent.Semaphore;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
 
 class LaunchExecutorTest {
 
@@ -37,7 +36,8 @@ class LaunchExecutorTest {
     void shouldFailWhenJobMissing() {
         when(jobResolver.resolve("missingJob")).thenReturn(Optional.empty());
         when(jobResolver.describeAvailableJobs()).thenReturn("[jobA]");
-        LaunchExecutor launchExecutor = new LaunchExecutor(jobLauncher, jobResolver, jobInstanceService, new Semaphore(1), 1, 1000);
+        LaunchExecutor launchExecutor =
+                new LaunchExecutor(jobLauncher, jobResolver, jobInstanceService, new Semaphore(1), 1, 1000);
 
         OrchestrationTaskDefinition def = definition("t1", "missingJob");
 
@@ -49,8 +49,10 @@ class LaunchExecutorTest {
     @Test
     void shouldRescheduleWhenNoPermit() {
         Job job = mock(Job.class);
-        when(jobResolver.resolve("jobA")).thenReturn(Optional.of(new BatchJobResolver.ResolvedJob("jobA", "jobA", job)));
-        LaunchExecutor launchExecutor = new LaunchExecutor(jobLauncher, jobResolver, jobInstanceService, new Semaphore(0), 1, 1000);
+        when(jobResolver.resolve("jobA"))
+                .thenReturn(Optional.of(new BatchJobResolver.ResolvedJob("jobA", "jobA", job)));
+        LaunchExecutor launchExecutor =
+                new LaunchExecutor(jobLauncher, jobResolver, jobInstanceService, new Semaphore(0), 1, 1000);
 
         OrchestrationTaskDefinition def = definition("t1", "jobA");
 
@@ -67,11 +69,13 @@ class LaunchExecutorTest {
         businessJobInstance.setId(101L);
         businessJobInstance.setJobInstanceNo("JI-20260315-AAAA1111");
         when(execution.getStatus()).thenReturn(BatchStatus.COMPLETED);
-        when(jobResolver.resolve("jobA")).thenReturn(Optional.of(new BatchJobResolver.ResolvedJob("jobA", "jobA", job)));
+        when(jobResolver.resolve("jobA"))
+                .thenReturn(Optional.of(new BatchJobResolver.ResolvedJob("jobA", "jobA", job)));
         when(jobInstanceService.createTriggeredInstance(any())).thenReturn(businessJobInstance);
         when(jobLauncher.run(eq(job), any())).thenReturn(execution);
 
-        LaunchExecutor launchExecutor = new LaunchExecutor(jobLauncher, jobResolver, jobInstanceService, new Semaphore(1), 1, 1000);
+        LaunchExecutor launchExecutor =
+                new LaunchExecutor(jobLauncher, jobResolver, jobInstanceService, new Semaphore(1), 1, 1000);
 
         OrchestrationTaskDefinition def = definition("t1", "jobA");
 
@@ -85,8 +89,10 @@ class LaunchExecutorTest {
     void shouldNotIncreasePermitWhenAcquireFails() {
         Job job = mock(Job.class);
         Semaphore permits = new Semaphore(0);
-        when(jobResolver.resolve("jobA")).thenReturn(Optional.of(new BatchJobResolver.ResolvedJob("jobA", "jobA", job)));
-        LaunchExecutor launchExecutor = new LaunchExecutor(jobLauncher, jobResolver, jobInstanceService, permits, 1, 1000);
+        when(jobResolver.resolve("jobA"))
+                .thenReturn(Optional.of(new BatchJobResolver.ResolvedJob("jobA", "jobA", job)));
+        LaunchExecutor launchExecutor =
+                new LaunchExecutor(jobLauncher, jobResolver, jobInstanceService, permits, 1, 1000);
 
         OrchestrationTaskDefinition def = definition("t1", "jobA");
 

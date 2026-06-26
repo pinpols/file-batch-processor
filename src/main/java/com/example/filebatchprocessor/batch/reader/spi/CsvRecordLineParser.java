@@ -29,4 +29,3 @@ public class CsvRecordLineParser implements RecordLineParser {
         return record;
     }
 }
-

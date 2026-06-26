@@ -1,10 +1,9 @@
 package com.example.filebatchprocessor.batch.scheduler;
 
 import com.example.filebatchprocessor.scheduler.OrchestrationTaskDefinition;
+import java.util.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-
-import java.util.*;
 
 @Slf4j
 @Component
@@ -49,27 +48,35 @@ public class TaskGraphManager {
     public synchronized String toMermaid() {
         StringBuilder sb = new StringBuilder();
         sb.append("flowchart TD\n");
-        
+
         // Define nodes with style based on enabled status
         for (OrchestrationTaskDefinition def : taskDefinitions.values()) {
             String status = Boolean.TRUE.equals(def.getEnabled()) ? "enabled" : "disabled";
-            sb.append("    ").append(safeId(def.getId()))
-              .append("[").append(def.getJobName()).append("]")
-              .append(":::").append(status).append("\n");
+            sb.append("    ")
+                    .append(safeId(def.getId()))
+                    .append("[")
+                    .append(def.getJobName())
+                    .append("]")
+                    .append(":::")
+                    .append(status)
+                    .append("\n");
         }
-        
+
         // Define edges
         for (OrchestrationTaskDefinition def : taskDefinitions.values()) {
             for (String dep : def.getDependencies()) {
-                sb.append("    ").append(safeId(dep))
-                  .append(" --> ").append(safeId(def.getId())).append("\n");
+                sb.append("    ")
+                        .append(safeId(dep))
+                        .append(" --> ")
+                        .append(safeId(def.getId()))
+                        .append("\n");
             }
         }
-        
+
         // Define styles
         sb.append("    classDef enabled fill:#90EE90,stroke:#333,stroke-width:2px\n");
         sb.append("    classDef disabled fill:#FFB6C1,stroke:#333,stroke-width:2px,stroke-dasharray:5 5\n");
-        
+
         return sb.toString();
     }
 
@@ -115,7 +122,7 @@ public class TaskGraphManager {
                 }
             }
         }
-        
+
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("sortedTasks", ordered);
         result.put("totalCount", ordered.size());
@@ -151,4 +158,3 @@ public class TaskGraphManager {
         visited.add(id);
     }
 }
-
