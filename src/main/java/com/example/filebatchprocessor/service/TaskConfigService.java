@@ -8,13 +8,12 @@ import com.example.filebatchprocessor.repository.TaskDefinitionRepository;
 import com.example.filebatchprocessor.repository.TaskDependencyRepository;
 import com.example.filebatchprocessor.repository.TaskParameterRepository;
 import com.example.filebatchprocessor.repository.TaskTriggerRepository;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 任务配置服务：从数据库加载任务定义、触发器、参数
@@ -30,10 +29,11 @@ public class TaskConfigService {
     private final TaskParameterRepository taskParameterRepository;
     private final TaskDependencyRepository taskDependencyRepository;
 
-    public TaskConfigService(TaskDefinitionRepository taskDefinitionRepository,
-                             TaskTriggerRepository taskTriggerRepository,
-                             TaskParameterRepository taskParameterRepository,
-                             TaskDependencyRepository taskDependencyRepository) {
+    public TaskConfigService(
+            TaskDefinitionRepository taskDefinitionRepository,
+            TaskTriggerRepository taskTriggerRepository,
+            TaskParameterRepository taskParameterRepository,
+            TaskDependencyRepository taskDependencyRepository) {
         this.taskDefinitionRepository = taskDefinitionRepository;
         this.taskTriggerRepository = taskTriggerRepository;
         this.taskParameterRepository = taskParameterRepository;
@@ -51,7 +51,8 @@ public class TaskConfigService {
      * 按任务ID获取任务定义
      */
     public TaskDefinition getTaskDefinition(String taskId) {
-        return taskDefinitionRepository.findByTaskId(taskId)
+        return taskDefinitionRepository
+                .findByTaskId(taskId)
                 .orElseThrow(() -> new IllegalArgumentException("Task not found: " + taskId));
     }
 
@@ -59,7 +60,8 @@ public class TaskConfigService {
      * 获取任务的触发器配置
      */
     public TaskTrigger getTaskTrigger(String taskId) {
-        return taskTriggerRepository.findByTaskId(taskId)
+        return taskTriggerRepository
+                .findByTaskId(taskId)
                 .orElseThrow(() -> new IllegalArgumentException("Trigger not found for task: " + taskId));
     }
 
@@ -86,8 +88,7 @@ public class TaskConfigService {
      * 获取任务的所有依赖任务 ID 列表
      */
     public List<String> getTaskDependencies(String taskId) {
-        return taskDependencyRepository.findByTaskId(taskId)
-                .stream()
+        return taskDependencyRepository.findByTaskId(taskId).stream()
                 .map(TaskDependency::getDependsOnTaskId)
                 .toList();
     }
@@ -100,7 +101,8 @@ public class TaskConfigService {
      * 获取指定参数值
      */
     public String getTaskParameter(String taskId, String paramName) {
-        return taskParameterRepository.findByTaskIdAndParamName(taskId, paramName)
+        return taskParameterRepository
+                .findByTaskIdAndParamName(taskId, paramName)
                 .map(TaskParameter::getParamValue)
                 .orElse(null);
     }
@@ -125,8 +127,10 @@ public class TaskConfigService {
      * 创建或更新任务参数
      */
     public TaskParameter saveTaskParameter(TaskParameter taskParameter) {
-        log.info("Saving task parameter: taskId={}, paramName={}", 
-                taskParameter.getTaskId(), taskParameter.getParamName());
+        log.info(
+                "Saving task parameter: taskId={}, paramName={}",
+                taskParameter.getTaskId(),
+                taskParameter.getParamName());
         return taskParameterRepository.save(taskParameter);
     }
 
@@ -135,7 +139,8 @@ public class TaskConfigService {
      */
     public void deleteTask(String taskId) {
         log.info("Deleting task: taskId={}", taskId);
-        taskDefinitionRepository.deleteById(taskDefinitionRepository.findByTaskId(taskId)
+        taskDefinitionRepository.deleteById(taskDefinitionRepository
+                .findByTaskId(taskId)
                 .map(TaskDefinition::getId)
                 .orElseThrow(() -> new IllegalArgumentException("Task not found: " + taskId)));
         taskParameterRepository.deleteByTaskId(taskId);

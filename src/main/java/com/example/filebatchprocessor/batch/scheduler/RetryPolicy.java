@@ -1,7 +1,6 @@
 package com.example.filebatchprocessor.batch.scheduler;
 
 import com.example.filebatchprocessor.scheduler.OrchestrationTaskDefinition;
-
 import java.time.Instant;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -33,9 +32,8 @@ class RetryPolicy {
     }
 
     Instant nextRetryAt(OrchestrationTaskDefinition def) {
-        long backoff = def.getRetryBackoffMs() == null
-                ? defaultRetryBackoffMs
-                : Math.max(1000, def.getRetryBackoffMs());
+        long backoff =
+                def.getRetryBackoffMs() == null ? defaultRetryBackoffMs : Math.max(1000, def.getRetryBackoffMs());
 
         double jitterRatio = defaultRetryJitterRatio;
         long jitterRange = (long) (backoff * jitterRatio);
@@ -52,9 +50,7 @@ class RetryPolicy {
             return FailureClass.FATAL;
         }
         String lower = reason.toLowerCase();
-        if (lower.contains("already exists")
-                || lower.contains("duplicate")
-                || lower.contains("idempotent")) {
+        if (lower.contains("already exists") || lower.contains("duplicate") || lower.contains("idempotent")) {
             return FailureClass.SKIPPABLE;
         }
         if (lower.contains("timeout")

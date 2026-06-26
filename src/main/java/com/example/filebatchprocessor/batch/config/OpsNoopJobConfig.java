@@ -21,8 +21,7 @@ public class OpsNoopJobConfig {
     private final JobRepository jobRepository;
     private final PlatformTransactionManager transactionManager;
 
-    public OpsNoopJobConfig(JobRepository jobRepository,
-                            PlatformTransactionManager transactionManager) {
+    public OpsNoopJobConfig(JobRepository jobRepository, PlatformTransactionManager transactionManager) {
         this.jobRepository = jobRepository;
         this.transactionManager = transactionManager;
     }
@@ -41,12 +40,8 @@ public class OpsNoopJobConfig {
     }
 
     // Compatibility aliases for task_definition jobName values that are not wired yet.
-    @Bean(name = {
-            "opsNoopJob",
-            "batchRestartJob"
-    })
-    public Job opsNoopJob(@Qualifier("opsNoopStep") Step opsNoopStep,
-                          JobCompletionNotificationListener listener) {
+    @Bean(name = {"opsNoopJob", "batchRestartJob"})
+    public Job opsNoopJob(@Qualifier("opsNoopStep") Step opsNoopStep, JobCompletionNotificationListener listener) {
         return new JobBuilder("opsNoopJob", jobRepository)
                 .incrementer(new RunIdIncrementer())
                 .listener(listener)

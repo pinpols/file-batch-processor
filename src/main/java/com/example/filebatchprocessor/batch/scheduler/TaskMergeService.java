@@ -1,16 +1,15 @@
 package com.example.filebatchprocessor.batch.scheduler;
 
 import com.example.filebatchprocessor.scheduler.OrchestrationTaskDefinition;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
 
 @Slf4j
 @Service
@@ -24,7 +23,8 @@ public class TaskMergeService {
 
     private final Map<String, MergeBucket> buckets = new ConcurrentHashMap<>();
 
-    public synchronized List<OrchestrationTaskDefinition> merge(String key, OrchestrationTaskDefinition incoming, Duration window) {
+    public synchronized List<OrchestrationTaskDefinition> merge(
+            String key, OrchestrationTaskDefinition incoming, Duration window) {
         if (!incoming.isAllowMerge()) {
             return List.of(incoming);
         }
@@ -38,4 +38,3 @@ public class TaskMergeService {
         return List.of(incoming);
     }
 }
-

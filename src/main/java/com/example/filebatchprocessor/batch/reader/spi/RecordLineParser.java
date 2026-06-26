@@ -12,4 +12,3 @@ public interface RecordLineParser {
      */
     FileRecord parse(String line) throws Exception;
 }
-

@@ -8,6 +8,5 @@ public final class JobInstanceParameters {
     public static final String TRIGGERED_BY = "triggeredBy";
     public static final String RELATED_FILE_ID = "relatedFileId";
 
-    private JobInstanceParameters() {
-    }
+    private JobInstanceParameters() {}
 }

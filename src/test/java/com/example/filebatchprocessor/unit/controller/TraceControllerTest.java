@@ -11,18 +11,20 @@ import com.example.filebatchprocessor.repository.ImportedRecordPartitionedReposi
 import com.example.filebatchprocessor.repository.JobLogRecordRepository;
 import com.example.filebatchprocessor.repository.RecordTraceRepository;
 import com.example.filebatchprocessor.repository.TaskExecutionStateRepository;
-import org.junit.jupiter.api.Test;
-
 import java.util.List;
 import java.util.Map;
+import org.junit.jupiter.api.Test;
 
 class TraceControllerTest {
 
     private final RecordTraceRepository recordTraceRepository = org.mockito.Mockito.mock(RecordTraceRepository.class);
-    private final ImportedRecordPartitionedRepository importedRecordPartitionedRepository = org.mockito.Mockito.mock(ImportedRecordPartitionedRepository.class);
+    private final ImportedRecordPartitionedRepository importedRecordPartitionedRepository =
+            org.mockito.Mockito.mock(ImportedRecordPartitionedRepository.class);
     private final DlqRecordRepository dlqRecordRepository = org.mockito.Mockito.mock(DlqRecordRepository.class);
-    private final JobLogRecordRepository jobLogRecordRepository = org.mockito.Mockito.mock(JobLogRecordRepository.class);
-    private final TaskExecutionStateRepository taskExecutionStateRepository = org.mockito.Mockito.mock(TaskExecutionStateRepository.class);
+    private final JobLogRecordRepository jobLogRecordRepository =
+            org.mockito.Mockito.mock(JobLogRecordRepository.class);
+    private final TaskExecutionStateRepository taskExecutionStateRepository =
+            org.mockito.Mockito.mock(TaskExecutionStateRepository.class);
 
     @Test
     void shouldAggregateTraceData() throws Exception {
@@ -44,19 +46,25 @@ class TraceControllerTest {
         TaskExecutionState state = new TaskExecutionState();
         state.setTaskId("t1");
 
-        org.mockito.Mockito.when(recordTraceRepository.findTop200ByBusinessKeyOrderByCreatedAtDesc(businessKey)).thenReturn(List.of(trace));
-        org.mockito.Mockito.when(importedRecordPartitionedRepository.findTop50ByBusinessKeyOrderByCreatedAtDesc(businessKey)).thenReturn(List.of(imported));
-        org.mockito.Mockito.when(dlqRecordRepository.findTop50ByParamsContainingOrderByCreatedAtDesc("businessKey=" + businessKey)).thenReturn(List.of(dlq));
-        org.mockito.Mockito.when(jobLogRecordRepository.findTop50ByParamsContainingOrderByCreatedAtDesc(businessKey)).thenReturn(List.of(log));
-        org.mockito.Mockito.when(taskExecutionStateRepository.findTop200ByOrderByUpdatedAtDesc()).thenReturn(List.of(state));
+        org.mockito.Mockito.when(recordTraceRepository.findTop200ByBusinessKeyOrderByCreatedAtDesc(businessKey))
+                .thenReturn(List.of(trace));
+        org.mockito.Mockito.when(
+                        importedRecordPartitionedRepository.findTop50ByBusinessKeyOrderByCreatedAtDesc(businessKey))
+                .thenReturn(List.of(imported));
+        org.mockito.Mockito.when(dlqRecordRepository.findTop50ByParamsContainingOrderByCreatedAtDesc(
+                        "businessKey=" + businessKey))
+                .thenReturn(List.of(dlq));
+        org.mockito.Mockito.when(jobLogRecordRepository.findTop50ByParamsContainingOrderByCreatedAtDesc(businessKey))
+                .thenReturn(List.of(log));
+        org.mockito.Mockito.when(taskExecutionStateRepository.findTop200ByOrderByUpdatedAtDesc())
+                .thenReturn(List.of(state));
 
         TraceController controller = new TraceController(
                 recordTraceRepository,
                 importedRecordPartitionedRepository,
                 dlqRecordRepository,
                 jobLogRecordRepository,
-                taskExecutionStateRepository
-        );
+                taskExecutionStateRepository);
 
         Map<String, Object> result = controller.trace(businessKey);
         org.junit.jupiter.api.Assertions.assertEquals(businessKey, result.get("businessKey"));

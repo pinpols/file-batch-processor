@@ -1,11 +1,17 @@
 package com.example.filebatchprocessor.unit.service;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
 import com.example.filebatchprocessor.model.FileMetricsSnapshot;
 import com.example.filebatchprocessor.repository.DlqRecordRepository;
 import com.example.filebatchprocessor.repository.FileAssetRecordRepository;
 import com.example.filebatchprocessor.repository.FileDispatchRecordRepository;
 import com.example.filebatchprocessor.repository.FileMetricsSnapshotRepository;
 import com.example.filebatchprocessor.service.FileMetricsService;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -13,13 +19,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
-
-import java.time.LocalDate;
-import java.util.List;
-import java.util.Optional;
-
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class FileMetricsServiceTest {
@@ -59,7 +58,8 @@ class FileMetricsServiceTest {
     @Test
     void shouldGetTodayMetrics() {
         FileMetricsSnapshot snapshot = new FileMetricsSnapshot();
-        lenient().when(metricsRepository.findFirstByMetricDateOrderBySnapshotTimeDesc(any(LocalDate.class)))
+        lenient()
+                .when(metricsRepository.findFirstByMetricDateOrderBySnapshotTimeDesc(any(LocalDate.class)))
                 .thenReturn(Optional.of(snapshot));
 
         FileMetricsSnapshot result = fileMetricsService.getTodayMetrics();

@@ -1,5 +1,9 @@
 package com.example.filebatchprocessor.unit.config;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.*;
+
 import com.example.filebatchprocessor.batch.scheduler.TaskSchedulerService;
 import com.example.filebatchprocessor.config.TaskDefinitionProperties;
 import com.example.filebatchprocessor.config.TaskOrchestrationConfig;
@@ -7,18 +11,13 @@ import com.example.filebatchprocessor.model.TaskDefinition;
 import com.example.filebatchprocessor.model.TaskTrigger;
 import com.example.filebatchprocessor.scheduler.OrchestrationTaskDefinition;
 import com.example.filebatchprocessor.service.TaskConfigService;
-import org.quartz.Scheduler;
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.quartz.Scheduler;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.core.env.Environment;
 import org.springframework.test.util.ReflectionTestUtils;
-
-import java.util.List;
-import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.*;
 
 class TaskOrchestrationConfigTest {
 
@@ -38,9 +37,8 @@ class TaskOrchestrationConfigTest {
         when(taskConfigService.getAllEnabledTasks()).thenReturn(List.of());
         when(quartzScheduler.isStarted()).thenReturn(false);
 
-        config.registerConfiguredTasks(
-                properties, schedulerService, taskConfigService, quartzScheduler, env
-        ).run();
+        config.registerConfiguredTasks(properties, schedulerService, taskConfigService, quartzScheduler, env)
+                .run();
 
         verify(schedulerService, never()).resetPersistedSchedules();
     }
@@ -61,9 +59,8 @@ class TaskOrchestrationConfigTest {
         when(taskConfigService.getAllEnabledTasks()).thenReturn(List.of());
         when(quartzScheduler.isStarted()).thenReturn(false);
 
-        config.registerConfiguredTasks(
-                properties, schedulerService, taskConfigService, quartzScheduler, env
-        ).run();
+        config.registerConfiguredTasks(properties, schedulerService, taskConfigService, quartzScheduler, env)
+                .run();
 
         verify(schedulerService, times(1)).resetPersistedSchedules();
     }
@@ -97,9 +94,8 @@ class TaskOrchestrationConfigTest {
         when(taskConfigService.getTaskDependencyConfigs("t1")).thenReturn(List.of());
 
         when(quartzScheduler.isStarted()).thenReturn(false);
-        CommandLineRunner runner = config.registerConfiguredTasks(
-                properties, schedulerService, taskConfigService, quartzScheduler, env
-        );
+        CommandLineRunner runner =
+                config.registerConfiguredTasks(properties, schedulerService, taskConfigService, quartzScheduler, env);
         runner.run();
 
         verify(schedulerService, times(1)).register(any(OrchestrationTaskDefinition.class));
@@ -118,13 +114,12 @@ class TaskOrchestrationConfigTest {
         TaskConfigService taskConfigService = mock(TaskConfigService.class);
         Scheduler quartzScheduler = mock(Scheduler.class);
         Environment env = mock(Environment.class);
-        when(env.getActiveProfiles()).thenReturn(new String[]{"prod"});
+        when(env.getActiveProfiles()).thenReturn(new String[] {"prod"});
         when(quartzScheduler.isStarted()).thenReturn(false);
 
         assertThrows(IllegalStateException.class, () -> {
-            config.registerConfiguredTasks(
-                    properties, schedulerService, taskConfigService, quartzScheduler, env
-            ).run();
+            config.registerConfiguredTasks(properties, schedulerService, taskConfigService, quartzScheduler, env)
+                    .run();
         });
     }
 
@@ -157,9 +152,8 @@ class TaskOrchestrationConfigTest {
         when(taskConfigService.getTaskDependencyConfigs("t-delay")).thenReturn(List.of());
 
         when(quartzScheduler.isStarted()).thenReturn(false);
-        CommandLineRunner runner = config.registerConfiguredTasks(
-                properties, schedulerService, taskConfigService, quartzScheduler, env
-        );
+        CommandLineRunner runner =
+                config.registerConfiguredTasks(properties, schedulerService, taskConfigService, quartzScheduler, env);
         runner.run();
 
         var captor = org.mockito.ArgumentCaptor.forClass(OrchestrationTaskDefinition.class);

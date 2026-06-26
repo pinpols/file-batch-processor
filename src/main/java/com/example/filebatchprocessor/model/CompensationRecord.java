@@ -8,24 +8,25 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import java.time.LocalDateTime;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
-import java.time.LocalDateTime;
-
 @Getter
 @Setter
 @NoArgsConstructor
 @Entity
-@Table(name = "compensation_record", indexes = {
-        @Index(name = "uk_compensation_record_no", columnList = "compensation_no", unique = true),
-        @Index(name = "idx_compensation_record_status_created", columnList = "status,created_at"),
-        @Index(name = "idx_compensation_record_action_created", columnList = "action_type,created_at"),
-        @Index(name = "idx_compensation_record_target_job", columnList = "target_job_instance_id,created_at")
-})
+@Table(
+        name = "compensation_record",
+        indexes = {
+            @Index(name = "uk_compensation_record_no", columnList = "compensation_no", unique = true),
+            @Index(name = "idx_compensation_record_status_created", columnList = "status,created_at"),
+            @Index(name = "idx_compensation_record_action_created", columnList = "action_type,created_at"),
+            @Index(name = "idx_compensation_record_target_job", columnList = "target_job_instance_id,created_at")
+        })
 public class CompensationRecord {
 
     @Id

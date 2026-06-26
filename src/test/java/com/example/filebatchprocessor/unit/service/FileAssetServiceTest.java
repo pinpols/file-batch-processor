@@ -1,25 +1,21 @@
 package com.example.filebatchprocessor.unit.service;
 
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
 import com.example.filebatchprocessor.model.FileAssetRecord;
-import com.example.filebatchprocessor.model.FileAssetStatus;
 import com.example.filebatchprocessor.repository.FileAssetRecordRepository;
-import com.example.filebatchprocessor.service.FileAssetStateMachineService;
 import com.example.filebatchprocessor.service.FileAssetService;
+import com.example.filebatchprocessor.service.FileAssetStateMachineService;
 import com.example.filebatchprocessor.service.FileReceptionGuardService;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class FileAssetServiceTest {

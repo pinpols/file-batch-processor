@@ -1,16 +1,15 @@
 package com.example.filebatchprocessor.observability;
 
+import jakarta.annotation.PostConstruct;
 import org.quartz.Scheduler;
 import org.quartz.Trigger;
 import org.quartz.TriggerListener;
-import org.quartz.listeners.TriggerListenerSupport;
 import org.quartz.impl.matchers.EverythingMatcher;
 import org.quartz.impl.matchers.GroupMatcher;
+import org.quartz.listeners.TriggerListenerSupport;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
-
-import jakarta.annotation.PostConstruct;
 
 @Component
 public class QuartzMetricsRegistrar {
@@ -34,8 +33,14 @@ public class QuartzMetricsRegistrar {
     private void registerGauges() {
         batchMetrics.gauge("quartz_scheduler_started", () -> safeNumber(scheduler::isStarted));
         batchMetrics.gauge("quartz_scheduler_shutdown", () -> safeNumber(scheduler::isShutdown));
-        batchMetrics.gauge("quartz_jobs_total", () -> safeNumber(() -> scheduler.getJobKeys(GroupMatcher.anyGroup()).size()));
-        batchMetrics.gauge("quartz_triggers_total", () -> safeNumber(() -> scheduler.getTriggerKeys(GroupMatcher.anyGroup()).size()));
+        batchMetrics.gauge(
+                "quartz_jobs_total",
+                () -> safeNumber(
+                        () -> scheduler.getJobKeys(GroupMatcher.anyGroup()).size()));
+        batchMetrics.gauge(
+                "quartz_triggers_total",
+                () -> safeNumber(
+                        () -> scheduler.getTriggerKeys(GroupMatcher.anyGroup()).size()));
     }
 
     private void registerMisfireListener() {

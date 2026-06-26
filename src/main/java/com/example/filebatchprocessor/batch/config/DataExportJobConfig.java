@@ -1,12 +1,16 @@
 package com.example.filebatchprocessor.batch.config;
 
 import com.example.filebatchprocessor.batch.processor.ExportRecordProcessor;
-import com.example.filebatchprocessor.batch.processor.FileImportRecordProcessor;
+import com.example.filebatchprocessor.batch.writer.ExportRecordTraceWriter;
 import com.example.filebatchprocessor.listener.JobCompletionNotificationListener;
 import com.example.filebatchprocessor.model.ExportRecord;
-import com.example.filebatchprocessor.batch.writer.ExportRecordTraceWriter;
 import com.example.filebatchprocessor.params.ExportJobParams;
 import com.example.filebatchprocessor.repository.RecordTraceRepository;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.Locale;
+import java.util.Map;
+import javax.sql.DataSource;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.builder.JobBuilder;
@@ -27,25 +31,19 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.transaction.PlatformTransactionManager;
 
-import javax.sql.DataSource;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.Locale;
-import java.util.Map;
-
 @Configuration
 public class DataExportJobConfig {
 
-    private static final String DEFAULT_EXPORT_SQL = "select id, business_key, name, description, batch_date from imported_records";
+    private static final String DEFAULT_EXPORT_SQL =
+            "select id, business_key, name, description, batch_date from imported_records";
 
     private final JobRepository jobRepository;
     private final PlatformTransactionManager transactionManager;
     private final DataSource dataSource;
 
     @Autowired
-    public DataExportJobConfig(JobRepository jobRepository,
-                               PlatformTransactionManager transactionManager,
-                               DataSource dataSource) {
+    public DataExportJobConfig(
+            JobRepository jobRepository, PlatformTransactionManager transactionManager, DataSource dataSource) {
         this.jobRepository = jobRepository;
         this.transactionManager = transactionManager;
         this.dataSource = dataSource;
@@ -71,9 +69,12 @@ public class DataExportJobConfig {
 
         boolean startsWithSelect = lower.startsWith("select ");
         boolean singleStatement = !lower.contains(";");
-        boolean noDmlKeywords = !(lower.contains(" insert ") || lower.contains(" update ") ||
-                lower.contains(" delete ") || lower.contains(" drop ") || lower.contains(" alter ") ||
-                lower.contains(" truncate "));
+        boolean noDmlKeywords = !(lower.contains(" insert ")
+                || lower.contains(" update ")
+                || lower.contains(" delete ")
+                || lower.contains(" drop ")
+                || lower.contains(" alter ")
+                || lower.contains(" truncate "));
 
         if (startsWithSelect && singleStatement && noDmlKeywords) {
             return normalized;
@@ -94,19 +95,15 @@ public class DataExportJobConfig {
 
     @Bean
     @StepScope
-    public FlatFileItemWriter<ExportRecord> exportWriter(
-            @Value("#{jobParameters}") Map<String, Object> jobParameters) {
+    public FlatFileItemWriter<ExportRecord> exportWriter(@Value("#{jobParameters}") Map<String, Object> jobParameters) {
         ExportJobParams params = ExportJobParams.from(jobParameters);
-        String fileName = (params.getOutputFileName() == null || params.getOutputFileName().isEmpty())
+        String fileName = (params.getOutputFileName() == null
+                        || params.getOutputFileName().isEmpty())
                 ? "export/output.csv"
                 : params.getOutputFileName();
 
-        FieldExtractor<ExportRecord> fieldExtractor = item -> new Object[]{
-                item.getId(),
-                item.getBusinessKey(),
-                item.getName(),
-                item.getDescription(),
-                item.getBatchDate()
+        FieldExtractor<ExportRecord> fieldExtractor = item -> new Object[] {
+            item.getId(), item.getBusinessKey(), item.getName(), item.getDescription(), item.getBatchDate()
         };
 
         DelimitedLineAggregator<ExportRecord> lineAggregator = new DelimitedLineAggregator<>();
@@ -123,15 +120,16 @@ public class DataExportJobConfig {
 
     @Bean
     @StepScope
-    public ExportRecordTraceWriter exportTraceWriter(FlatFileItemWriter<ExportRecord> exportWriter,
-                                                     RecordTraceRepository recordTraceRepository) {
+    public ExportRecordTraceWriter exportTraceWriter(
+            FlatFileItemWriter<ExportRecord> exportWriter, RecordTraceRepository recordTraceRepository) {
         return new ExportRecordTraceWriter(exportWriter, recordTraceRepository, "dataExportJob");
     }
 
     @Bean
-    public Step exportStep(JdbcCursorItemReader<ExportRecord> exportReader,
-                           ExportRecordProcessor processor,
-                           ExportRecordTraceWriter exportTraceWriter) {
+    public Step exportStep(
+            JdbcCursorItemReader<ExportRecord> exportReader,
+            ExportRecordProcessor processor,
+            ExportRecordTraceWriter exportTraceWriter) {
         return new StepBuilder("exportStep", jobRepository)
                 .<ExportRecord, ExportRecord>chunk(200)
                 .reader(exportReader)
@@ -142,8 +140,7 @@ public class DataExportJobConfig {
     }
 
     @Bean
-    public Job dataExportJob(JobCompletionNotificationListener listener,
-                             @Qualifier("exportStep") Step exportStep) {
+    public Job dataExportJob(JobCompletionNotificationListener listener, @Qualifier("exportStep") Step exportStep) {
         return new JobBuilder("dataExportJob", jobRepository)
                 .incrementer(new RunIdIncrementer())
                 .listener(listener)

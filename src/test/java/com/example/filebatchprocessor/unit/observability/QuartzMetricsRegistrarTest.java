@@ -1,5 +1,10 @@
 package com.example.filebatchprocessor.unit.observability;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import com.example.filebatchprocessor.observability.BatchMetrics;
 import com.example.filebatchprocessor.observability.QuartzMetricsRegistrar;
 import org.junit.jupiter.api.BeforeEach;
@@ -15,20 +20,18 @@ import org.quartz.TriggerKey;
 import org.quartz.TriggerListener;
 import org.quartz.impl.matchers.EverythingMatcher;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
 @ExtendWith(MockitoExtension.class)
 class QuartzMetricsRegistrarTest {
 
     @Mock
     private Scheduler scheduler;
+
     @Mock
     private BatchMetrics batchMetrics;
+
     @Mock
     private ListenerManager listenerManager;
+
     @Mock
     private Trigger trigger;
 

@@ -46,8 +46,7 @@ public class OpsSecurityProperties {
         private String username;
         private String password;
 
-        public User() {
-        }
+        public User() {}
 
         public User(String username, String password) {
             this.username = username;

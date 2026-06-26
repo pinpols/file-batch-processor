@@ -1,12 +1,10 @@
 package com.example.filebatchprocessor.controller;
 
 import com.example.filebatchprocessor.batch.scheduler.TaskGraphManager;
+import java.util.Map;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.Map;
 
 @RestController
 @RequestMapping("/ops")

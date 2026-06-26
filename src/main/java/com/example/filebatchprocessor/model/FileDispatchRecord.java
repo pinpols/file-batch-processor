@@ -8,25 +8,26 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import java.time.LocalDateTime;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
-import java.time.LocalDateTime;
-
 @Getter
 @Setter
 @NoArgsConstructor
 @Entity
-@Table(name = "file_dispatch_record", indexes = {
-        @Index(name = "uk_file_dispatch_record_dispatch_no", columnList = "dispatch_no", unique = true),
-        @Index(name = "uk_file_dispatch_record_dispatch_key", columnList = "dispatch_key", unique = true),
-        @Index(name = "idx_file_dispatch_record_file", columnList = "file_record_id,created_at"),
-        @Index(name = "idx_file_dispatch_record_status", columnList = "dispatch_status,ack_status"),
-        @Index(name = "idx_file_dispatch_record_target", columnList = "target_system,dispatch_channel")
-})
+@Table(
+        name = "file_dispatch_record",
+        indexes = {
+            @Index(name = "uk_file_dispatch_record_dispatch_no", columnList = "dispatch_no", unique = true),
+            @Index(name = "uk_file_dispatch_record_dispatch_key", columnList = "dispatch_key", unique = true),
+            @Index(name = "idx_file_dispatch_record_file", columnList = "file_record_id,created_at"),
+            @Index(name = "idx_file_dispatch_record_status", columnList = "dispatch_status,ack_status"),
+            @Index(name = "idx_file_dispatch_record_target", columnList = "target_system,dispatch_channel")
+        })
 public class FileDispatchRecord {
 
     @Id

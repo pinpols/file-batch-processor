@@ -7,23 +7,24 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
+import java.time.LocalDateTime;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
-import java.time.LocalDateTime;
-
 @Getter
 @Setter
 @NoArgsConstructor
 @Entity
-@Table(name = "job_execution_log", indexes = {
-        @Index(name = "idx_job_execution_log_job_created", columnList = "job_instance_id,created_at"),
-        @Index(name = "idx_job_execution_log_step_created", columnList = "job_step_instance_id,created_at"),
-        @Index(name = "idx_job_execution_log_event", columnList = "event_type,created_at")
-})
+@Table(
+        name = "job_execution_log",
+        indexes = {
+            @Index(name = "idx_job_execution_log_job_created", columnList = "job_instance_id,created_at"),
+            @Index(name = "idx_job_execution_log_step_created", columnList = "job_step_instance_id,created_at"),
+            @Index(name = "idx_job_execution_log_event", columnList = "event_type,created_at")
+        })
 public class BusinessJobExecutionLog {
 
     @Id

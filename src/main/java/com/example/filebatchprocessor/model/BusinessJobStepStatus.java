@@ -25,7 +25,8 @@ public enum BusinessJobStepStatus {
         if (status == BatchStatus.STARTED || status == BatchStatus.STARTING || status == BatchStatus.STOPPING) {
             return RUNNING;
         }
-        if (stepExecution.getExitStatus() != null && "NOOP".equalsIgnoreCase(stepExecution.getExitStatus().getExitCode())) {
+        if (stepExecution.getExitStatus() != null
+                && "NOOP".equalsIgnoreCase(stepExecution.getExitStatus().getExitCode())) {
             return SKIPPED;
         }
         return COMPLETED;

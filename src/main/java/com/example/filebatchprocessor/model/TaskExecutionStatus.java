@@ -19,7 +19,8 @@ public enum TaskExecutionStatus {
             return READY.name();
         }
         try {
-            return TaskExecutionStatus.valueOf(status.trim().toUpperCase(Locale.ROOT)).name();
+            return TaskExecutionStatus.valueOf(status.trim().toUpperCase(Locale.ROOT))
+                    .name();
         } catch (IllegalArgumentException ex) {
             return status.trim().toUpperCase(Locale.ROOT);
         }

@@ -10,5 +10,3 @@ public class ExportRecord {
     private String description;
     private String batchDate;
 }
-
-

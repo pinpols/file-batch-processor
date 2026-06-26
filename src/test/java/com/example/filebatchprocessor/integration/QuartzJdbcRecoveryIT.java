@@ -1,10 +1,13 @@
 package com.example.filebatchprocessor.integration;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import com.example.filebatchprocessor.batch.scheduler.TaskSchedulerService;
 import com.example.filebatchprocessor.batch.scheduler.TriggerType;
 import com.example.filebatchprocessor.scheduler.OrchestrationTaskDefinition;
 import com.example.filebatchprocessor.scheduler.OrchestrationTaskTrigger;
 import com.example.filebatchprocessor.support.PostgresContainerSupport;
+import java.util.Properties;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.quartz.JobKey;
@@ -18,19 +21,16 @@ import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 
-import java.util.Properties;
-
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 @SpringBootTest
 @ActiveProfiles("test")
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
-@TestPropertySource(properties = {
-        "spring.quartz.job-store-type=jdbc",
-        "spring.quartz.jdbc.initialize-schema=never",
-        "orchestration.enabled=true",
-        "orchestration.scheduler.force-leader=true"
-})
+@TestPropertySource(
+        properties = {
+            "spring.quartz.job-store-type=jdbc",
+            "spring.quartz.jdbc.initialize-schema=never",
+            "orchestration.enabled=true",
+            "orchestration.scheduler.force-leader=true"
+        })
 class QuartzJdbcRecoveryIT extends PostgresContainerSupport {
 
     @Autowired
@@ -64,8 +64,7 @@ class QuartzJdbcRecoveryIT extends PostgresContainerSupport {
         Long triggerRows = jdbcTemplate.queryForObject(
                 "select count(*) from qrtz_triggers where trigger_name = ? and trigger_group = 'orchestration'",
                 Long.class,
-                triggerKey.getName()
-        );
+                triggerKey.getName());
         assertTrue(triggerRows != null && triggerRows > 0, "JDBC JobStore should persist trigger row");
 
         scheduler.shutdown(true);

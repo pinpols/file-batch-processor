@@ -22,4 +22,3 @@ public class SpringContextHolder implements ApplicationContextAware {
         return context.getBean(type);
     }
 }
-

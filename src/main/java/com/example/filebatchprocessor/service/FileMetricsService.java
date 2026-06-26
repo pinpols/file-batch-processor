@@ -5,15 +5,14 @@ import com.example.filebatchprocessor.repository.DlqRecordRepository;
 import com.example.filebatchprocessor.repository.FileAssetRecordRepository;
 import com.example.filebatchprocessor.repository.FileDispatchRecordRepository;
 import com.example.filebatchprocessor.repository.FileMetricsSnapshotRepository;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.List;
 
 @Slf4j
 @Service
@@ -28,10 +27,11 @@ public class FileMetricsService {
     @Value("${file.metrics.enabled:true}")
     private boolean enabled;
 
-    public FileMetricsService(FileAssetRecordRepository fileAssetRepository,
-                            FileDispatchRecordRepository dispatchRecordRepository,
-                            FileMetricsSnapshotRepository metricsRepository,
-                            DlqRecordRepository dlqRecordRepository) {
+    public FileMetricsService(
+            FileAssetRecordRepository fileAssetRepository,
+            FileDispatchRecordRepository dispatchRecordRepository,
+            FileMetricsSnapshotRepository metricsRepository,
+            DlqRecordRepository dlqRecordRepository) {
         this.fileAssetRepository = fileAssetRepository;
         this.dispatchRecordRepository = dispatchRecordRepository;
         this.metricsRepository = metricsRepository;
@@ -43,12 +43,12 @@ public class FileMetricsService {
         if (!enabled) {
             return;
         }
-        
+
         try {
             FileMetricsSnapshot snapshot = new FileMetricsSnapshot();
             snapshot.setSnapshotTime(LocalDateTime.now());
             snapshot.setMetricDate(LocalDate.now());
-            
+
             snapshot.setReceivedCount(fileAssetRepository.countByStatusAndFileDirection("ARRIVED", "INBOUND")
                     + fileAssetRepository.countByStatusAndFileDirection("READY", "INBOUND"));
             snapshot.setProcessedCount(fileAssetRepository.countByStatusAndFileDirection("PROCESSED", "INBOUND"));
@@ -68,16 +68,21 @@ public class FileMetricsService {
             snapshot.setDlqCount(dlqRecordRepository.countByHandledFalse());
 
             metricsRepository.save(snapshot);
-            log.info("Captured file metrics snapshot: received={}, processed={}, failed={}, dispatch={}, dlq={}",
-                    snapshot.getReceivedCount(), snapshot.getProcessedCount(), 
-                    snapshot.getFailedCount(), snapshot.getDispatchCount(), snapshot.getDlqCount());
+            log.info(
+                    "Captured file metrics snapshot: received={}, processed={}, failed={}, dispatch={}, dlq={}",
+                    snapshot.getReceivedCount(),
+                    snapshot.getProcessedCount(),
+                    snapshot.getFailedCount(),
+                    snapshot.getDispatchCount(),
+                    snapshot.getDlqCount());
         } catch (Exception e) {
             log.error("Failed to capture file metrics", e);
         }
     }
 
     public FileMetricsSnapshot getTodayMetrics() {
-        return metricsRepository.findFirstByMetricDateOrderBySnapshotTimeDesc(LocalDate.now())
+        return metricsRepository
+                .findFirstByMetricDateOrderBySnapshotTimeDesc(LocalDate.now())
                 .orElse(null);
     }
 

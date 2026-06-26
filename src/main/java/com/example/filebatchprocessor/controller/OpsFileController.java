@@ -8,16 +8,15 @@ import com.example.filebatchprocessor.repository.FileDispatchRecordRepository;
 import com.example.filebatchprocessor.repository.FileProcessLogRepository;
 import com.example.filebatchprocessor.service.FileAssetService;
 import com.example.filebatchprocessor.service.OpsAuditService;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/ops/files")
@@ -29,11 +28,12 @@ public class OpsFileController {
     private final FileAssetService fileAssetService;
     private final OpsAuditService opsAuditService;
 
-    public OpsFileController(FileAssetRecordRepository fileAssetRepository,
-                            FileProcessLogRepository fileProcessLogRepository,
-                            FileDispatchRecordRepository fileDispatchRecordRepository,
-                            FileAssetService fileAssetService,
-                            OpsAuditService opsAuditService) {
+    public OpsFileController(
+            FileAssetRecordRepository fileAssetRepository,
+            FileProcessLogRepository fileProcessLogRepository,
+            FileDispatchRecordRepository fileDispatchRecordRepository,
+            FileAssetService fileAssetService,
+            OpsAuditService opsAuditService) {
         this.fileAssetRepository = fileAssetRepository;
         this.fileProcessLogRepository = fileProcessLogRepository;
         this.fileDispatchRecordRepository = fileDispatchRecordRepository;
@@ -51,10 +51,10 @@ public class OpsFileController {
             @RequestParam(defaultValue = "20") int size,
             Authentication authentication) {
         String operator = authentication != null ? authentication.getName() : "SYSTEM";
-        
+
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         Page<FileAssetRecord> result;
-        
+
         if (fileNo != null && !fileNo.isBlank()) {
             List<FileAssetRecord> records = fileAssetRepository.findByFileNoIn(List.of(fileNo));
             result = new org.springframework.data.domain.PageImpl<>(records, pageable, records.size());
@@ -72,8 +72,14 @@ public class OpsFileController {
             result = fileAssetRepository.findAll(pageable);
         }
 
-        opsAuditService.log("FILE_SEARCH", operator, "FILE", "QUERY", "SUCCESS", "Query files with criteria: fileNo=" + fileNo 
-                + ", status=" + status + ", sourceSystem=" + sourceSystem + ", bizDate=" + bizDate);
+        opsAuditService.log(
+                "FILE_SEARCH",
+                operator,
+                "FILE",
+                "QUERY",
+                "SUCCESS",
+                "Query files with criteria: fileNo=" + fileNo + ", status=" + status + ", sourceSystem=" + sourceSystem
+                        + ", bizDate=" + bizDate);
 
         return buildFilePageResponse(result);
     }
@@ -81,15 +87,17 @@ public class OpsFileController {
     @GetMapping("/{fileId}")
     public Map<String, Object> getFileDetail(@PathVariable Long fileId, Authentication authentication) {
         String operator = authentication != null ? authentication.getName() : "SYSTEM";
-        
-        FileAssetRecord record = fileAssetRepository.findById(fileId)
+
+        FileAssetRecord record = fileAssetRepository
+                .findById(fileId)
                 .orElseThrow(() -> new IllegalArgumentException("File not found: " + fileId));
-        
+
         List<FileProcessLog> logs = fileProcessLogRepository.findByFileRecordIdOrderByCreatedAtDesc(fileId);
-        List<FileDispatchRecord> dispatches = fileDispatchRecordRepository.findByFileRecordIdOrderByCreatedAtDesc(fileId);
-        
+        List<FileDispatchRecord> dispatches =
+                fileDispatchRecordRepository.findByFileRecordIdOrderByCreatedAtDesc(fileId);
+
         opsAuditService.log("FILE_VIEW", operator, "FILE", String.valueOf(fileId), "SUCCESS", "View file detail");
-        
+
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("file", record);
         response.put("processLogs", logs);
@@ -104,15 +112,17 @@ public class OpsFileController {
             @RequestParam(defaultValue = "50") int size,
             Authentication authentication) {
         String operator = authentication != null ? authentication.getName() : "SYSTEM";
-        
-        FileAssetRecord record = fileAssetRepository.findById(fileId)
+
+        FileAssetRecord record = fileAssetRepository
+                .findById(fileId)
                 .orElseThrow(() -> new IllegalArgumentException("File not found: " + fileId));
-        
+
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         Page<FileProcessLog> logs = fileProcessLogRepository.findByFileRecordId(fileId, pageable);
-        
-        opsAuditService.log("FILE_LOGS_VIEW", operator, "FILE", String.valueOf(fileId), "SUCCESS", "View file process logs");
-        
+
+        opsAuditService.log(
+                "FILE_LOGS_VIEW", operator, "FILE", String.valueOf(fileId), "SUCCESS", "View file process logs");
+
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("fileId", fileId);
         response.put("fileNo", record.getFileNo());
@@ -130,15 +140,22 @@ public class OpsFileController {
             @RequestParam(defaultValue = "20") int size,
             Authentication authentication) {
         String operator = authentication != null ? authentication.getName() : "SYSTEM";
-        
-        FileAssetRecord record = fileAssetRepository.findById(fileId)
+
+        FileAssetRecord record = fileAssetRepository
+                .findById(fileId)
                 .orElseThrow(() -> new IllegalArgumentException("File not found: " + fileId));
-        
+
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         Page<FileDispatchRecord> dispatches = fileDispatchRecordRepository.findByFileRecordId(fileId, pageable);
-        
-        opsAuditService.log("FILE_DISPATCH_VIEW", operator, "FILE", String.valueOf(fileId), "SUCCESS", "View file dispatch records");
-        
+
+        opsAuditService.log(
+                "FILE_DISPATCH_VIEW",
+                operator,
+                "FILE",
+                String.valueOf(fileId),
+                "SUCCESS",
+                "View file dispatch records");
+
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("fileId", fileId);
         response.put("fileNo", record.getFileNo());
@@ -156,14 +173,16 @@ public class OpsFileController {
             Authentication authentication) {
         String operator = authentication != null ? authentication.getName() : "SYSTEM";
         String reason = request != null && request.reason() != null ? request.reason() : "Manual reprocess requested";
-        
-        FileAssetRecord record = fileAssetRepository.findById(fileId)
+
+        FileAssetRecord record = fileAssetRepository
+                .findById(fileId)
                 .orElseThrow(() -> new IllegalArgumentException("File not found: " + fileId));
-        
+
         fileAssetService.reprocessFile(fileId, operator, reason);
-        
-        opsAuditService.log("FILE_REPROCESS", operator, "FILE", String.valueOf(fileId), "SUCCESS", "Reprocess file: " + reason);
-        
+
+        opsAuditService.log(
+                "FILE_REPROCESS", operator, "FILE", String.valueOf(fileId), "SUCCESS", "Reprocess file: " + reason);
+
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("fileId", fileId);
         response.put("fileNo", record.getFileNo());
@@ -176,12 +195,19 @@ public class OpsFileController {
     @GetMapping("/download/{fileId}/authorize")
     public Map<String, Object> authorizeDownload(@PathVariable Long fileId, Authentication authentication) {
         String operator = authentication != null ? authentication.getName() : "SYSTEM";
-        
-        FileAssetRecord record = fileAssetRepository.findById(fileId)
+
+        FileAssetRecord record = fileAssetRepository
+                .findById(fileId)
                 .orElseThrow(() -> new IllegalArgumentException("File not found: " + fileId));
-        
-        opsAuditService.log("FILE_DOWNLOAD_AUTHORIZE", operator, "FILE", String.valueOf(fileId), "SUCCESS", "Authorize file download");
-        
+
+        opsAuditService.log(
+                "FILE_DOWNLOAD_AUTHORIZE",
+                operator,
+                "FILE",
+                String.valueOf(fileId),
+                "SUCCESS",
+                "Authorize file download");
+
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("authorized", true);
         response.put("fileId", fileId);
@@ -205,6 +231,5 @@ public class OpsFileController {
         return response;
     }
 
-    public record ReprocessRequest(String reason) {
-    }
+    public record ReprocessRequest(String reason) {}
 }

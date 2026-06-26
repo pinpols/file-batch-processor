@@ -1,15 +1,15 @@
 package com.example.filebatchprocessor.unit.service;
 
-import com.example.filebatchprocessor.service.EnhancedClusterSchedulerService;
-import org.junit.jupiter.api.Test;
-import org.quartz.Scheduler;
-import org.quartz.SchedulerMetaData;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+
+import com.example.filebatchprocessor.service.EnhancedClusterSchedulerService;
+import org.junit.jupiter.api.Test;
+import org.quartz.Scheduler;
+import org.quartz.SchedulerMetaData;
 
 class EnhancedClusterSchedulerServiceTest {
 
@@ -28,8 +28,7 @@ class EnhancedClusterSchedulerServiceTest {
         when(metaData.getRunningSince()).thenReturn(null);
         when(scheduler.isStarted()).thenReturn(true);
 
-        EnhancedClusterSchedulerService service =
-                new EnhancedClusterSchedulerService(scheduler, "node-a", 15000L, 3);
+        EnhancedClusterSchedulerService service = new EnhancedClusterSchedulerService(scheduler, "node-a", 15000L, 3);
 
         service.initialize();
 
@@ -44,8 +43,7 @@ class EnhancedClusterSchedulerServiceTest {
         when(scheduler.getMetaData()).thenReturn(metaData);
         when(metaData.isJobStoreClustered()).thenReturn(false);
 
-        EnhancedClusterSchedulerService service =
-                new EnhancedClusterSchedulerService(scheduler, "   ", 15000L, 3);
+        EnhancedClusterSchedulerService service = new EnhancedClusterSchedulerService(scheduler, "   ", 15000L, 3);
 
         service.initialize();
 

@@ -1,24 +1,23 @@
 package com.example.filebatchprocessor.integration;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import com.example.filebatchprocessor.model.OpsChangeRequest;
 import com.example.filebatchprocessor.model.TaskDefinition;
 import com.example.filebatchprocessor.repository.OpsChangeRequestRepository;
 import com.example.filebatchprocessor.repository.TaskDefinitionRepository;
 import com.example.filebatchprocessor.service.OpsChangeManagementService;
 import com.example.filebatchprocessor.support.PostgresContainerSupport;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.*;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest
 @ActiveProfiles("test")
@@ -27,8 +26,10 @@ class OpsChangeApprovalConcurrencyIT extends PostgresContainerSupport {
 
     @Autowired
     private OpsChangeManagementService opsChangeManagementService;
+
     @Autowired
     private TaskDefinitionRepository taskDefinitionRepository;
+
     @Autowired
     private OpsChangeRequestRepository opsChangeRequestRepository;
 
@@ -59,15 +60,13 @@ class OpsChangeApprovalConcurrencyIT extends PostgresContainerSupport {
                 null,
                 "none",
                 "LOW",
-                "rollback enabled=true"
-        );
+                "rollback enabled=true");
 
         ExecutorService pool = Executors.newFixedThreadPool(2);
         CountDownLatch latch = new CountDownLatch(1);
         List<Callable<String>> jobs = List.of(
                 () -> approveWithBarrier(request.getId(), "approver-1", latch),
-                () -> approveWithBarrier(request.getId(), "approver-2", latch)
-        );
+                () -> approveWithBarrier(request.getId(), "approver-2", latch));
 
         List<Future<String>> futures = new ArrayList<>();
         for (Callable<String> job : jobs) {
@@ -91,7 +90,8 @@ class OpsChangeApprovalConcurrencyIT extends PostgresContainerSupport {
         }
         pool.shutdownNow();
 
-        OpsChangeRequest latest = opsChangeRequestRepository.findById(request.getId()).orElseThrow();
+        OpsChangeRequest latest =
+                opsChangeRequestRepository.findById(request.getId()).orElseThrow();
         assertEquals("APPROVED", latest.getStatus());
         assertTrue(success >= 1, "at least one approval should succeed");
         assertEquals(2, success + failed, "both concurrent requests should finish");

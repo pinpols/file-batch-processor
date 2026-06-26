@@ -1,5 +1,6 @@
 package com.example.filebatchprocessor.batch.config;
 
+import com.example.filebatchprocessor.listener.JobCompletionNotificationListener;
 import com.example.filebatchprocessor.model.FileDistributionTask;
 import com.example.filebatchprocessor.model.FileReceptionQueue;
 import com.example.filebatchprocessor.model.ImportedRecord;
@@ -7,13 +8,16 @@ import com.example.filebatchprocessor.model.ImportedRecordPartitioned;
 import com.example.filebatchprocessor.repository.FileDistributionTaskRepository;
 import com.example.filebatchprocessor.repository.ImportedRecordPartitionedRepository;
 import com.example.filebatchprocessor.repository.ImportedRecordRepository;
-import com.example.filebatchprocessor.listener.JobCompletionNotificationListener;
 import com.example.filebatchprocessor.service.FileDistributionService;
 import com.example.filebatchprocessor.service.FileExportService;
 import com.example.filebatchprocessor.service.FileReceptionService;
 import com.example.filebatchprocessor.service.JobInstanceParameters;
 import com.example.filebatchprocessor.service.PartitionedImportService;
 import com.example.filebatchprocessor.service.distribution.FileDistributorDispatcher;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.Locale;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.builder.JobBuilder;
@@ -26,11 +30,6 @@ import org.springframework.batch.infrastructure.repeat.RepeatStatus;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.transaction.PlatformTransactionManager;
-
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.util.List;
-import java.util.Locale;
 
 @Slf4j
 @Configuration
@@ -45,31 +44,29 @@ public class OperationalTaskJobConfig {
     private final JobRepository jobRepository;
     private final PlatformTransactionManager transactionManager;
 
-    public OperationalTaskJobConfig(JobRepository jobRepository,
-                                    PlatformTransactionManager transactionManager) {
+    public OperationalTaskJobConfig(JobRepository jobRepository, PlatformTransactionManager transactionManager) {
         this.jobRepository = jobRepository;
         this.transactionManager = transactionManager;
     }
 
     @Bean
-    public Tasklet partitionedImportTasklet(ImportedRecordRepository importedRecordRepository,
-                                            PartitionedImportService partitionedImportService) {
+    public Tasklet partitionedImportTasklet(
+            ImportedRecordRepository importedRecordRepository, PartitionedImportService partitionedImportService) {
         return (contribution, chunkContext) -> {
-            String batchDate = resolveBatchDate(chunkContext.getStepContext().getJobParameters().get("batchDate"));
+            String batchDate = resolveBatchDate(
+                    chunkContext.getStepContext().getJobParameters().get("batchDate"));
             List<ImportedRecord> records = importedRecordRepository.findByBatchDateOrderByIdAsc(batchDate);
             int imported = 0;
             for (ImportedRecord record : records) {
                 partitionedImportService.importRecord(
-                        record.getBusinessKey(),
-                        record.getName(),
-                        record.getDescription(),
-                        batchDate,
-                        null,
-                        null
-                );
+                        record.getBusinessKey(), record.getName(), record.getDescription(), batchDate, null, null);
                 imported++;
             }
-            log.info("partitionedImportJob completed: batchDate={}, sourceRecords={}, imported={}", batchDate, records.size(), imported);
+            log.info(
+                    "partitionedImportJob completed: batchDate={}, sourceRecords={}, imported={}",
+                    batchDate,
+                    records.size(),
+                    imported);
             return RepeatStatus.FINISHED;
         };
     }
@@ -82,8 +79,7 @@ public class OperationalTaskJobConfig {
     }
 
     @Bean("partitionedImportJob")
-    public Job partitionedImportJob(Step partitionedImportStep,
-                                    JobCompletionNotificationListener listener) {
+    public Job partitionedImportJob(Step partitionedImportStep, JobCompletionNotificationListener listener) {
         return new JobBuilder("partitionedImportJob", jobRepository)
                 .incrementer(new RunIdIncrementer())
                 .listener(listener)
@@ -92,37 +88,44 @@ public class OperationalTaskJobConfig {
     }
 
     @Bean
-    public Tasklet fileExportTasklet(ImportedRecordPartitionedRepository importedRecordPartitionedRepository,
-                                     FileExportService fileExportService) {
+    public Tasklet fileExportTasklet(
+            ImportedRecordPartitionedRepository importedRecordPartitionedRepository,
+            FileExportService fileExportService) {
         return (contribution, chunkContext) -> {
             var params = chunkContext.getStepContext().getJobParameters();
             String batchDate = resolveBatchDate(params.get("batchDate"));
             String format = resolveString(params.get("format"), "csv").toLowerCase(Locale.ROOT);
             String outputDir = resolveString(params.get("outputDir"), "export");
-            String extension = switch (format) {
-                case "csv", "json", "excel" -> format;
-                default -> throw new IllegalArgumentException("Unsupported export format: " + format);
-            };
+            String extension =
+                    switch (format) {
+                        case "csv", "json", "excel" -> format;
+                        default -> throw new IllegalArgumentException("Unsupported export format: " + format);
+                    };
             String fileName = "file_export_" + sanitizeBatchDate(batchDate) + "." + extension;
 
             List<ImportedRecordPartitioned> records = importedRecordPartitionedRepository.findByBatchDate(batchDate);
             String[] headers = {"business_key", "name", "description", "batch_date"};
             String[][] rows = records.stream()
-                    .map(record -> new String[]{
-                            nullSafe(record.getBusinessKey()),
-                            nullSafe(record.getName()),
-                            nullSafe(record.getDescription()),
-                            nullSafe(record.getBatchDate())
+                    .map(record -> new String[] {
+                        nullSafe(record.getBusinessKey()),
+                        nullSafe(record.getName()),
+                        nullSafe(record.getDescription()),
+                        nullSafe(record.getBatchDate())
                     })
                     .toArray(String[][]::new);
 
-            String exportedPath = switch (format) {
-                case "csv" -> fileExportService.exportToCSV(outputDir, fileName, rows, headers);
-                case "json" -> fileExportService.exportToJSON(outputDir, fileName, records);
-                case "excel" -> fileExportService.exportToExcel(outputDir, fileName, rows, headers);
-                default -> throw new IllegalArgumentException("Unsupported export format: " + format);
-            };
-            log.info("fileExportJob completed: batchDate={}, records={}, output={}", batchDate, records.size(), exportedPath);
+            String exportedPath =
+                    switch (format) {
+                        case "csv" -> fileExportService.exportToCSV(outputDir, fileName, rows, headers);
+                        case "json" -> fileExportService.exportToJSON(outputDir, fileName, records);
+                        case "excel" -> fileExportService.exportToExcel(outputDir, fileName, rows, headers);
+                        default -> throw new IllegalArgumentException("Unsupported export format: " + format);
+                    };
+            log.info(
+                    "fileExportJob completed: batchDate={}, records={}, output={}",
+                    batchDate,
+                    records.size(),
+                    exportedPath);
             return RepeatStatus.FINISHED;
         };
     }
@@ -135,8 +138,7 @@ public class OperationalTaskJobConfig {
     }
 
     @Bean("fileExportJob")
-    public Job fileExportJob(Step fileExportStep,
-                             JobCompletionNotificationListener listener) {
+    public Job fileExportJob(Step fileExportStep, JobCompletionNotificationListener listener) {
         return new JobBuilder("fileExportJob", jobRepository)
                 .incrementer(new RunIdIncrementer())
                 .listener(listener)
@@ -162,10 +164,15 @@ public class OperationalTaskJobConfig {
                         waiting++;
                     }
                 } catch (Exception ex) {
-                    fileReceptionService.markAsFailed(file.getId(), "File reception monitor failed: " + ex.getMessage());
+                    fileReceptionService.markAsFailed(
+                            file.getId(), "File reception monitor failed: " + ex.getMessage());
                 }
             }
-            log.info("fileReceptionJob completed: pendingFiles={}, completed={}, waiting={}", pendingFiles.size(), completed, waiting);
+            log.info(
+                    "fileReceptionJob completed: pendingFiles={}, completed={}, waiting={}",
+                    pendingFiles.size(),
+                    completed,
+                    waiting);
             return RepeatStatus.FINISHED;
         };
     }
@@ -178,8 +185,7 @@ public class OperationalTaskJobConfig {
     }
 
     @Bean("fileReceptionJob")
-    public Job fileReceptionJob(Step fileReceptionStep,
-                                JobCompletionNotificationListener listener) {
+    public Job fileReceptionJob(Step fileReceptionStep, JobCompletionNotificationListener listener) {
         return new JobBuilder("fileReceptionJob", jobRepository)
                 .incrementer(new RunIdIncrementer())
                 .listener(listener)
@@ -194,9 +200,13 @@ public class OperationalTaskJobConfig {
             int timeoutMinutes = resolveInt(params.get("timeoutMinutes"), DEFAULT_RECEPTION_TIMEOUT_MINUTES);
             List<FileReceptionQueue> overdueFiles = fileReceptionService.findOverdueFiles(timeoutMinutes);
             for (FileReceptionQueue file : overdueFiles) {
-                fileReceptionService.markAsFailed(file.getId(), "File reception timeout exceeded " + timeoutMinutes + " minutes");
+                fileReceptionService.markAsFailed(
+                        file.getId(), "File reception timeout exceeded " + timeoutMinutes + " minutes");
             }
-            log.info("fileReceptionTimeoutJob completed: timeoutMinutes={}, overdueFiles={}", timeoutMinutes, overdueFiles.size());
+            log.info(
+                    "fileReceptionTimeoutJob completed: timeoutMinutes={}, overdueFiles={}",
+                    timeoutMinutes,
+                    overdueFiles.size());
             return RepeatStatus.FINISHED;
         };
     }
@@ -209,8 +219,7 @@ public class OperationalTaskJobConfig {
     }
 
     @Bean("fileReceptionTimeoutJob")
-    public Job fileReceptionTimeoutJob(Step fileReceptionTimeoutStep,
-                                       JobCompletionNotificationListener listener) {
+    public Job fileReceptionTimeoutJob(Step fileReceptionTimeoutStep, JobCompletionNotificationListener listener) {
         return new JobBuilder("fileReceptionTimeoutJob", jobRepository)
                 .incrementer(new RunIdIncrementer())
                 .listener(listener)
@@ -219,10 +228,12 @@ public class OperationalTaskJobConfig {
     }
 
     @Bean
-    public Tasklet fileDistributionTasklet(FileDistributionService fileDistributionService,
-                                           FileDistributorDispatcher fileDistributorDispatcher) {
+    public Tasklet fileDistributionTasklet(
+            FileDistributionService fileDistributionService, FileDistributorDispatcher fileDistributorDispatcher) {
         return (contribution, chunkContext) -> {
-            Long jobInstanceId = resolveLong(chunkContext.getStepContext().getJobParameters()
+            Long jobInstanceId = resolveLong(chunkContext
+                    .getStepContext()
+                    .getJobParameters()
                     .get(JobInstanceParameters.BUSINESS_JOB_INSTANCE_ID));
             List<FileDistributionTask> pendingTasks = fileDistributionService.findPendingTasks();
             for (FileDistributionTask task : pendingTasks) {
@@ -241,8 +252,7 @@ public class OperationalTaskJobConfig {
     }
 
     @Bean("fileDistributionJob")
-    public Job fileDistributionJob(Step fileDistributionStep,
-                                   JobCompletionNotificationListener listener) {
+    public Job fileDistributionJob(Step fileDistributionStep, JobCompletionNotificationListener listener) {
         return new JobBuilder("fileDistributionJob", jobRepository)
                 .incrementer(new RunIdIncrementer())
                 .listener(listener)
@@ -251,9 +261,10 @@ public class OperationalTaskJobConfig {
     }
 
     @Bean
-    public Tasklet fileDistributionRetryTasklet(FileDistributionService fileDistributionService,
-                                                FileDistributionTaskRepository fileDistributionTaskRepository,
-                                                FileDistributorDispatcher fileDistributorDispatcher) {
+    public Tasklet fileDistributionRetryTasklet(
+            FileDistributionService fileDistributionService,
+            FileDistributionTaskRepository fileDistributionTaskRepository,
+            FileDistributorDispatcher fileDistributorDispatcher) {
         return (contribution, chunkContext) -> {
             var params = chunkContext.getStepContext().getJobParameters();
             Long jobInstanceId = resolveLong(params.get(JobInstanceParameters.BUSINESS_JOB_INSTANCE_ID));
@@ -261,9 +272,11 @@ public class OperationalTaskJobConfig {
             List<FileDistributionTask> retryableTasks = fileDistributionService.findRetryableTasks(retryMinutes);
             int retried = 0;
             for (FileDistributionTask task : retryableTasks) {
-                fileDistributionService.retryFailedTask(task.getId(), "SYSTEM", "Automatic distribution retry", jobInstanceId);
-                fileDistributionTaskRepository.findById(task.getId()).ifPresent(refreshed ->
-                        fileDistributorDispatcher.distribute(refreshed, jobInstanceId));
+                fileDistributionService.retryFailedTask(
+                        task.getId(), "SYSTEM", "Automatic distribution retry", jobInstanceId);
+                fileDistributionTaskRepository
+                        .findById(task.getId())
+                        .ifPresent(refreshed -> fileDistributorDispatcher.distribute(refreshed, jobInstanceId));
                 retried++;
             }
             log.info("fileDistributionRetryJob completed: retryMinutes={}, retriedTasks={}", retryMinutes, retried);
@@ -279,8 +292,7 @@ public class OperationalTaskJobConfig {
     }
 
     @Bean("fileDistributionRetryJob")
-    public Job fileDistributionRetryJob(Step fileDistributionRetryStep,
-                                        JobCompletionNotificationListener listener) {
+    public Job fileDistributionRetryJob(Step fileDistributionRetryStep, JobCompletionNotificationListener listener) {
         return new JobBuilder("fileDistributionRetryJob", jobRepository)
                 .incrementer(new RunIdIncrementer())
                 .listener(listener)
@@ -294,21 +306,26 @@ public class OperationalTaskJobConfig {
             var params = chunkContext.getStepContext().getJobParameters();
             Long jobInstanceId = resolveLong(params.get(JobInstanceParameters.BUSINESS_JOB_INSTANCE_ID));
             int timeoutMinutes = resolveInt(params.get("timeoutMinutes"), DEFAULT_DISTRIBUTION_TIMEOUT_MINUTES);
-            int ackTimeoutMinutes = resolveInt(params.get("ackTimeoutMinutes"), DEFAULT_DISTRIBUTION_ACK_TIMEOUT_MINUTES);
+            int ackTimeoutMinutes =
+                    resolveInt(params.get("ackTimeoutMinutes"), DEFAULT_DISTRIBUTION_ACK_TIMEOUT_MINUTES);
             List<FileDistributionTask> timeoutTasks = fileDistributionService.findTimeoutTasks(timeoutMinutes);
             for (FileDistributionTask task : timeoutTasks) {
-                fileDistributionService.markAsFailed(task.getId(),
+                fileDistributionService.markAsFailed(
+                        task.getId(),
                         "File distribution timeout exceeded " + timeoutMinutes + " minutes",
                         jobInstanceId);
             }
             List<FileDistributionTask> ackTimeoutTasks = fileDistributionService.findAckTimeoutTasks(ackTimeoutMinutes);
             for (FileDistributionTask task : ackTimeoutTasks) {
-                fileDistributionService.markAckTimedOut(task.getId(),
-                        "Dispatch ack timeout exceeded " + ackTimeoutMinutes + " minutes",
-                        jobInstanceId);
+                fileDistributionService.markAckTimedOut(
+                        task.getId(), "Dispatch ack timeout exceeded " + ackTimeoutMinutes + " minutes", jobInstanceId);
             }
-            log.info("fileDistributionTimeoutJob completed: timeoutMinutes={}, timeoutTasks={}, ackTimeoutMinutes={}, ackTimeoutTasks={}",
-                    timeoutMinutes, timeoutTasks.size(), ackTimeoutMinutes, ackTimeoutTasks.size());
+            log.info(
+                    "fileDistributionTimeoutJob completed: timeoutMinutes={}, timeoutTasks={}, ackTimeoutMinutes={}, ackTimeoutTasks={}",
+                    timeoutMinutes,
+                    timeoutTasks.size(),
+                    ackTimeoutMinutes,
+                    ackTimeoutTasks.size());
             return RepeatStatus.FINISHED;
         };
     }
@@ -321,8 +338,8 @@ public class OperationalTaskJobConfig {
     }
 
     @Bean("fileDistributionTimeoutJob")
-    public Job fileDistributionTimeoutJob(Step fileDistributionTimeoutStep,
-                                          JobCompletionNotificationListener listener) {
+    public Job fileDistributionTimeoutJob(
+            Step fileDistributionTimeoutStep, JobCompletionNotificationListener listener) {
         return new JobBuilder("fileDistributionTimeoutJob", jobRepository)
                 .incrementer(new RunIdIncrementer())
                 .listener(listener)

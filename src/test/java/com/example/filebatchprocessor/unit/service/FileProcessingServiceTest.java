@@ -1,16 +1,5 @@
 package com.example.filebatchprocessor.service;
 
-import com.example.filebatchprocessor.model.FileData;
-import com.example.filebatchprocessor.repository.FileDataRepository;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-import org.springframework.mock.web.MockMultipartFile;
-
-import java.lang.reflect.Field;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.Optional;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -21,6 +10,16 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
+import com.example.filebatchprocessor.model.FileData;
+import com.example.filebatchprocessor.repository.FileDataRepository;
+import java.lang.reflect.Field;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Optional;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.springframework.mock.web.MockMultipartFile;
 
 class FileProcessingServiceTest {
 
@@ -36,12 +35,8 @@ class FileProcessingServiceTest {
 
         when(repository.save(any(FileData.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        MockMultipartFile file = new MockMultipartFile(
-                "file",
-                "demo.csv",
-                "text/csv",
-                "k1,name1,desc1\nk2,name2,desc2\n".getBytes()
-        );
+        MockMultipartFile file =
+                new MockMultipartFile("file", "demo.csv", "text/csv", "k1,name1,desc1\nk2,name2,desc2\n".getBytes());
 
         FileData saved = service.saveFile(file);
 
@@ -132,7 +127,8 @@ class FileProcessingServiceTest {
         service.writeToPartitionedTable(4L);
 
         assertEquals("ERROR", fileData.getStatus());
-        verify(partitionedImportService, never()).importRecord(anyString(), anyString(), anyString(), anyString(), anyString(), anyString());
+        verify(partitionedImportService, never())
+                .importRecord(anyString(), anyString(), anyString(), anyString(), anyString(), anyString());
     }
 
     private void setUploadDirectory(FileProcessingService service, String value) throws Exception {
@@ -141,4 +137,3 @@ class FileProcessingServiceTest {
         field.set(service, value);
     }
 }
-

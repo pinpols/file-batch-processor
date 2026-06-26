@@ -1,32 +1,30 @@
 package com.example.filebatchprocessor.batch.writer;
 
-import com.example.filebatchprocessor.model.FileRecord;
+import com.example.filebatchprocessor.exception.ErrorCodeClassifier;
+import com.example.filebatchprocessor.exception.TransientImportException;
 import com.example.filebatchprocessor.model.DlqRecord;
+import com.example.filebatchprocessor.model.FileRecord;
 import com.example.filebatchprocessor.model.ImportedRecordPartitioned;
 import com.example.filebatchprocessor.model.RecordTrace;
-import com.example.filebatchprocessor.exception.TransientImportException;
-import com.example.filebatchprocessor.exception.ErrorCodeClassifier;
 import com.example.filebatchprocessor.repository.DlqRecordRepository;
 import com.example.filebatchprocessor.repository.RecordTraceRepository;
 import com.example.filebatchprocessor.service.PartitionedImportService;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.batch.core.ExitStatus;
-
 import org.springframework.batch.core.listener.StepExecutionListener;
 import org.springframework.batch.core.step.StepExecution;
 import org.springframework.batch.infrastructure.item.Chunk;
 import org.springframework.batch.infrastructure.item.ItemWriter;
-import org.springframework.util.StringUtils;
-
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.springframework.transaction.PlatformTransactionManager;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
+import org.springframework.util.StringUtils;
 
 /**
  * 导入文件写入器：写表 imported_records，依赖唯一索引保证落库幂等。
@@ -50,21 +48,20 @@ public class FileImportRecordWriter implements ItemWriter<FileRecord>, StepExecu
     // 使用 TransactionTemplate 在每条记录上开启 REQUIRES_NEW 事务，避免单条写入失败影响外层 chunk 事务
     private final TransactionTemplate txTemplate;
 
-    public FileImportRecordWriter(String batchDate, PartitionedImportService partitionedImportService,
-                                  DlqRecordRepository dlqRecordRepository,
-                                  RecordTraceRepository recordTraceRepository,
-                                  PlatformTransactionManager transactionManager) {
-        this.batchDate = StringUtils.hasText(batchDate)
-                ? batchDate
-                : LocalDate.now().format(BATCH_DATE_FORMATTER);
+    public FileImportRecordWriter(
+            String batchDate,
+            PartitionedImportService partitionedImportService,
+            DlqRecordRepository dlqRecordRepository,
+            RecordTraceRepository recordTraceRepository,
+            PlatformTransactionManager transactionManager) {
+        this.batchDate =
+                StringUtils.hasText(batchDate) ? batchDate : LocalDate.now().format(BATCH_DATE_FORMATTER);
         this.partitionedImportService = partitionedImportService;
         this.dlqRecordRepository = dlqRecordRepository;
         this.recordTraceRepository = recordTraceRepository;
         this.txTemplate = new TransactionTemplate(transactionManager);
         this.txTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
-
-
 
     private String buildBusinessKey(FileRecord item) {
         String name = item.getName() == null ? "unknown" : item.getName();
@@ -101,21 +98,18 @@ public class FileImportRecordWriter implements ItemWriter<FileRecord>, StepExecu
 
         for (FileRecord item : items) {
             String bizKey = buildBusinessKey(item);
-            
+
             // 内存去重：跳过本批次中已处理的记录
             if (!seenKeys.add(bizKey)) {
                 log.debug("Skipping duplicate record in current batch: {}", bizKey);
                 writeCount++; // 视为已处理
                 continue;
             }
-            
+
             // 使用分区导入服务在独立事务中写入分区表，服务负责幂等性检查
             try {
-                ImportedRecordPartitioned saved = txTemplate.execute(status ->
-                        partitionedImportService.importRecord(
-                                bizKey, item.getName(), item.getDescription(), batchDate, inputFileName, null
-                        )
-                );
+                ImportedRecordPartitioned saved = txTemplate.execute(status -> partitionedImportService.importRecord(
+                        bizKey, item.getName(), item.getDescription(), batchDate, inputFileName, null));
                 persistTrace(bizKey, item.getLineNo(), saved == null ? null : saved.getId());
                 log.debug("Persisted or reused record key={} data={}", bizKey, item);
                 writeCount++;
@@ -150,8 +144,12 @@ public class FileImportRecordWriter implements ItemWriter<FileRecord>, StepExecu
         try {
             DlqRecord record = new DlqRecord();
             record.setJobName("importJob");
-            String encodedName = item.getName() == null ? "" : item.getName().replace("&", "%26").replace("=", "%3D");
-            String encodedDesc = item.getDescription() == null ? "" : item.getDescription().replace("&", "%26").replace("=", "%3D");
+            String encodedName = item.getName() == null
+                    ? ""
+                    : item.getName().replace("&", "%26").replace("=", "%3D");
+            String encodedDesc = item.getDescription() == null
+                    ? ""
+                    : item.getDescription().replace("&", "%26").replace("=", "%3D");
             record.setParams("businessKey=" + bizKey
                     + "&name=" + encodedName
                     + "&description=" + encodedDesc
@@ -177,4 +175,3 @@ public class FileImportRecordWriter implements ItemWriter<FileRecord>, StepExecu
         return value.substring(0, maxLen);
     }
 }
-

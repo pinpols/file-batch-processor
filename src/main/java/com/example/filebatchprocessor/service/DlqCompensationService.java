@@ -5,6 +5,12 @@ import com.example.filebatchprocessor.model.CompensationActionType;
 import com.example.filebatchprocessor.model.CompensationRecord;
 import com.example.filebatchprocessor.model.DlqRecord;
 import com.example.filebatchprocessor.repository.DlqRecordRepository;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.JobExecution;
@@ -15,13 +21,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.net.URLDecoder;
-import java.nio.charset.StandardCharsets;
-import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 /**
  * 死信补偿服务：支持按记录重放和按任务重触发。
@@ -43,16 +42,17 @@ public class DlqCompensationService {
     private final int maxReplayCount;
     private final long retryDelayMs;
 
-    public DlqCompensationService(DlqRecordRepository dlqRecordRepository,
-                                  PartitionedImportService partitionedImportService,
-                                  @Qualifier("asyncJobLauncher") JobLauncher jobLauncher,
-                                  @Qualifier("processFileJob") Job processFileJob,
-                                  BatchJobResolver batchJobResolver,
-                                  TaskConfigService taskConfigService,
-                                  JobInstanceService jobInstanceService,
-                                  RetryCompensationService retryCompensationService,
-                                  @Value("${batch.dlq.max-replay-count:5}") int maxReplayCount,
-                                  @Value("${batch.dlq.retry-delay-ms:60000}") long retryDelayMs) {
+    public DlqCompensationService(
+            DlqRecordRepository dlqRecordRepository,
+            PartitionedImportService partitionedImportService,
+            @Qualifier("asyncJobLauncher") JobLauncher jobLauncher,
+            @Qualifier("processFileJob") Job processFileJob,
+            BatchJobResolver batchJobResolver,
+            TaskConfigService taskConfigService,
+            JobInstanceService jobInstanceService,
+            RetryCompensationService retryCompensationService,
+            @Value("${batch.dlq.max-replay-count:5}") int maxReplayCount,
+            @Value("${batch.dlq.retry-delay-ms:60000}") long retryDelayMs) {
         this.dlqRecordRepository = dlqRecordRepository;
         this.partitionedImportService = partitionedImportService;
         this.jobLauncher = jobLauncher;
@@ -68,8 +68,10 @@ public class DlqCompensationService {
     // Suspend the tasklet transaction before launching a nested Spring Batch job.
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public int replayPending(int limit) {
-        List<DlqRecord> records = dlqRecordRepository
-                .findTop100ByHandledFalseAndManualRequiredFalseAndRetryableTrueAndNextRetryAtBeforeOrderByCreatedAtAsc(LocalDateTime.now());
+        List<DlqRecord> records =
+                dlqRecordRepository
+                        .findTop100ByHandledFalseAndManualRequiredFalseAndRetryableTrueAndNextRetryAtBeforeOrderByCreatedAtAsc(
+                                LocalDateTime.now());
         int processed = 0;
         for (DlqRecord record : records) {
             if (processed >= Math.max(limit, 1)) {
@@ -86,8 +88,8 @@ public class DlqCompensationService {
             Map<String, String> params = parse(record.getParams());
             String taskId = resolveTaskId(params);
             Long relatedFileId = jobInstanceService.resolveRelatedFileId(params);
-            CompensationRecord compensationRecord = retryCompensationService.startCompensation(
-                    new RetryCompensationService.StartRequest(
+            CompensationRecord compensationRecord =
+                    retryCompensationService.startCompensation(new RetryCompensationService.StartRequest(
                             CompensationActionType.DLQ_REPLAY,
                             null,
                             null,
@@ -97,17 +99,14 @@ public class DlqCompensationService {
                             null,
                             SYSTEM_OPERATOR,
                             "Scheduled DLQ replay",
-                            buildCompensationRequest(record, taskId, params)
-                    )
-            );
+                            buildCompensationRequest(record, taskId, params)));
             try {
                 ReplayOutcome outcome = replay(record, params, taskId, compensationRecord.getId());
                 retryCompensationService.completeCompensation(
                         compensationRecord.getId(),
                         outcome.targetJobInstanceId(),
                         outcome.springExecutionId(),
-                        outcome.resultPayload()
-                );
+                        outcome.resultPayload());
                 record.setHandled(true);
                 record.setHandledAt(LocalDateTime.now());
                 record.setLastReplayError(null);
@@ -124,8 +123,7 @@ public class DlqCompensationService {
                         targetJobInstanceId,
                         e,
                         e.getMessage(),
-                        Map.of("dlqRecordId", record.getId())
-                );
+                        Map.of("dlqRecordId", record.getId()));
                 record.setReplayCount(currentReplay + 1);
                 String msg = e.getMessage();
                 record.setLastReplayError(msg != null && msg.length() > 1000 ? msg.substring(0, 1000) : msg);
@@ -138,10 +136,8 @@ public class DlqCompensationService {
         return processed;
     }
 
-    private ReplayOutcome replay(DlqRecord record,
-                                 Map<String, String> params,
-                                 String taskId,
-                                 Long compensationRecordId) throws Exception {
+    private ReplayOutcome replay(DlqRecord record, Map<String, String> params, String taskId, Long compensationRecordId)
+            throws Exception {
         String source = params.getOrDefault("source", "");
         if ("record-writer".equals(source)) {
             String businessKey = params.get("businessKey");
@@ -153,11 +149,12 @@ public class DlqCompensationService {
                     null,
                     null,
                     Map.of(
-                            "mode", "RECORD_WRITER",
-                            "dlqRecordId", record.getId(),
-                            "businessKey", businessKey == null ? "" : businessKey
-                    )
-            );
+                            "mode",
+                            "RECORD_WRITER",
+                            "dlqRecordId",
+                            record.getId(),
+                            "businessKey",
+                            businessKey == null ? "" : businessKey));
         }
 
         String raw = record.getParams();
@@ -165,8 +162,8 @@ public class DlqCompensationService {
         String effectiveTaskId = (taskId == null || taskId.isBlank()) ? replayJob.getName() : taskId;
         Long relatedFileId = jobInstanceService.resolveRelatedFileId(params);
         String runKey = "dlq-" + record.getId() + "-" + System.nanoTime();
-        BusinessJobInstance businessInstance = jobInstanceService.createTriggeredInstance(
-                new JobInstanceService.CreateRequest(
+        BusinessJobInstance businessInstance =
+                jobInstanceService.createTriggeredInstance(new JobInstanceService.CreateRequest(
                         effectiveTaskId,
                         replayJob.getName(),
                         "DLQ_REPLAY",
@@ -178,9 +175,7 @@ public class DlqCompensationService {
                         true,
                         false,
                         relatedFileId,
-                        buildReplayRequestPayload(record, effectiveTaskId, compensationRecordId, params)
-                )
-        );
+                        buildReplayRequestPayload(record, effectiveTaskId, compensationRecordId, params)));
         try {
             JobParametersBuilder builder = new JobParametersBuilder()
                     .addLong("time", System.currentTimeMillis())
@@ -201,7 +196,10 @@ public class DlqCompensationService {
 
             mergeTaskParameters(builder, effectiveTaskId);
             params.forEach((key, value) -> {
-                if (key == null || key.isBlank() || value == null || "time".equals(key)
+                if (key == null
+                        || key.isBlank()
+                        || value == null
+                        || "time".equals(key)
                         || JobInstanceParameters.BUSINESS_JOB_INSTANCE_ID.equals(key)
                         || JobInstanceParameters.BUSINESS_JOB_INSTANCE_NO.equals(key)
                         || JobInstanceParameters.TRIGGER_SOURCE.equals(key)
@@ -217,12 +215,14 @@ public class DlqCompensationService {
                     businessInstance.getId(),
                     execution.getId(),
                     Map.of(
-                            "mode", "BATCH_JOB",
-                            "taskId", effectiveTaskId,
-                            "jobName", replayJob.getName(),
-                            "springExecutionId", execution.getId()
-                    )
-            );
+                            "mode",
+                            "BATCH_JOB",
+                            "taskId",
+                            effectiveTaskId,
+                            "jobName",
+                            replayJob.getName(),
+                            "springExecutionId",
+                            execution.getId()));
         } catch (Exception ex) {
             jobInstanceService.markLaunchFailed(businessInstance.getId(), ex.getMessage());
             throw new ReplayFailureException(ex, businessInstance.getId());
@@ -238,7 +238,8 @@ public class DlqCompensationService {
         for (String pair : pairs) {
             String[] kv = pair.split("=", 2);
             if (kv.length == 2) {
-                map.put(URLDecoder.decode(kv[0], StandardCharsets.UTF_8),
+                map.put(
+                        URLDecoder.decode(kv[0], StandardCharsets.UTF_8),
                         URLDecoder.decode(kv[1], StandardCharsets.UTF_8));
             }
         }
@@ -255,7 +256,8 @@ public class DlqCompensationService {
 
     private Job resolveReplayJob(DlqRecord record, String taskId) {
         if (record.getJobName() != null && !record.getJobName().isBlank()) {
-            Job resolved = batchJobResolver.resolve(record.getJobName())
+            Job resolved = batchJobResolver
+                    .resolve(record.getJobName())
                     .map(BatchJobResolver.ResolvedJob::job)
                     .orElse(null);
             if (resolved != null) {
@@ -265,8 +267,10 @@ public class DlqCompensationService {
 
         if (taskId != null && !taskId.isBlank()) {
             try {
-                String configuredJobName = taskConfigService.getTaskDefinition(taskId).getJobName();
-                Job resolved = batchJobResolver.resolve(configuredJobName)
+                String configuredJobName =
+                        taskConfigService.getTaskDefinition(taskId).getJobName();
+                Job resolved = batchJobResolver
+                        .resolve(configuredJobName)
                         .map(BatchJobResolver.ResolvedJob::job)
                         .orElse(null);
                 if (resolved != null) {
@@ -296,9 +300,7 @@ public class DlqCompensationService {
         }
     }
 
-    private Map<String, Object> buildCompensationRequest(DlqRecord record,
-                                                         String taskId,
-                                                         Map<String, String> params) {
+    private Map<String, Object> buildCompensationRequest(DlqRecord record, String taskId, Map<String, String> params) {
         Map<String, Object> payload = new HashMap<>();
         payload.put("dlqRecordId", record.getId());
         payload.put("jobName", record.getJobName());
@@ -309,10 +311,8 @@ public class DlqCompensationService {
         return payload;
     }
 
-    private Map<String, Object> buildReplayRequestPayload(DlqRecord record,
-                                                          String taskId,
-                                                          Long compensationRecordId,
-                                                          Map<String, String> params) {
+    private Map<String, Object> buildReplayRequestPayload(
+            DlqRecord record, String taskId, Long compensationRecordId, Map<String, String> params) {
         Map<String, Object> payload = new HashMap<>(params);
         payload.put("dlqRecordId", record.getId());
         payload.put("taskId", taskId);
@@ -324,10 +324,7 @@ public class DlqCompensationService {
         return value == null || value.isBlank() ? null : value;
     }
 
-    private record ReplayOutcome(Long targetJobInstanceId,
-                                 Long springExecutionId,
-                                 Map<String, Object> resultPayload) {
-    }
+    private record ReplayOutcome(Long targetJobInstanceId, Long springExecutionId, Map<String, Object> resultPayload) {}
 
     private static final class ReplayFailureException extends RuntimeException {
         private final Long targetJobInstanceId;

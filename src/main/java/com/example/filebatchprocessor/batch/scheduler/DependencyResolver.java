@@ -1,10 +1,9 @@
 package com.example.filebatchprocessor.batch.scheduler;
 
-import com.example.filebatchprocessor.scheduler.OrchestrationTaskDefinition;
-import com.example.filebatchprocessor.model.TaskExecutionStatus;
 import com.example.filebatchprocessor.model.TaskExecutionState;
+import com.example.filebatchprocessor.model.TaskExecutionStatus;
 import com.example.filebatchprocessor.repository.TaskExecutionStateRepository;
-
+import com.example.filebatchprocessor.scheduler.OrchestrationTaskDefinition;
 import java.util.Locale;
 
 public class DependencyResolver {
@@ -22,7 +21,8 @@ public class DependencyResolver {
         this.taskExecutionStateRepository = taskExecutionStateRepository;
     }
 
-    public DependencyState resolve(OrchestrationTaskDefinition task, String batchDate, long defaultDependencyTimeoutMs, long waitedMs) {
+    public DependencyState resolve(
+            OrchestrationTaskDefinition task, String batchDate, long defaultDependencyTimeoutMs, long waitedMs) {
         String rerunId = task.getParameters().getOrDefault("rerunId", "");
         for (String dep : task.getDependencies()) {
             TaskExecutionState state = taskExecutionStateRepository
@@ -39,7 +39,8 @@ public class DependencyResolver {
             String action = task.getDependencyFailureActionByTask()
                     .getOrDefault(dep, "FAIL")
                     .toUpperCase(Locale.ROOT);
-            if (TaskExecutionStatus.FAILED.name().equals(depStatus) || TaskExecutionStatus.PARTIAL.name().equals(depStatus)) {
+            if (TaskExecutionStatus.FAILED.name().equals(depStatus)
+                    || TaskExecutionStatus.PARTIAL.name().equals(depStatus)) {
                 if ("SKIP".equals(action)) {
                     return DependencyState.SKIPPED;
                 }

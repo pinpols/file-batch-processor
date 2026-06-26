@@ -1,5 +1,10 @@
 package com.example.filebatchprocessor.unit.service;
 
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.when;
+
 import com.example.filebatchprocessor.model.BatchRunRecord;
 import com.example.filebatchprocessor.model.TaskDefinition;
 import com.example.filebatchprocessor.repository.BatchRunRecordRepository;
@@ -8,29 +13,26 @@ import com.example.filebatchprocessor.repository.TaskDefinitionRepository;
 import com.example.filebatchprocessor.repository.TaskExecutionStateRepository;
 import com.example.filebatchprocessor.service.BatchMetricsPublisher;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.time.LocalDateTime;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.LocalDateTime;
-import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.when;
-
 @ExtendWith(MockitoExtension.class)
 class BatchMetricsPublisherTest {
 
     @Mock
     private BatchRunRecordRepository batchRunRecordRepository;
+
     @Mock
     private DlqRecordRepository dlqRecordRepository;
+
     @Mock
     private TaskExecutionStateRepository taskExecutionStateRepository;
+
     @Mock
     private TaskDefinitionRepository taskDefinitionRepository;
 
@@ -45,19 +47,22 @@ class BatchMetricsPublisherTest {
                 batchRunRecordRepository,
                 dlqRecordRepository,
                 taskExecutionStateRepository,
-                taskDefinitionRepository
-        );
+                taskDefinitionRepository);
         publisher.init();
     }
 
     @Test
     void shouldRefreshMetricsAndPublishGauges() {
-        when(batchRunRecordRepository.countByStatusAndCreatedAtAfter(eq("FAILED"), any(LocalDateTime.class))).thenReturn(2L);
-        when(batchRunRecordRepository.countByStatusAndCreatedAtAfter(eq("COMPLETED"), any(LocalDateTime.class))).thenReturn(8L);
+        when(batchRunRecordRepository.countByStatusAndCreatedAtAfter(eq("FAILED"), any(LocalDateTime.class)))
+                .thenReturn(2L);
+        when(batchRunRecordRepository.countByStatusAndCreatedAtAfter(eq("COMPLETED"), any(LocalDateTime.class)))
+                .thenReturn(8L);
         when(dlqRecordRepository.countByHandledFalse()).thenReturn(3L);
         when(dlqRecordRepository.countByHandledFalseAndManualRequiredTrue()).thenReturn(1L);
-        when(dlqRecordRepository.countByHandledFalseAndCompensationStatus("RETRY_PENDING")).thenReturn(2L);
-        when(taskExecutionStateRepository.countByStatusIn(List.of("BLOCKED", "READY", "RUNNING"))).thenReturn(4L);
+        when(dlqRecordRepository.countByHandledFalseAndCompensationStatus("RETRY_PENDING"))
+                .thenReturn(2L);
+        when(taskExecutionStateRepository.countByStatusIn(List.of("BLOCKED", "READY", "RUNNING")))
+                .thenReturn(4L);
 
         BatchRunRecord runRecord = new BatchRunRecord();
         runRecord.setJobName("importJob");
@@ -78,4 +83,3 @@ class BatchMetricsPublisherTest {
         assertNotNull(meterRegistry.find("batch_sla_duration_breach_count").gauge());
     }
 }
-

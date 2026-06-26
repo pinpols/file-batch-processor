@@ -3,6 +3,7 @@ package com.example.filebatchprocessor.batch.writer;
 import com.example.filebatchprocessor.model.ExportRecord;
 import com.example.filebatchprocessor.model.RecordTrace;
 import com.example.filebatchprocessor.repository.RecordTraceRepository;
+import java.util.List;
 import org.springframework.batch.core.ExitStatus;
 import org.springframework.batch.core.listener.StepExecutionListener;
 import org.springframework.batch.core.step.StepExecution;
@@ -11,8 +12,6 @@ import org.springframework.batch.infrastructure.item.ExecutionContext;
 import org.springframework.batch.infrastructure.item.ItemStream;
 import org.springframework.batch.infrastructure.item.ItemStreamException;
 import org.springframework.batch.infrastructure.item.ItemWriter;
-
-import java.util.List;
 
 public class ExportRecordTraceWriter implements ItemWriter<ExportRecord>, ItemStream, StepExecutionListener {
 
@@ -23,9 +22,8 @@ public class ExportRecordTraceWriter implements ItemWriter<ExportRecord>, ItemSt
     private Long jobExecutionId;
     private String outputFileName;
 
-    public ExportRecordTraceWriter(ItemWriter<ExportRecord> delegate,
-                                  RecordTraceRepository recordTraceRepository,
-                                  String jobName) {
+    public ExportRecordTraceWriter(
+            ItemWriter<ExportRecord> delegate, RecordTraceRepository recordTraceRepository, String jobName) {
         this.delegate = delegate;
         this.recordTraceRepository = recordTraceRepository;
         this.jobName = jobName;

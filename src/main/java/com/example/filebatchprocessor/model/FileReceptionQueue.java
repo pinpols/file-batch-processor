@@ -1,11 +1,11 @@
 package com.example.filebatchprocessor.model;
 
 import jakarta.persistence.*;
+import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import java.time.LocalDateTime;
 
 /**
  * 文件接收队列：用于接收、存储和等待处理的文件
@@ -15,11 +15,13 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "file_reception_queue", indexes = {
-        @Index(name = "idx_status", columnList = "status"),
-        @Index(name = "idx_created_at", columnList = "created_at"),
-        @Index(name = "uk_file_name_received", columnList = "file_name", unique = true)
-})
+@Table(
+        name = "file_reception_queue",
+        indexes = {
+            @Index(name = "idx_status", columnList = "status"),
+            @Index(name = "idx_created_at", columnList = "created_at"),
+            @Index(name = "uk_file_name_received", columnList = "file_name", unique = true)
+        })
 public class FileReceptionQueue {
 
     @Id

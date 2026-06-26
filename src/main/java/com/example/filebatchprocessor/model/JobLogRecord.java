@@ -1,11 +1,10 @@
 package com.example.filebatchprocessor.model;
 
+import jakarta.persistence.*;
+import java.time.LocalDateTime;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-
-import jakarta.persistence.*;
-import java.time.LocalDateTime;
 
 /**
  * 批量作业执行日志（记录到数据库，用于审计与排查）
@@ -44,5 +43,3 @@ public class JobLogRecord {
     /** 记录创建时间 */
     private LocalDateTime createdAt = LocalDateTime.now();
 }
-
-

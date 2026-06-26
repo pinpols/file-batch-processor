@@ -1,17 +1,5 @@
 package com.example.filebatchprocessor.unit.service;
 
-import com.example.filebatchprocessor.observability.BatchMetrics;
-import com.example.filebatchprocessor.repository.SchedulerLeaderLockRepository;
-import com.example.filebatchprocessor.service.SchedulerLeaderService;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.test.util.ReflectionTestUtils;
-
-import java.time.LocalDateTime;
-
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -20,6 +8,17 @@ import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
+import com.example.filebatchprocessor.observability.BatchMetrics;
+import com.example.filebatchprocessor.repository.SchedulerLeaderLockRepository;
+import com.example.filebatchprocessor.service.SchedulerLeaderService;
+import java.time.LocalDateTime;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class SchedulerLeaderServiceTest {
@@ -42,7 +41,8 @@ class SchedulerLeaderServiceTest {
 
     @Test
     void shouldAcquireLeadership() {
-        when(repository.tryAcquireOrRenew(anyString(), anyString(), any(LocalDateTime.class))).thenReturn(1);
+        when(repository.tryAcquireOrRenew(anyString(), anyString(), any(LocalDateTime.class)))
+                .thenReturn(1);
 
         service.refreshLeadership();
 
@@ -52,7 +52,8 @@ class SchedulerLeaderServiceTest {
 
     @Test
     void shouldLoseLeadershipOnException() {
-        when(repository.tryAcquireOrRenew(anyString(), anyString(), any(LocalDateTime.class))).thenThrow(new RuntimeException("boom"));
+        when(repository.tryAcquireOrRenew(anyString(), anyString(), any(LocalDateTime.class)))
+                .thenThrow(new RuntimeException("boom"));
 
         service.refreshLeadership();
 

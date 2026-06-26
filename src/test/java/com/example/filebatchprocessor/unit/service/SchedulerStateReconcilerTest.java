@@ -1,11 +1,20 @@
 package com.example.filebatchprocessor.unit.service;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import com.example.filebatchprocessor.model.TaskExecutionState;
 import com.example.filebatchprocessor.model.TaskExecutionStatus;
 import com.example.filebatchprocessor.repository.DlqRecordRepository;
 import com.example.filebatchprocessor.repository.TaskExecutionStateRepository;
 import com.example.filebatchprocessor.service.SchedulerLeaderService;
 import com.example.filebatchprocessor.service.SchedulerStateReconciler;
+import java.time.LocalDateTime;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -13,24 +22,15 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.LocalDateTime;
-import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
 @ExtendWith(MockitoExtension.class)
 class SchedulerStateReconcilerTest {
 
     @Mock
     private TaskExecutionStateRepository taskExecutionStateRepository;
+
     @Mock
     private DlqRecordRepository dlqRecordRepository;
+
     @Mock
     private SchedulerLeaderService schedulerLeaderService;
 
@@ -38,7 +38,8 @@ class SchedulerStateReconcilerTest {
 
     @BeforeEach
     void setUp() {
-        reconciler = new SchedulerStateReconciler(taskExecutionStateRepository, dlqRecordRepository, schedulerLeaderService, 120_000);
+        reconciler = new SchedulerStateReconciler(
+                taskExecutionStateRepository, dlqRecordRepository, schedulerLeaderService, 120_000);
     }
 
     @Test
@@ -47,7 +48,8 @@ class SchedulerStateReconcilerTest {
 
         reconciler.reconcileStaleStates();
 
-        verify(taskExecutionStateRepository, never()).findTop200ByStatusInAndUpdatedAtBefore(anyList(), any(LocalDateTime.class));
+        verify(taskExecutionStateRepository, never())
+                .findTop200ByStatusInAndUpdatedAtBefore(anyList(), any(LocalDateTime.class));
     }
 
     @Test
@@ -68,4 +70,3 @@ class SchedulerStateReconcilerTest {
         verify(dlqRecordRepository).save(any());
     }
 }
-

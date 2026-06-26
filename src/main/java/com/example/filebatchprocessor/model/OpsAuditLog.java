@@ -1,10 +1,9 @@
 package com.example.filebatchprocessor.model;
 
 import jakarta.persistence.*;
+import java.time.LocalDateTime;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import java.time.LocalDateTime;
 
 @Data
 @NoArgsConstructor
@@ -42,4 +41,3 @@ public class OpsAuditLog {
         createdAt = LocalDateTime.now();
     }
 }
-

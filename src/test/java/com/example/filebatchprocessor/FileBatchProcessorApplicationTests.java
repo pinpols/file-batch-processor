@@ -5,7 +5,5 @@ import org.junit.jupiter.api.Test;
 class FileBatchProcessorApplicationTests {
 
     @Test
-    void contextLoads() {
-    }
-
+    void contextLoads() {}
 }

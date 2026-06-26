@@ -1,5 +1,7 @@
 package com.example.filebatchprocessor.integration;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import com.example.filebatchprocessor.model.BatchRunRecord;
 import com.example.filebatchprocessor.model.DlqRecord;
 import com.example.filebatchprocessor.repository.BatchRunRecordRepository;
@@ -7,6 +9,8 @@ import com.example.filebatchprocessor.repository.DlqRecordRepository;
 import com.example.filebatchprocessor.service.BatchAlertEvaluator;
 import com.example.filebatchprocessor.support.PostgresContainerSupport;
 import io.micrometer.core.instrument.MeterRegistry;
+import java.time.LocalDateTime;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.quartz.Scheduler;
@@ -19,32 +23,32 @@ import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 
-import java.time.LocalDateTime;
-import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 @SpringBootTest
 @ActiveProfiles("test")
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
-@TestPropertySource(properties = {
-        "batch.alert.enabled=true",
-        "batch.alert.webhook.enabled=false",
-        "batch.alert.failure-rate-threshold=0.2",
-        "batch.alert.dlq-backlog-threshold=1",
-        "batch.alert.dlq-manual-threshold=1",
-        "batch.alert.min-throughput-rps-threshold=100"
-})
+@TestPropertySource(
+        properties = {
+            "batch.alert.enabled=true",
+            "batch.alert.webhook.enabled=false",
+            "batch.alert.failure-rate-threshold=0.2",
+            "batch.alert.dlq-backlog-threshold=1",
+            "batch.alert.dlq-manual-threshold=1",
+            "batch.alert.min-throughput-rps-threshold=100"
+        })
 class QuartzMisfireAlertIT extends PostgresContainerSupport {
 
     @Autowired
     private Scheduler scheduler;
+
     @Autowired
     private MeterRegistry meterRegistry;
+
     @Autowired
     private BatchAlertEvaluator batchAlertEvaluator;
+
     @Autowired
     private DlqRecordRepository dlqRecordRepository;
+
     @Autowired
     private BatchRunRecordRepository batchRunRecordRepository;
 
@@ -61,7 +65,8 @@ class QuartzMisfireAlertIT extends PostgresContainerSupport {
                 .startNow()
                 .build();
 
-        List<org.quartz.TriggerListener> listeners = scheduler.getListenerManager().getTriggerListeners();
+        List<org.quartz.TriggerListener> listeners =
+                scheduler.getListenerManager().getTriggerListeners();
         for (org.quartz.TriggerListener listener : listeners) {
             if (listener instanceof TriggerListenerSupport) {
                 listener.triggerMisfired(synthetic);

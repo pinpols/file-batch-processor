@@ -1,20 +1,21 @@
 package com.example.filebatchprocessor.model;
 
 import jakarta.persistence.*;
+import java.time.LocalDateTime;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-
-import java.time.LocalDateTime;
 
 @Getter
 @Setter
 @NoArgsConstructor
 @Entity
-@Table(name = "target_system_circuit_state", indexes = {
-        @Index(name = "idx_target_system_circuit_status", columnList = "status"),
-        @Index(name = "idx_target_system_circuit_cooldown_until", columnList = "cooldown_until")
-})
+@Table(
+        name = "target_system_circuit_state",
+        indexes = {
+            @Index(name = "idx_target_system_circuit_status", columnList = "status"),
+            @Index(name = "idx_target_system_circuit_cooldown_until", columnList = "cooldown_until")
+        })
 public class TargetSystemCircuitState {
 
     @Id

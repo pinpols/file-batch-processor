@@ -1,11 +1,11 @@
 package com.example.filebatchprocessor.model;
 
 import jakarta.persistence.*;
+import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import java.time.LocalDateTime;
 
 /**
  * 导入记录分区表：支持按 batch_date 分区，提高查询性能
@@ -16,11 +16,16 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "imported_records_partition", indexes = {
-        @Index(name = "uk_import_biz_batch_part", columnList = "business_key,batch_date,partition_key", unique = true),
-        @Index(name = "idx_batch_date_part", columnList = "batch_date"),
-        @Index(name = "idx_partition_key", columnList = "partition_key")
-})
+@Table(
+        name = "imported_records_partition",
+        indexes = {
+            @Index(
+                    name = "uk_import_biz_batch_part",
+                    columnList = "business_key,batch_date,partition_key",
+                    unique = true),
+            @Index(name = "idx_batch_date_part", columnList = "batch_date"),
+            @Index(name = "idx_partition_key", columnList = "partition_key")
+        })
 public class ImportedRecordPartitioned {
 
     @Id

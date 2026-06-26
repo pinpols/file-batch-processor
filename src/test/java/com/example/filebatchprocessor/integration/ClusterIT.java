@@ -1,59 +1,59 @@
-//package com.example.filebatchprocessor.integration;
+// package com.example.filebatchprocessor.integration;
 //
-//import com.example.filebatchprocessor.batch.config.FileImportJobConfig;
-//import com.example.filebatchprocessor.batch.config.DataExportJobConfig;
-//import com.example.filebatchprocessor.model.ImportedRecord;
-//import com.example.filebatchprocessor.repository.ImportedRecordRepository;
-//import com.example.filebatchprocessor.repository.RecordTraceRepository;
-//import com.example.filebatchprocessor.service.SchedulerLeaderService;
-//import com.example.filebatchprocessor.listener.JobCompletionNotificationListener;
-//import com.example.filebatchprocessor.support.PostgresContainerSupport;
-//import org.junit.jupiter.api.BeforeEach;
-//import org.junit.jupiter.api.Test;
-//import org.junit.jupiter.api.Disabled;
-//import org.junit.jupiter.api.io.TempDir;
-//import org.junit.jupiter.api.extension.ExtendWith;
-//import org.mockito.Mock;
-//import org.mockito.junit.jupiter.MockitoExtension;
-//import org.springframework.batch.core.job.Job;
-//import org.springframework.batch.core.job.JobExecution;
-//import org.springframework.batch.core.job.parameters.JobParameters;
-//import org.springframework.batch.core.job.parameters.JobParametersBuilder;
-//import org.springframework.batch.core.launch.JobLauncher;
-//import org.springframework.batch.core.step.Step;
-//import org.springframework.batch.test.context.SpringBatchTest;
-//import org.springframework.beans.factory.annotation.Autowired;
-//import org.springframework.beans.factory.annotation.Qualifier;
-//import org.springframework.boot.test.context.SpringBootTest;
+// import com.example.filebatchprocessor.batch.config.FileImportJobConfig;
+// import com.example.filebatchprocessor.batch.config.DataExportJobConfig;
+// import com.example.filebatchprocessor.model.ImportedRecord;
+// import com.example.filebatchprocessor.repository.ImportedRecordRepository;
+// import com.example.filebatchprocessor.repository.RecordTraceRepository;
+// import com.example.filebatchprocessor.service.SchedulerLeaderService;
+// import com.example.filebatchprocessor.listener.JobCompletionNotificationListener;
+// import com.example.filebatchprocessor.support.PostgresContainerSupport;
+// import org.junit.jupiter.api.BeforeEach;
+// import org.junit.jupiter.api.Test;
+// import org.junit.jupiter.api.Disabled;
+// import org.junit.jupiter.api.io.TempDir;
+// import org.junit.jupiter.api.extension.ExtendWith;
+// import org.mockito.Mock;
+// import org.mockito.junit.jupiter.MockitoExtension;
+// import org.springframework.batch.core.job.Job;
+// import org.springframework.batch.core.job.JobExecution;
+// import org.springframework.batch.core.job.parameters.JobParameters;
+// import org.springframework.batch.core.job.parameters.JobParametersBuilder;
+// import org.springframework.batch.core.launch.JobLauncher;
+// import org.springframework.batch.core.step.Step;
+// import org.springframework.batch.test.context.SpringBatchTest;
+// import org.springframework.beans.factory.annotation.Autowired;
+// import org.springframework.beans.factory.annotation.Qualifier;
+// import org.springframework.boot.test.context.SpringBootTest;
 //
-//import org.springframework.test.context.ActiveProfiles;
-//import org.springframework.test.annotation.DirtiesContext;
+// import org.springframework.test.context.ActiveProfiles;
+// import org.springframework.test.annotation.DirtiesContext;
 //
-//import java.io.IOException;
-//import java.nio.file.Files;
-//import java.nio.file.Path;
-//import java.util.ArrayList;
-//import java.util.List;
-//import java.util.UUID;
-//import java.util.concurrent.CompletableFuture;
-//import java.util.concurrent.ExecutorService;
-//import java.util.concurrent.Executors;
-//import java.util.concurrent.TimeUnit;
+// import java.io.IOException;
+// import java.nio.file.Files;
+// import java.nio.file.Path;
+// import java.util.ArrayList;
+// import java.util.List;
+// import java.util.UUID;
+// import java.util.concurrent.CompletableFuture;
+// import java.util.concurrent.ExecutorService;
+// import java.util.concurrent.Executors;
+// import java.util.concurrent.TimeUnit;
 //
-//import org.springframework.batch.core.BatchStatus;
+// import org.springframework.batch.core.BatchStatus;
 //
-//import static org.junit.jupiter.api.Assertions.*;
-//import static org.mockito.Mockito.*;
-////import static org.springframework.batch.core.BatchStatus.*;
-////import static org.mockito.ArgumentMatchers.*;
+// import static org.junit.jupiter.api.Assertions.*;
+// import static org.mockito.Mockito.*;
+//// import static org.springframework.batch.core.BatchStatus.*;
+//// import static org.mockito.ArgumentMatchers.*;
 //
-//@SpringBootTest
-//@SpringBatchTest
-//@ActiveProfiles("test")
-//@ExtendWith(MockitoExtension.class)
-//@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
-//@Disabled("Lambda-based concurrent job execution tests have Spring Batch compatibility issues")
-//class ClusterIT extends PostgresContainerSupport {
+// @SpringBootTest
+// @SpringBatchTest
+// @ActiveProfiles("test")
+// @ExtendWith(MockitoExtension.class)
+// @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
+// @Disabled("Lambda-based concurrent job execution tests have Spring Batch compatibility issues")
+// class ClusterIT extends PostgresContainerSupport {
 //
 //    @Autowired
 //    @Qualifier("asyncJobLauncher")
@@ -293,7 +293,8 @@
 //        Path exportFile = tempDir.resolve("distributed_export.csv");
 //        Job exportJob = dataExportJobConfig.dataExportJob(jobCompletionNotificationListener, mock(Step.class));
 //        JobParameters exportParams = new JobParametersBuilder()
-//                .addString("export.sql", "SELECT 1 as id, 'DIST_KEY' as business_key, 'Distributed Name' as name, 'Distributed Description' as description, '" + uniqueBatchDate + "' as batch_date")
+//                .addString("export.sql", "SELECT 1 as id, 'DIST_KEY' as business_key, 'Distributed Name' as name,
+// 'Distributed Description' as description, '" + uniqueBatchDate + "' as batch_date")
 //                .addString("output.file.name", exportFile.toString())
 //                .addString("distributedLockKey", "export-lock-" + uniqueBatchDate)
 //                .addString("clusterNodeId", "node-coordinator")
@@ -323,4 +324,4 @@
 //        Files.writeString(testFile, content);
 //        return testFile;
 //    }
-//}
+// }

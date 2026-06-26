@@ -1,15 +1,14 @@
 package com.example.filebatchprocessor.repository;
 
 import com.example.filebatchprocessor.model.JobExecution;
+import java.time.LocalDateTime;
+import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
-
-import java.time.LocalDateTime;
-import java.util.List;
 
 /**
  * 任务执行记录 Repository
@@ -52,8 +51,8 @@ public interface JobExecutionRepository extends JpaRepository<JobExecution, Long
      * 查询指定时间范围内的执行记录
      */
     @Query("SELECT e FROM JobExecution e WHERE e.startTime >= :startTime AND e.startTime <= :endTime")
-    List<JobExecution> findByStartTimeBetween(@Param("startTime") LocalDateTime startTime, 
-                                           @Param("endTime") LocalDateTime endTime);
+    List<JobExecution> findByStartTimeBetween(
+            @Param("startTime") LocalDateTime startTime, @Param("endTime") LocalDateTime endTime);
 
     /**
      * 统计任务执行次数

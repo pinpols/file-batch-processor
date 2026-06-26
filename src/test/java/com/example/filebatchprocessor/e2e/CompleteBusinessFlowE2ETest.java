@@ -1,10 +1,19 @@
 package com.example.filebatchprocessor.e2e;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.springframework.batch.core.BatchStatus.COMPLETED;
+
 import com.example.filebatchprocessor.model.ImportedRecordPartitioned;
 import com.example.filebatchprocessor.model.RecordTrace;
 import com.example.filebatchprocessor.repository.ImportedRecordPartitionedRepository;
 import com.example.filebatchprocessor.repository.RecordTraceRepository;
 import com.example.filebatchprocessor.support.PostgresContainerSupport;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -19,16 +28,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
-
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.time.LocalDate;
-import java.util.List;
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.springframework.batch.core.BatchStatus.COMPLETED;
 
 @SpringBootTest
 @ActiveProfiles("test")
@@ -72,7 +71,9 @@ class CompleteBusinessFlowE2ETest extends PostgresContainerSupport {
                 + "3,Flow Test 3,Business Description 3\n";
         Files.writeString(inputFile, inputContent);
 
-        JobParameters importParams = new JobParametersBuilder().addString("test.run", UUID.randomUUID().toString()).addLong("run.ts", System.nanoTime())
+        JobParameters importParams = new JobParametersBuilder()
+                .addString("test.run", UUID.randomUUID().toString())
+                .addLong("run.ts", System.nanoTime())
                 .addString("input.file.name", inputFile.toString())
                 .addString("batchDate", batchDate)
                 .toJobParameters();
@@ -80,7 +81,8 @@ class CompleteBusinessFlowE2ETest extends PostgresContainerSupport {
         JobExecution importExecution = jobLauncher.run(fileImportJob, importParams);
         assertEquals(COMPLETED, importExecution.getStatus());
 
-        List<ImportedRecordPartitioned> importedRecords = importedRecordPartitionedRepository.findByBatchDate(batchDate);
+        List<ImportedRecordPartitioned> importedRecords =
+                importedRecordPartitionedRepository.findByBatchDate(batchDate);
         assertEquals(3, importedRecords.size());
 
         List<RecordTrace> traces = recordTraceRepository.findAll();
@@ -97,7 +99,9 @@ class CompleteBusinessFlowE2ETest extends PostgresContainerSupport {
                 + "3,Valid Record 3,Valid Description 3\n";
         Files.writeString(inputFile, inputContent);
 
-        JobParameters importParams = new JobParametersBuilder().addString("test.run", UUID.randomUUID().toString()).addLong("run.ts", System.nanoTime())
+        JobParameters importParams = new JobParametersBuilder()
+                .addString("test.run", UUID.randomUUID().toString())
+                .addLong("run.ts", System.nanoTime())
                 .addString("input.file.name", inputFile.toString())
                 .addString("batchDate", batchDate)
                 .toJobParameters();
@@ -105,7 +109,8 @@ class CompleteBusinessFlowE2ETest extends PostgresContainerSupport {
         JobExecution importExecution = jobLauncher.run(fileImportJob, importParams);
         assertEquals(COMPLETED, importExecution.getStatus());
 
-        List<ImportedRecordPartitioned> importedRecords = importedRecordPartitionedRepository.findByBatchDate(batchDate);
+        List<ImportedRecordPartitioned> importedRecords =
+                importedRecordPartitionedRepository.findByBatchDate(batchDate);
         assertEquals(2, importedRecords.size());
     }
 

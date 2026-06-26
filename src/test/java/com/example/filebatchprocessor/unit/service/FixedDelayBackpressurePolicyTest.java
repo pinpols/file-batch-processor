@@ -1,5 +1,9 @@
 package com.example.filebatchprocessor.unit.service;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
 import com.example.filebatchprocessor.batch.scheduler.SchedulerConcurrencyLimiter;
 import com.example.filebatchprocessor.batch.scheduler.TargetSystemCircuitBreaker;
 import com.example.filebatchprocessor.batch.scheduler.TaskGraphManager;
@@ -12,21 +16,16 @@ import com.example.filebatchprocessor.scheduler.LocalCacheService;
 import com.example.filebatchprocessor.scheduler.OrchestrationTaskDefinition;
 import com.example.filebatchprocessor.scheduler.OrchestrationTaskTrigger;
 import com.example.filebatchprocessor.service.*;
+import java.lang.reflect.Method;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.quartz.Scheduler;
 import org.quartz.Trigger;
 import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
-
-import java.lang.reflect.Method;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
 
 class FixedDelayBackpressurePolicyTest {
 
@@ -35,9 +34,8 @@ class FixedDelayBackpressurePolicyTest {
     void shouldThrottleRescheduleFrequencyWhenTaskKeepsFailing() throws Exception {
         Scheduler quartzScheduler = mock(Scheduler.class);
         when(quartzScheduler.checkExists(any(org.quartz.JobKey.class))).thenReturn(false);
-        when(quartzScheduler.scheduleJob(any(Trigger.class))).thenAnswer(invocation ->
-                ((Trigger) invocation.getArgument(0)).getStartTime()
-        );
+        when(quartzScheduler.scheduleJob(any(Trigger.class)))
+                .thenAnswer(invocation -> ((Trigger) invocation.getArgument(0)).getStartTime());
 
         TaskSchedulerService service = new TaskSchedulerService(
                 mock(JobLauncher.class),
@@ -75,8 +73,7 @@ class FixedDelayBackpressurePolicyTest {
                 60,
                 2.0,
                 300_000,
-                60
-        );
+                60);
 
         OrchestrationTaskDefinition def = OrchestrationTaskDefinition.builder()
                 .id("fd-backpressure-task")

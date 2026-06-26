@@ -1,7 +1,6 @@
 package com.example.filebatchprocessor.batch.scheduler;
 
 import com.example.filebatchprocessor.scheduler.OrchestrationTaskDefinition;
-
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
@@ -12,8 +11,9 @@ import java.util.concurrent.PriorityBlockingQueue;
 public class QueueManager {
 
     private final int maxQueueSize;
-    private final PriorityBlockingQueue<OrchestrationTaskDefinition> queue =
-            new PriorityBlockingQueue<>(11, (a, b) -> Integer.compare(b.getPriority().weight(), a.getPriority().weight()));
+    private final PriorityBlockingQueue<OrchestrationTaskDefinition> queue = new PriorityBlockingQueue<>(
+            11,
+            (a, b) -> Integer.compare(b.getPriority().weight(), a.getPriority().weight()));
     private final ConcurrentMap<String, Instant> enqueuedAtMap = new ConcurrentHashMap<>();
 
     public QueueManager(int maxQueueSize) {

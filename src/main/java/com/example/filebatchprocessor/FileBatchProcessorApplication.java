@@ -14,8 +14,7 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 @EnableJdbcJobRepository(
         dataSourceRef = "dataSource",
         transactionManagerRef = "transactionManager",
-        databaseType = "POSTGRES"
-)
+        databaseType = "POSTGRES")
 public class FileBatchProcessorApplication {
     public static void main(String[] args) {
         SpringApplication.run(FileBatchProcessorApplication.class, args);

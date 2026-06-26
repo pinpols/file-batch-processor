@@ -1,11 +1,11 @@
 package com.example.filebatchprocessor.service.distribution;
 
+import static org.mockito.Mockito.*;
+
 import com.example.filebatchprocessor.model.FileDistributionTask;
 import com.example.filebatchprocessor.service.FileDistributionService;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
-
-import static org.mockito.Mockito.*;
 
 class SftpFileDistributorTest {
 

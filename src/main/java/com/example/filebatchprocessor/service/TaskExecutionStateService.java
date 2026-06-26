@@ -3,10 +3,9 @@ package com.example.filebatchprocessor.service;
 import com.example.filebatchprocessor.model.TaskExecutionState;
 import com.example.filebatchprocessor.model.TaskExecutionStatus;
 import com.example.filebatchprocessor.repository.TaskExecutionStateRepository;
+import java.time.LocalDateTime;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.time.LocalDateTime;
 
 @Service
 public class TaskExecutionStateService {
@@ -18,18 +17,20 @@ public class TaskExecutionStateService {
     }
 
     @Transactional
-    public TaskExecutionState upsert(String taskId,
-                                     String batchDate,
-                                     String rerunId,
-                                     String status,
-                                     Integer maxAttempts,
-                                     LocalDateTime windowStart,
-                                     LocalDateTime windowEnd,
-                                     String errorMessage,
-                                     String errorCode,
-                                     boolean increaseAttempt,
-                                     LocalDateTime nextRetryAt) {
-        TaskExecutionState state = repository.findByTaskIdAndBatchDateAndRerunId(taskId, batchDate, rerunId)
+    public TaskExecutionState upsert(
+            String taskId,
+            String batchDate,
+            String rerunId,
+            String status,
+            Integer maxAttempts,
+            LocalDateTime windowStart,
+            LocalDateTime windowEnd,
+            String errorMessage,
+            String errorCode,
+            boolean increaseAttempt,
+            LocalDateTime nextRetryAt) {
+        TaskExecutionState state = repository
+                .findByTaskIdAndBatchDateAndRerunId(taskId, batchDate, rerunId)
                 .orElseGet(TaskExecutionState::new);
         state.setTaskId(taskId);
         state.setBatchDate(batchDate);

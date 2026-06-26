@@ -1,10 +1,10 @@
 package com.example.filebatchprocessor.unit.batch.scheduler;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import com.example.filebatchprocessor.batch.scheduler.QueueManager;
 import com.example.filebatchprocessor.scheduler.OrchestrationTaskDefinition;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 class QueueManagerTest {
 

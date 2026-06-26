@@ -2,16 +2,15 @@ package com.example.filebatchprocessor.batch.processor;
 
 import com.example.filebatchprocessor.exception.RecordValidationException;
 import com.example.filebatchprocessor.model.ExportRecord;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.batch.infrastructure.item.ItemProcessor;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
-
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 
 /**
  * 导出记录处理器：处理数据转换、格式化、业务逻辑和验证
@@ -21,7 +20,8 @@ public class ExportRecordProcessor implements ItemProcessor<ExportRecord, Export
 
     private static final Logger log = LoggerFactory.getLogger(ExportRecordProcessor.class);
     private static final DateTimeFormatter EXPORT_DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-    private static final DateTimeFormatter EXPORT_DATETIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final DateTimeFormatter EXPORT_DATETIME_FORMATTER =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     // 处理统计
     private long totalProcessed = 0;
@@ -116,7 +116,7 @@ public class ExportRecordProcessor implements ItemProcessor<ExportRecord, Export
      */
     private ExportRecord transformAndFormatRecord(ExportRecord record) {
         ExportRecord processedRecord = new ExportRecord();
-        
+
         // 复制基础字段
         processedRecord.setId(record.getId());
         processedRecord.setBusinessKey(record.getBusinessKey());
@@ -148,20 +148,20 @@ public class ExportRecordProcessor implements ItemProcessor<ExportRecord, Export
         }
 
         String formatted = name.trim();
-        
+
         // 移除特殊字符
         formatted = formatted.replaceAll("[\n\r\t]", " ");
-        
+
         // 合并多个空格
         formatted = formatted.replaceAll("\\s+", " ");
 
         formatted = formatted.toUpperCase(java.util.Locale.ROOT);
-        
+
         // 限制长度
         if (formatted.length() > 100) {
             formatted = formatted.substring(0, 97) + "...";
         }
-        
+
         return formatted;
     }
 
@@ -174,18 +174,18 @@ public class ExportRecordProcessor implements ItemProcessor<ExportRecord, Export
         }
 
         String formatted = description.trim();
-        
+
         // 移除控制字符
         formatted = formatted.replaceAll("[\\p{Cntrl}]", " ");
-        
+
         // 合并多个空格
         formatted = formatted.replaceAll("\\s+", " ");
-        
+
         // 限制长度
         if (formatted.length() > 500) {
             formatted = formatted.substring(0, 497) + "...";
         }
-        
+
         return formatted;
     }
 
@@ -252,7 +252,7 @@ public class ExportRecordProcessor implements ItemProcessor<ExportRecord, Export
         if (number == null) {
             return "0";
         }
-        
+
         return number.setScale(2, RoundingMode.HALF_UP).toString();
     }
 
@@ -311,7 +311,8 @@ public class ExportRecordProcessor implements ItemProcessor<ExportRecord, Export
 
         @Override
         public String toString() {
-            return String.format("ProcessorStats{processed=%d, transformed=%d, filtered=%d, errors=%d, successRate=%.2f%%}", 
+            return String.format(
+                    "ProcessorStats{processed=%d, transformed=%d, filtered=%d, errors=%d, successRate=%.2f%%}",
                     totalProcessed, totalTransformed, totalFiltered, totalErrors, getSuccessRate() * 100);
         }
     }

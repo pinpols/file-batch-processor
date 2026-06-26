@@ -4,7 +4,6 @@ import com.example.filebatchprocessor.exception.RecordValidationException;
 import com.example.filebatchprocessor.model.FileRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.springframework.batch.infrastructure.item.ItemProcessor;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -13,7 +12,6 @@ import org.springframework.util.StringUtils;
  * 导入文件处理器：示例将 name 转大写，可在此扩展业务校验与转换。
  */
 @Component
-
 public class FileImportRecordProcessor implements ItemProcessor<FileRecord, FileRecord> {
 
     private static final Logger log = LoggerFactory.getLogger(FileImportRecordProcessor.class);
@@ -26,7 +24,8 @@ public class FileImportRecordProcessor implements ItemProcessor<FileRecord, File
         if (!StringUtils.hasText(record.getName())) {
             throw new RecordValidationException("Record name is required");
         }
-        String processedName = record.getName() == null ? null : record.getName().toUpperCase();
+        String processedName =
+                record.getName() == null ? null : record.getName().toUpperCase();
 
         FileRecord processedRecord = new FileRecord();
         processedRecord.setId(record.getId());
@@ -38,4 +37,3 @@ public class FileImportRecordProcessor implements ItemProcessor<FileRecord, File
         return processedRecord;
     }
 }
-

@@ -1,9 +1,13 @@
 package com.example.filebatchprocessor.unit.batch.writer;
 
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
 import com.example.filebatchprocessor.batch.writer.ExportRecordTraceWriter;
 import com.example.filebatchprocessor.model.ExportRecord;
 import com.example.filebatchprocessor.model.RecordTrace;
 import com.example.filebatchprocessor.repository.RecordTraceRepository;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.batch.core.job.parameters.JobParameters;
@@ -12,11 +16,6 @@ import org.springframework.batch.core.step.StepExecution;
 import org.springframework.batch.infrastructure.item.Chunk;
 import org.springframework.batch.infrastructure.item.ItemWriter;
 import org.springframework.batch.test.MetaDataInstanceFactory;
-
-import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
 
 class ExportRecordTraceWriterTest {
 
@@ -56,7 +55,8 @@ class ExportRecordTraceWriterTest {
         assertTrue(saved.stream().allMatch(t -> "EXPORT".equals(t.getEventType())));
         assertTrue(saved.stream().allMatch(t -> "SUCCESS".equals(t.getStatus())));
         assertTrue(saved.stream().allMatch(t -> t.getJobExecutionId() != null));
-        assertEquals(2, saved.stream().map(RecordTrace::getBusinessKey).distinct().count());
+        assertEquals(
+                2, saved.stream().map(RecordTrace::getBusinessKey).distinct().count());
     }
 
     @Test

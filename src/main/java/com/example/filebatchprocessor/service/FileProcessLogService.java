@@ -4,12 +4,11 @@ import com.example.filebatchprocessor.model.FileProcessLog;
 import com.example.filebatchprocessor.repository.FileProcessLogRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.LocalDateTime;
+import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.time.LocalDateTime;
-import java.util.Map;
 
 @Service
 @Transactional
@@ -24,18 +23,19 @@ public class FileProcessLogService {
         this.objectMapper = objectMapper;
     }
 
-    public FileProcessLog log(Long fileRecordId,
-                              String stepName,
-                              String actionType,
-                              String statusFrom,
-                              String statusTo,
-                              String result,
-                              String taskId,
-                              String jobName,
-                              Integer retryNo,
-                              String errorCode,
-                              String errorMsg,
-                              Map<String, Object> extra) {
+    public FileProcessLog log(
+            Long fileRecordId,
+            String stepName,
+            String actionType,
+            String statusFrom,
+            String statusTo,
+            String result,
+            String taskId,
+            String jobName,
+            Integer retryNo,
+            String errorCode,
+            String errorMsg,
+            Map<String, Object> extra) {
         if (fileRecordId == null) {
             return null;
         }

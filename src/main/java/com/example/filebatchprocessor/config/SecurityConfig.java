@@ -17,7 +17,8 @@ import org.springframework.security.web.SecurityFilterChain;
 public class SecurityConfig {
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http, OpsSecurityProperties properties) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, OpsSecurityProperties properties)
+            throws Exception {
         if (!properties.isEnabled()) {
             http.csrf(csrf -> csrf.disable())
                     .authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
@@ -25,13 +26,34 @@ public class SecurityConfig {
         }
 
         http.csrf(csrf -> csrf.disable())
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/actuator/health", "/actuator/info").permitAll()
-                        .requestMatchers("/actuator/prometheus").hasAnyRole("VIEWER", "OPERATOR", "ADMIN")
-                        .requestMatchers(HttpMethod.GET, "/ops/console", "/ops/dashboard", "/ops/scheduler", "/ops/dag", "/ops/tasks", "/ops/task-audit", "/ops/audit", "/ops/change-requests").hasAnyRole("VIEWER", "OPERATOR", "ADMIN")
-                        .requestMatchers(HttpMethod.POST, "/ops/tasks/*/toggle", "/ops/change-requests", "/ops/scheduler/trigger/*").hasAnyRole("OPERATOR", "ADMIN")
-                        .requestMatchers("/ops/change-requests/*/approve", "/ops/change-requests/*/reject", "/ops/change-requests/*/apply").hasRole("ADMIN")
-                        .anyRequest().authenticated())
+                .authorizeHttpRequests(auth -> auth.requestMatchers("/actuator/health", "/actuator/info")
+                        .permitAll()
+                        .requestMatchers("/actuator/prometheus")
+                        .hasAnyRole("VIEWER", "OPERATOR", "ADMIN")
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/ops/console",
+                                "/ops/dashboard",
+                                "/ops/scheduler",
+                                "/ops/dag",
+                                "/ops/tasks",
+                                "/ops/task-audit",
+                                "/ops/audit",
+                                "/ops/change-requests")
+                        .hasAnyRole("VIEWER", "OPERATOR", "ADMIN")
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/ops/tasks/*/toggle",
+                                "/ops/change-requests",
+                                "/ops/scheduler/trigger/*")
+                        .hasAnyRole("OPERATOR", "ADMIN")
+                        .requestMatchers(
+                                "/ops/change-requests/*/approve",
+                                "/ops/change-requests/*/reject",
+                                "/ops/change-requests/*/apply")
+                        .hasRole("ADMIN")
+                        .anyRequest()
+                        .authenticated())
                 .httpBasic(Customizer.withDefaults());
         return http.build();
     }

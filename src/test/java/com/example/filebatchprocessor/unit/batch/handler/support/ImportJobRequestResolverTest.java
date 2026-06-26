@@ -1,13 +1,12 @@
 package com.example.filebatchprocessor.unit.batch.handler.support;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import com.example.filebatchprocessor.batch.handler.support.ImportJobRequest;
 import com.example.filebatchprocessor.batch.handler.support.ImportJobRequestResolver;
-import org.junit.jupiter.api.Test;
-
 import java.nio.file.Files;
 import java.nio.file.Path;
-
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Test;
 
 class ImportJobRequestResolverTest {
 
@@ -31,7 +30,8 @@ class ImportJobRequestResolverTest {
     void shouldFailWhenFileNotExists() {
         ImportJobRequestResolver resolver = new ImportJobRequestResolver();
 
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+        IllegalArgumentException ex = assertThrows(
+                IllegalArgumentException.class,
                 () -> resolver.resolve("input=/tmp/not_exists.csv", "unused.csv", 0, 1));
         assertTrue(ex.getMessage().contains("Input file validation failed"));
     }

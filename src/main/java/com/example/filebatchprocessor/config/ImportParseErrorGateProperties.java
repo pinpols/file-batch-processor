@@ -1,11 +1,10 @@
 package com.example.filebatchprocessor.config;
 
+import java.util.HashMap;
+import java.util.Map;
 import lombok.Data;
 import lombok.Getter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
-
-import java.util.HashMap;
-import java.util.Map;
 
 @Data
 @Getter
@@ -22,7 +21,7 @@ public class ImportParseErrorGateProperties {
     private Map<String, Rule> rules = new HashMap<>();
 
     // Explicit getters as workaround for Lombok annotation processing issue
-    
+
     public double getMaxRate() {
         return maxRate;
     }
@@ -52,9 +51,9 @@ public class ImportParseErrorGateProperties {
     public static class Rule {
         private Double maxRate;
         private Long minLines;
-        
+
         // Explicit getters as workaround for Lombok annotation processing issue
-        
+
         public Double getMaxRate() {
             return maxRate;
         }

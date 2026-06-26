@@ -4,15 +4,14 @@ import com.example.filebatchprocessor.exception.BusinessException;
 import com.example.filebatchprocessor.exception.ErrorCode;
 import com.example.filebatchprocessor.model.FileDistributionTask;
 import com.example.filebatchprocessor.service.FileDistributionService;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
-
 import java.io.File;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.Locale;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
@@ -63,15 +62,20 @@ public class HttpFileDistributor implements FileDistributor {
 
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() >= 200 && response.statusCode() < 300) {
-                fileDistributionService.markAsSuccess(task.getId(), jobInstanceId, false, null, java.util.Map.of(
-                        "httpStatus", response.statusCode()
-                ));
+                fileDistributionService.markAsSuccess(
+                        task.getId(),
+                        jobInstanceId,
+                        false,
+                        null,
+                        java.util.Map.of("httpStatus", response.statusCode()));
             } else {
-                fileDistributionService.markAsFailed(task.getId(), "HTTP transfer failed with status " + response.statusCode(), jobInstanceId);
+                fileDistributionService.markAsFailed(
+                        task.getId(), "HTTP transfer failed with status " + response.statusCode(), jobInstanceId);
             }
         } catch (Exception e) {
             log.error("HTTP distribution failed for taskId={}", task.getId(), e);
-            fileDistributionService.markAsFailed(task.getId(), "HTTP transfer failed: " + e.getMessage(), jobInstanceId);
+            fileDistributionService.markAsFailed(
+                    task.getId(), "HTTP transfer failed: " + e.getMessage(), jobInstanceId);
         }
     }
 }

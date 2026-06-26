@@ -1,14 +1,13 @@
 package com.example.filebatchprocessor.unit.controller;
 
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
 import com.example.filebatchprocessor.controller.QualityGateController;
 import com.example.filebatchprocessor.model.QualityGateResult;
 import com.example.filebatchprocessor.repository.QualityGateResultRepository;
-import org.junit.jupiter.api.Test;
-
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import org.junit.jupiter.api.Test;
 
 class QualityGateControllerTest {
 

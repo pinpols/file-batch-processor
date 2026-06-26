@@ -7,11 +7,10 @@ import com.example.filebatchprocessor.service.FileAssetService;
 import com.example.filebatchprocessor.service.JobInstanceService;
 import com.example.filebatchprocessor.service.OpsAuditService;
 import com.example.filebatchprocessor.service.RetryCompensationService;
-import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.*;
-
 import java.util.LinkedHashMap;
 import java.util.Map;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/ops/batch")
@@ -22,10 +21,11 @@ public class OpsBatchController {
     private final OpsAuditService opsAuditService;
     private final FileAssetService fileAssetService;
 
-    public OpsBatchController(JobInstanceService jobInstanceService,
-                            RetryCompensationService retryCompensationService,
-                            OpsAuditService opsAuditService,
-                            FileAssetService fileAssetService) {
+    public OpsBatchController(
+            JobInstanceService jobInstanceService,
+            RetryCompensationService retryCompensationService,
+            OpsAuditService opsAuditService,
+            FileAssetService fileAssetService) {
         this.jobInstanceService = jobInstanceService;
         this.retryCompensationService = retryCompensationService;
         this.opsAuditService = opsAuditService;
@@ -33,34 +33,34 @@ public class OpsBatchController {
     }
 
     @PostMapping("/rerun")
-    public Map<String, Object> rerunBatch(
-            @RequestBody RerunRequest request,
-            Authentication authentication) {
+    public Map<String, Object> rerunBatch(@RequestBody RerunRequest request, Authentication authentication) {
         String operator = authentication != null ? authentication.getName() : "SYSTEM";
         String bizDate = request.bizDate();
         String taskId = request.taskId();
         String reason = request.reason() != null ? request.reason() : "Manual rerun requested";
-        
-        BusinessJobInstance instance = jobInstanceService.createTriggeredInstance(
-                new JobInstanceService.CreateRequest(
-                        taskId,
-                        taskId,
-                        "MANUAL",
-                        operator,
-                        bizDate,
-                        null,
-                        null,
-                        true,
-                        false,
-                        true,
-                        null,
-                        Map.of("rerunReason", reason)
-                )
-        );
-        
-        opsAuditService.log("BATCH_RERUN", operator, "JOB_INSTANCE", String.valueOf(instance.getId()), "SUCCESS", 
+
+        BusinessJobInstance instance = jobInstanceService.createTriggeredInstance(new JobInstanceService.CreateRequest(
+                taskId,
+                taskId,
+                "MANUAL",
+                operator,
+                bizDate,
+                null,
+                null,
+                true,
+                false,
+                true,
+                null,
+                Map.of("rerunReason", reason)));
+
+        opsAuditService.log(
+                "BATCH_RERUN",
+                operator,
+                "JOB_INSTANCE",
+                String.valueOf(instance.getId()),
+                "SUCCESS",
                 "bizDate=" + bizDate + ", taskId=" + taskId + ", reason=" + reason);
-        
+
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("instanceId", instance.getId());
         response.put("instanceNo", instance.getJobInstanceNo());
@@ -74,15 +74,13 @@ public class OpsBatchController {
     }
 
     @PostMapping("/compensate")
-    public Map<String, Object> compensate(
-            @RequestBody CompensateRequest request,
-            Authentication authentication) {
+    public Map<String, Object> compensate(@RequestBody CompensateRequest request, Authentication authentication) {
         String operator = authentication != null ? authentication.getName() : "SYSTEM";
         String reason = request.reason() != null ? request.reason() : "Manual compensation requested";
-        
+
         if (request.fileId() != null) {
-            CompensationRecord record = retryCompensationService.startCompensation(
-                    new RetryCompensationService.StartRequest(
+            CompensationRecord record =
+                    retryCompensationService.startCompensation(new RetryCompensationService.StartRequest(
                             CompensationActionType.FILE_REPROCESS,
                             null,
                             null,
@@ -92,14 +90,17 @@ public class OpsBatchController {
                             null,
                             operator,
                             reason,
-                            null
-                    )
-            );
+                            null));
             fileAssetService.reprocessFile(request.fileId(), operator, reason);
-            
-            opsAuditService.log("FILE_COMPENSATE", operator, "FILE", String.valueOf(request.fileId()), "SUCCESS", 
+
+            opsAuditService.log(
+                    "FILE_COMPENSATE",
+                    operator,
+                    "FILE",
+                    String.valueOf(request.fileId()),
+                    "SUCCESS",
                     "compensationId=" + record.getId() + ", reason=" + reason);
-            
+
             Map<String, Object> response = new LinkedHashMap<>();
             response.put("type", "FILE");
             response.put("fileId", request.fileId());
@@ -109,8 +110,8 @@ public class OpsBatchController {
             response.put("message", "File compensation initiated");
             return response;
         } else if (request.instanceId() != null) {
-            CompensationRecord record = retryCompensationService.startCompensation(
-                    new RetryCompensationService.StartRequest(
+            CompensationRecord record =
+                    retryCompensationService.startCompensation(new RetryCompensationService.StartRequest(
                             CompensationActionType.JOB_RESTART,
                             request.instanceId(),
                             null,
@@ -120,13 +121,16 @@ public class OpsBatchController {
                             null,
                             operator,
                             reason,
-                            null
-                    )
-            );
-            
-            opsAuditService.log("JOB_COMPENSATE", operator, "JOB_INSTANCE", String.valueOf(request.instanceId()), "SUCCESS", 
+                            null));
+
+            opsAuditService.log(
+                    "JOB_COMPENSATE",
+                    operator,
+                    "JOB_INSTANCE",
+                    String.valueOf(request.instanceId()),
+                    "SUCCESS",
                     "compensationId=" + record.getId() + ", reason=" + reason);
-            
+
             Map<String, Object> response = new LinkedHashMap<>();
             response.put("type", "JOB_INSTANCE");
             response.put("instanceId", request.instanceId());
@@ -136,8 +140,8 @@ public class OpsBatchController {
             response.put("message", "Job compensation initiated");
             return response;
         } else if (request.stepId() != null) {
-            CompensationRecord record = retryCompensationService.startCompensation(
-                    new RetryCompensationService.StartRequest(
+            CompensationRecord record =
+                    retryCompensationService.startCompensation(new RetryCompensationService.StartRequest(
                             CompensationActionType.STEP_RESTART,
                             null,
                             request.stepId(),
@@ -147,13 +151,16 @@ public class OpsBatchController {
                             null,
                             operator,
                             reason,
-                            null
-                    )
-            );
-            
-            opsAuditService.log("STEP_COMPENSATE", operator, "STEP", String.valueOf(request.stepId()), "SUCCESS", 
+                            null));
+
+            opsAuditService.log(
+                    "STEP_COMPENSATE",
+                    operator,
+                    "STEP",
+                    String.valueOf(request.stepId()),
+                    "SUCCESS",
                     "compensationId=" + record.getId() + ", reason=" + reason);
-            
+
             Map<String, Object> response = new LinkedHashMap<>();
             response.put("type", "STEP");
             response.put("stepId", request.stepId());
@@ -168,15 +175,13 @@ public class OpsBatchController {
     }
 
     @PostMapping("/retry")
-    public Map<String, Object> retry(
-            @RequestBody RetryRequest request,
-            Authentication authentication) {
+    public Map<String, Object> retry(@RequestBody RetryRequest request, Authentication authentication) {
         String operator = authentication != null ? authentication.getName() : "SYSTEM";
         String reason = request.reason() != null ? request.reason() : "Manual retry requested";
-        
+
         if (request.fileId() != null) {
-            CompensationRecord record = retryCompensationService.startCompensation(
-                    new RetryCompensationService.StartRequest(
+            CompensationRecord record =
+                    retryCompensationService.startCompensation(new RetryCompensationService.StartRequest(
                             CompensationActionType.FILE_RETRY,
                             null,
                             null,
@@ -186,14 +191,17 @@ public class OpsBatchController {
                             null,
                             operator,
                             reason,
-                            null
-                    )
-            );
+                            null));
             fileAssetService.reprocessFile(request.fileId(), operator, reason);
-            
-            opsAuditService.log("FILE_RETRY", operator, "FILE", String.valueOf(request.fileId()), "SUCCESS", 
+
+            opsAuditService.log(
+                    "FILE_RETRY",
+                    operator,
+                    "FILE",
+                    String.valueOf(request.fileId()),
+                    "SUCCESS",
                     "compensationId=" + record.getId() + ", reason=" + reason);
-            
+
             Map<String, Object> response = new LinkedHashMap<>();
             response.put("type", "FILE");
             response.put("fileId", request.fileId());
@@ -203,8 +211,8 @@ public class OpsBatchController {
             response.put("message", "File retry initiated");
             return response;
         } else if (request.instanceId() != null) {
-            CompensationRecord record = retryCompensationService.startCompensation(
-                    new RetryCompensationService.StartRequest(
+            CompensationRecord record =
+                    retryCompensationService.startCompensation(new RetryCompensationService.StartRequest(
                             CompensationActionType.JOB_RETRY,
                             request.instanceId(),
                             null,
@@ -214,13 +222,16 @@ public class OpsBatchController {
                             null,
                             operator,
                             reason,
-                            null
-                    )
-            );
-            
-            opsAuditService.log("JOB_RETRY", operator, "JOB_INSTANCE", String.valueOf(request.instanceId()), "SUCCESS", 
+                            null));
+
+            opsAuditService.log(
+                    "JOB_RETRY",
+                    operator,
+                    "JOB_INSTANCE",
+                    String.valueOf(request.instanceId()),
+                    "SUCCESS",
                     "compensationId=" + record.getId() + ", reason=" + reason);
-            
+
             Map<String, Object> response = new LinkedHashMap<>();
             response.put("type", "JOB_INSTANCE");
             response.put("instanceId", request.instanceId());
@@ -234,12 +245,9 @@ public class OpsBatchController {
         }
     }
 
-    public record RerunRequest(String bizDate, String taskId, String reason) {
-    }
+    public record RerunRequest(String bizDate, String taskId, String reason) {}
 
-    public record CompensateRequest(Long fileId, Long instanceId, Long stepId, String reason) {
-    }
+    public record CompensateRequest(Long fileId, Long instanceId, Long stepId, String reason) {}
 
-    public record RetryRequest(Long fileId, Long instanceId, String reason) {
-    }
+    public record RetryRequest(Long fileId, Long instanceId, String reason) {}
 }

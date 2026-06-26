@@ -1,23 +1,5 @@
 package com.example.filebatchprocessor.unit.service;
 
-import com.example.filebatchprocessor.model.BusinessJobInstance;
-import com.example.filebatchprocessor.model.CompensationRecord;
-import com.example.filebatchprocessor.repository.BusinessJobInstanceRepository;
-import com.example.filebatchprocessor.repository.CompensationRecordRepository;
-import com.example.filebatchprocessor.service.JobExecutionLogService;
-import com.example.filebatchprocessor.service.RetryCompensationService;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.junit.jupiter.api.Test;
-import org.springframework.batch.core.BatchStatus;
-import org.springframework.batch.core.job.JobExecution;
-import org.springframework.batch.core.job.JobInstance;
-import org.springframework.batch.core.job.parameters.JobParameters;
-import org.springframework.batch.core.launch.JobOperator;
-import org.springframework.batch.core.repository.explore.JobExplorer;
-
-import java.time.LocalDateTime;
-import java.util.Optional;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -25,6 +7,23 @@ import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
+import com.example.filebatchprocessor.model.BusinessJobInstance;
+import com.example.filebatchprocessor.model.CompensationRecord;
+import com.example.filebatchprocessor.repository.BusinessJobInstanceRepository;
+import com.example.filebatchprocessor.repository.CompensationRecordRepository;
+import com.example.filebatchprocessor.service.JobExecutionLogService;
+import com.example.filebatchprocessor.service.RetryCompensationService;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.LocalDateTime;
+import java.util.Optional;
+import org.junit.jupiter.api.Test;
+import org.springframework.batch.core.BatchStatus;
+import org.springframework.batch.core.job.JobExecution;
+import org.springframework.batch.core.job.JobInstance;
+import org.springframework.batch.core.job.parameters.JobParameters;
+import org.springframework.batch.core.launch.JobOperator;
+import org.springframework.batch.core.repository.explore.JobExplorer;
 
 class RetryCompensationServiceTest {
 
@@ -41,8 +40,7 @@ class RetryCompensationServiceTest {
                 jobExecutionLogService,
                 jobOperator,
                 jobExplorer,
-                new ObjectMapper()
-        );
+                new ObjectMapper());
 
         JobInstance springJobInstance = new JobInstance(1L, "importJob");
         JobExecution failedExecution = new JobExecution(100L, springJobInstance, new JobParameters());
@@ -83,9 +81,23 @@ class RetryCompensationServiceTest {
 
         assertEquals(101L, restartedExecutionId);
         verify(compensationRecordRepository, atLeastOnce()).save(any(CompensationRecord.class));
-        verify(jobExecutionLogService).log(eq(88L), eq(null), eq("COMPENSATION_REQUESTED"), eq("WARN"),
-                eq("Compensation requested: JOB_RESTART"), eq("operator"), any());
-        verify(jobExecutionLogService).log(eq(88L), eq(null), eq("COMPENSATION_COMPLETED"), eq("INFO"),
-                eq("Compensation completed: JOB_RESTART"), eq("operator"), any());
+        verify(jobExecutionLogService)
+                .log(
+                        eq(88L),
+                        eq(null),
+                        eq("COMPENSATION_REQUESTED"),
+                        eq("WARN"),
+                        eq("Compensation requested: JOB_RESTART"),
+                        eq("operator"),
+                        any());
+        verify(jobExecutionLogService)
+                .log(
+                        eq(88L),
+                        eq(null),
+                        eq("COMPENSATION_COMPLETED"),
+                        eq("INFO"),
+                        eq("Compensation completed: JOB_RESTART"),
+                        eq("operator"),
+                        any());
     }
 }

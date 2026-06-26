@@ -2,13 +2,6 @@ package com.example.filebatchprocessor.service;
 
 import com.example.filebatchprocessor.model.FileData;
 import com.example.filebatchprocessor.repository.FileDataRepository;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
-
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -19,6 +12,12 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 @Slf4j
 @Service
@@ -50,7 +49,7 @@ public class FileProcessingService {
         fileData.setFilePath(filePath.toString());
         fileData.setStatus("UPLOADED");
         fileData.setProcessTime(LocalDateTime.now());
-        
+
         return fileDataRepository.save(fileData);
     }
 
@@ -87,7 +86,10 @@ public class FileProcessingService {
                 fileData.setStatus("ERROR");
                 fileData.setProcessTime(LocalDateTime.now());
                 fileDataRepository.save(fileData);
-                log.warn("Skip send because file is not processed: id={}, status={}", fileData.getId(), fileData.getStatus());
+                log.warn(
+                        "Skip send because file is not processed: id={}, status={}",
+                        fileData.getId(),
+                        fileData.getStatus());
                 return;
             }
             fileData.setStatus("SENT");
@@ -104,7 +106,10 @@ public class FileProcessingService {
                 fileData.setStatus("ERROR");
                 fileData.setProcessTime(LocalDateTime.now());
                 fileDataRepository.save(fileData);
-                log.warn("Skip write because file is not in writable state: id={}, status={}", fileData.getId(), fileData.getStatus());
+                log.warn(
+                        "Skip write because file is not in writable state: id={}, status={}",
+                        fileData.getId(),
+                        fileData.getStatus());
                 return;
             }
             try {
@@ -128,21 +133,17 @@ public class FileProcessingService {
                             String name = cols.length > 1 ? cols[1].trim() : businessKey;
                             String description = cols.length > 2 ? cols[2].trim() : "";
                             partitionedImportService.importRecord(
-                                    businessKey,
-                                    name,
-                                    description,
-                                    batchDate,
-                                    sourceFile,
-                                    sha256Hex(line)
-                            );
+                                    businessKey, name, description, batchDate, sourceFile, sha256Hex(line));
                             imported.incrementAndGet();
                         });
 
                 fileData.setStatus("COMPLETED");
                 fileData.setProcessTime(LocalDateTime.now());
                 fileDataRepository.save(fileData);
-                log.info("Data from file {} written to partitioned table, imported={} records",
-                        fileData.getFileName(), imported.get());
+                log.info(
+                        "Data from file {} written to partitioned table, imported={} records",
+                        fileData.getFileName(),
+                        imported.get());
             } catch (Exception ex) {
                 fileData.setStatus("ERROR");
                 fileData.setProcessTime(LocalDateTime.now());

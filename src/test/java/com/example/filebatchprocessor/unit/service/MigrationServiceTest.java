@@ -1,22 +1,20 @@
 package com.example.filebatchprocessor.unit.service;
 
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
 import com.example.filebatchprocessor.model.MigrationStatus;
 import com.example.filebatchprocessor.repository.*;
 import com.example.filebatchprocessor.service.MigrationService;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class MigrationServiceTest {
@@ -40,8 +38,7 @@ class MigrationServiceTest {
     private MigrationService migrationService;
 
     @BeforeEach
-    void setUp() {
-    }
+    void setUp() {}
 
     @Test
     void shouldGetMigrationStatus() {

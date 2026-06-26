@@ -1,17 +1,16 @@
 package com.example.filebatchprocessor.integration;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import com.example.filebatchprocessor.service.ExecutionDedupService;
 import com.example.filebatchprocessor.support.PostgresContainerSupport;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.*;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.*;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @SpringBootTest
 @ActiveProfiles("test")

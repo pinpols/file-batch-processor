@@ -16,4 +16,3 @@ public enum TaskPriority {
         return weight;
     }
 }
-

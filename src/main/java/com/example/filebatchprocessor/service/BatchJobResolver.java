@@ -1,13 +1,12 @@
 package com.example.filebatchprocessor.service;
 
+import java.util.Map;
+import java.util.Optional;
+import java.util.TreeSet;
 import org.springframework.batch.core.job.Job;
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
-
-import java.util.Map;
-import java.util.Optional;
-import java.util.TreeSet;
 
 @Service
 public class BatchJobResolver {
@@ -15,8 +14,7 @@ public class BatchJobResolver {
     private final ObjectProvider<Map<String, Job>> jobsProvider;
     private final BeanFactory beanFactory;
 
-    public BatchJobResolver(ObjectProvider<Map<String, Job>> jobsProvider,
-                            BeanFactory beanFactory) {
+    public BatchJobResolver(ObjectProvider<Map<String, Job>> jobsProvider, BeanFactory beanFactory) {
         this.jobsProvider = jobsProvider;
         this.beanFactory = beanFactory;
     }
@@ -63,6 +61,5 @@ public class BatchJobResolver {
         return names.toString();
     }
 
-    public record ResolvedJob(String beanName, String logicalName, Job job) {
-    }
+    public record ResolvedJob(String beanName, String logicalName, Job job) {}
 }

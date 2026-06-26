@@ -1,8 +1,7 @@
 package com.example.filebatchprocessor.params;
 
-import org.springframework.batch.core.job.parameters.JobParameters;
-
 import java.util.Map;
+import org.springframework.batch.core.job.parameters.JobParameters;
 
 public class ImportJobParams {
 
@@ -21,12 +20,13 @@ public class ImportJobParams {
     private final String fileFormat;
     private final String fileDelimiter;
 
-    private ImportJobParams(String inputFileName,
-                           String batchDate,
-                           Integer shardIndex,
-                           Integer shardTotal,
-                           String fileFormat,
-                           String fileDelimiter) {
+    private ImportJobParams(
+            String inputFileName,
+            String batchDate,
+            Integer shardIndex,
+            Integer shardTotal,
+            String fileFormat,
+            String fileDelimiter) {
         this.inputFileName = inputFileName;
         this.batchDate = batchDate;
         this.shardIndex = shardIndex;

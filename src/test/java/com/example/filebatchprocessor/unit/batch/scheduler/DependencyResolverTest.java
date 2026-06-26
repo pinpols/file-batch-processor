@@ -1,18 +1,17 @@
 package com.example.filebatchprocessor.unit.batch.scheduler;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import com.example.filebatchprocessor.batch.scheduler.DependencyResolver;
 import com.example.filebatchprocessor.model.TaskExecutionState;
 import com.example.filebatchprocessor.repository.TaskExecutionStateRepository;
 import com.example.filebatchprocessor.scheduler.OrchestrationTaskDefinition;
-import org.junit.jupiter.api.Test;
-
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import org.junit.jupiter.api.Test;
 
 class DependencyResolverTest {
 
@@ -34,8 +33,7 @@ class DependencyResolverTest {
                 .parameters(Map.of())
                 .build();
 
-        assertEquals(DependencyResolver.DependencyState.SKIPPED,
-                resolver.resolve(task, "2026-03-04", 600000L, 1000L));
+        assertEquals(DependencyResolver.DependencyState.SKIPPED, resolver.resolve(task, "2026-03-04", 600000L, 1000L));
     }
 
     @Test
@@ -53,7 +51,6 @@ class DependencyResolverTest {
                 .parameters(Map.of())
                 .build();
 
-        assertEquals(DependencyResolver.DependencyState.FAILED,
-                resolver.resolve(task, "2026-03-04", 600000L, 5000L));
+        assertEquals(DependencyResolver.DependencyState.FAILED, resolver.resolve(task, "2026-03-04", 600000L, 5000L));
     }
 }

@@ -9,9 +9,9 @@ public class FileRecord {
     private String description;
 
     private Long lineNo;
-    
+
     // Explicit getters and setters as workaround for Lombok annotation processing issue
-    
+
     public Long getId() {
         return id;
     }
@@ -43,7 +43,7 @@ public class FileRecord {
     public void setLineNo(Long lineNo) {
         this.lineNo = lineNo;
     }
-    
+
     // You can add more fields as per your CSV structure
     // Add constructors, getters, and setters as needed
 }

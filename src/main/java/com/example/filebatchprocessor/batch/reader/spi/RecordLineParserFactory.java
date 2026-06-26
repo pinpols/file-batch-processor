@@ -1,8 +1,7 @@
 package com.example.filebatchprocessor.batch.reader.spi;
 
-import org.springframework.stereotype.Component;
-
 import java.util.List;
+import org.springframework.stereotype.Component;
 
 @Component
 public class RecordLineParserFactory {
@@ -14,7 +13,8 @@ public class RecordLineParserFactory {
     }
 
     public RecordLineParser create(String format, String delimiter) {
-        String resolvedFormat = (format == null || format.isBlank()) ? "CSV" : format.trim().toUpperCase();
+        String resolvedFormat =
+                (format == null || format.isBlank()) ? "CSV" : format.trim().toUpperCase();
         return providers.stream()
                 .filter(p -> p.supports(resolvedFormat))
                 .findFirst()

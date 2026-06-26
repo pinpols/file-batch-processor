@@ -1,10 +1,15 @@
 package com.example.filebatchprocessor.integration;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import com.example.filebatchprocessor.batch.scheduler.TaskSchedulerService;
 import com.example.filebatchprocessor.batch.scheduler.TriggerType;
 import com.example.filebatchprocessor.scheduler.OrchestrationTaskDefinition;
 import com.example.filebatchprocessor.scheduler.OrchestrationTaskTrigger;
 import com.example.filebatchprocessor.support.PostgresContainerSupport;
+import java.time.Instant;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.quartz.*;
@@ -13,18 +18,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 
-import java.time.Instant;
-import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 @SpringBootTest
 @ActiveProfiles("test")
-@TestPropertySource(properties = {
-        "orchestration.enabled=true",
-        "orchestration.scheduler.force-leader=true"
-})
+@TestPropertySource(properties = {"orchestration.enabled=true", "orchestration.scheduler.force-leader=true"})
 class QuartzSchedulerIT extends PostgresContainerSupport {
 
     @Autowired
@@ -53,7 +49,9 @@ class QuartzSchedulerIT extends PostgresContainerSupport {
         taskSchedulerService.scheduleFixedDelayOnce(def, next);
         JobKey jobKey = jobKey(def);
         List<? extends Trigger> triggers = quartzScheduler.getTriggersOfJob(jobKey);
-        assertTrue(triggers.stream().anyMatch(t -> t instanceof SimpleTrigger), "Should have scheduled a simple trigger for fixed delay");
+        assertTrue(
+                triggers.stream().anyMatch(t -> t instanceof SimpleTrigger),
+                "Should have scheduled a simple trigger for fixed delay");
     }
 
     @Test

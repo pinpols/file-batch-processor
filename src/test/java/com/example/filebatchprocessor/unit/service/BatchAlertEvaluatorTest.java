@@ -1,9 +1,17 @@
 package com.example.filebatchprocessor.unit.service;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import com.example.filebatchprocessor.model.BatchRunRecord;
 import com.example.filebatchprocessor.repository.BatchRunRecordRepository;
 import com.example.filebatchprocessor.repository.DlqRecordRepository;
 import com.example.filebatchprocessor.service.BatchAlertEvaluator;
+import java.time.LocalDateTime;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -11,20 +19,12 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import java.time.LocalDateTime;
-import java.util.List;
-
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
 @ExtendWith(MockitoExtension.class)
 class BatchAlertEvaluatorTest {
 
     @Mock
     private BatchRunRecordRepository batchRunRecordRepository;
+
     @Mock
     private DlqRecordRepository dlqRecordRepository;
 
@@ -52,9 +52,12 @@ class BatchAlertEvaluatorTest {
 
     @Test
     void shouldEvaluateAllThresholds() {
-        when(batchRunRecordRepository.countByStatusAndCreatedAtAfter(eq("FAILED"), any(LocalDateTime.class))).thenReturn(5L);
-        when(batchRunRecordRepository.countByStatusAndCreatedAtAfter(eq("COMPLETED"), any(LocalDateTime.class))).thenReturn(10L);
-        when(batchRunRecordRepository.countByStatusAndCreatedAtAfter(eq("PARTIAL"), any(LocalDateTime.class))).thenReturn(0L);
+        when(batchRunRecordRepository.countByStatusAndCreatedAtAfter(eq("FAILED"), any(LocalDateTime.class)))
+                .thenReturn(5L);
+        when(batchRunRecordRepository.countByStatusAndCreatedAtAfter(eq("COMPLETED"), any(LocalDateTime.class)))
+                .thenReturn(10L);
+        when(batchRunRecordRepository.countByStatusAndCreatedAtAfter(eq("PARTIAL"), any(LocalDateTime.class)))
+                .thenReturn(0L);
         when(dlqRecordRepository.countByHandledFalse()).thenReturn(120L);
         when(dlqRecordRepository.countByHandledFalseAndManualRequiredTrue()).thenReturn(25L);
         BatchRunRecord record = new BatchRunRecord();
@@ -68,4 +71,3 @@ class BatchAlertEvaluatorTest {
         verify(batchRunRecordRepository).findTop200ByOrderByCreatedAtDesc();
     }
 }
-

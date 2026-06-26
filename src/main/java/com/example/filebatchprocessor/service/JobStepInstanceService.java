@@ -5,17 +5,16 @@ import com.example.filebatchprocessor.model.BusinessJobStepInstance;
 import com.example.filebatchprocessor.model.BusinessJobStepStatus;
 import com.example.filebatchprocessor.repository.BusinessJobStepInstanceRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.batch.core.step.StepExecution;
-import org.springframework.batch.core.job.JobExecution;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.springframework.batch.core.job.JobExecution;
+import org.springframework.batch.core.step.StepExecution;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Transactional
@@ -25,25 +24,25 @@ public class JobStepInstanceService {
     private final JobExecutionLogService jobExecutionLogService;
     private final ObjectMapper objectMapper;
 
-    public JobStepInstanceService(BusinessJobStepInstanceRepository repository,
-                                  JobExecutionLogService jobExecutionLogService,
-                                  ObjectMapper objectMapper) {
+    public JobStepInstanceService(
+            BusinessJobStepInstanceRepository repository,
+            JobExecutionLogService jobExecutionLogService,
+            ObjectMapper objectMapper) {
         this.repository = repository;
         this.jobExecutionLogService = jobExecutionLogService;
         this.objectMapper = objectMapper;
     }
 
-    public List<BusinessJobStepInstance> replaceFromSpringBatch(Long jobInstanceId,
-                                                                JobExecution jobExecution,
-                                                                String operatorName) {
+    public List<BusinessJobStepInstance> replaceFromSpringBatch(
+            Long jobInstanceId, JobExecution jobExecution, String operatorName) {
         if (jobInstanceId == null || jobExecution == null) {
             return List.of();
         }
         repository.deleteByJobInstanceId(jobInstanceId);
         List<StepExecution> orderedExecutions = new ArrayList<>(jobExecution.getStepExecutions());
-        orderedExecutions.sort(Comparator
-                .comparing(StepExecution::getStartTime, Comparator.nullsLast(LocalDateTime::compareTo))
-                .thenComparing(StepExecution::getStepName, Comparator.nullsLast(String::compareTo)));
+        orderedExecutions.sort(
+                Comparator.comparing(StepExecution::getStartTime, Comparator.nullsLast(LocalDateTime::compareTo))
+                        .thenComparing(StepExecution::getStepName, Comparator.nullsLast(String::compareTo)));
 
         List<BusinessJobStepInstance> saved = new ArrayList<>();
         int stepOrder = 1;
@@ -55,7 +54,8 @@ public class JobStepInstanceService {
             stepInstance.setStepOrderNo(stepOrder++);
             stepInstance.setAttemptNo(1);
             stepInstance.setSpringStepExecutionId(stepExecution.getId());
-            stepInstance.setStatus(BusinessJobStepStatus.fromSpringBatch(stepExecution).name());
+            stepInstance.setStatus(
+                    BusinessJobStepStatus.fromSpringBatch(stepExecution).name());
             stepInstance.setReadCount(stepExecution.getReadCount());
             stepInstance.setWriteCount(stepExecution.getWriteCount());
             stepInstance.setFilterCount(stepExecution.getFilterCount());
@@ -67,7 +67,8 @@ public class JobStepInstanceService {
             stepInstance.setErrorCode(resolveErrorCode(stepExecution));
             stepInstance.setErrorMessage(resolveErrorMessage(stepExecution));
             Map<String, Object> summary = new LinkedHashMap<>();
-            if (stepExecution.getExitStatus() != null && stepExecution.getExitStatus().getExitCode() != null) {
+            if (stepExecution.getExitStatus() != null
+                    && stepExecution.getExitStatus().getExitCode() != null) {
                 summary.put("exitCode", stepExecution.getExitStatus().getExitCode());
             }
             summary.put("summary", stepExecution.getSummary());
@@ -84,8 +85,7 @@ public class JobStepInstanceService {
                     "INFO",
                     "Step synchronized: " + persisted.getStepName() + " -> " + persisted.getStatus(),
                     operatorName,
-                    stepPayload(stepExecution)
-            );
+                    stepPayload(stepExecution));
         }
         return saved;
     }
@@ -94,25 +94,36 @@ public class JobStepInstanceService {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("stepName", stepExecution.getStepName());
         payload.put("springStepExecutionId", stepExecution.getId());
-        payload.put("status", stepExecution.getStatus() == null ? null : stepExecution.getStatus().name());
+        payload.put(
+                "status",
+                stepExecution.getStatus() == null
+                        ? null
+                        : stepExecution.getStatus().name());
         payload.put("readCount", stepExecution.getReadCount());
         payload.put("writeCount", stepExecution.getWriteCount());
         payload.put("skipCount", stepExecution.getSkipCount());
         payload.put("commitCount", stepExecution.getCommitCount());
         payload.put("rollbackCount", stepExecution.getRollbackCount());
-        payload.put("exitCode", stepExecution.getExitStatus() == null ? null : stepExecution.getExitStatus().getExitCode());
+        payload.put(
+                "exitCode",
+                stepExecution.getExitStatus() == null
+                        ? null
+                        : stepExecution.getExitStatus().getExitCode());
         return payload;
     }
 
     private String resolveErrorCode(StepExecution stepExecution) {
-        if (stepExecution.getFailureExceptions() == null || stepExecution.getFailureExceptions().isEmpty()) {
+        if (stepExecution.getFailureExceptions() == null
+                || stepExecution.getFailureExceptions().isEmpty()) {
             return null;
         }
-        return ErrorCodeClassifier.classify(stepExecution.getFailureExceptions().get(0)).name();
+        return ErrorCodeClassifier.classify(stepExecution.getFailureExceptions().get(0))
+                .name();
     }
 
     private String resolveErrorMessage(StepExecution stepExecution) {
-        if (stepExecution.getFailureExceptions() == null || stepExecution.getFailureExceptions().isEmpty()) {
+        if (stepExecution.getFailureExceptions() == null
+                || stepExecution.getFailureExceptions().isEmpty()) {
             return null;
         }
         Throwable throwable = stepExecution.getFailureExceptions().get(0);

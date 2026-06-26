@@ -2,6 +2,13 @@ package com.example.filebatchprocessor.service;
 
 import com.example.filebatchprocessor.model.*;
 import com.example.filebatchprocessor.repository.*;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.BatchStatus;
 import org.springframework.batch.core.job.Job;
@@ -13,14 +20,6 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.*;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -39,16 +38,17 @@ public class DagOrchestratorService {
     private final JobLauncher jobLauncher;
     private final ObjectProvider<Map<String, Job>> jobsProvider;
 
-    public DagOrchestratorService(DagDefinitionRepository dagDefinitionRepository,
-                                  DagNodeRepository dagNodeRepository,
-                                  DagRunRepository dagRunRepository,
-                                  DagNodeRunRepository dagNodeRunRepository,
-                                  TaskDefinitionRepository taskDefinitionRepository,
-                                  TaskParameterRepository taskParameterRepository,
-                                  TaskDependencyRepository taskDependencyRepository,
-                                  TaskExecutionStateService taskExecutionStateService,
-                                  @Qualifier("asyncJobLauncher") JobLauncher jobLauncher,
-                                  ObjectProvider<Map<String, Job>> jobsProvider) {
+    public DagOrchestratorService(
+            DagDefinitionRepository dagDefinitionRepository,
+            DagNodeRepository dagNodeRepository,
+            DagRunRepository dagRunRepository,
+            DagNodeRunRepository dagNodeRunRepository,
+            TaskDefinitionRepository taskDefinitionRepository,
+            TaskParameterRepository taskParameterRepository,
+            TaskDependencyRepository taskDependencyRepository,
+            TaskExecutionStateService taskExecutionStateService,
+            @Qualifier("asyncJobLauncher") JobLauncher jobLauncher,
+            ObjectProvider<Map<String, Job>> jobsProvider) {
         this.dagDefinitionRepository = dagDefinitionRepository;
         this.dagNodeRepository = dagNodeRepository;
         this.dagRunRepository = dagRunRepository;
@@ -63,7 +63,8 @@ public class DagOrchestratorService {
 
     @Transactional
     public DagRun executeDag(String dagId, String batchDate, String rerunId) {
-        DagDefinition dag = dagDefinitionRepository.findByDagIdAndEnabledTrue(dagId)
+        DagDefinition dag = dagDefinitionRepository
+                .findByDagIdAndEnabledTrue(dagId)
                 .orElseThrow(() -> new IllegalArgumentException("DAG not found or disabled: " + dagId));
 
         String normalizedBatchDate = normalizeBatchDate(batchDate);
@@ -99,12 +100,12 @@ public class DagOrchestratorService {
         }
 
         List<String> taskIds = nodes.stream().map(DagNode::getTaskId).toList();
-        Map<String, TaskDefinition> taskDefs = taskDefinitionRepository.findByTaskIdIn(taskIds)
-                .stream().collect(Collectors.toMap(TaskDefinition::getTaskId, Function.identity()));
-        Map<String, List<TaskParameter>> taskParams = taskParameterRepository.findByTaskIdIn(taskIds)
-                .stream().collect(Collectors.groupingBy(TaskParameter::getTaskId));
-        Map<String, List<TaskDependency>> dependencyMap = taskDependencyRepository.findByTaskIdIn(taskIds)
-                .stream().collect(Collectors.groupingBy(TaskDependency::getTaskId));
+        Map<String, TaskDefinition> taskDefs = taskDefinitionRepository.findByTaskIdIn(taskIds).stream()
+                .collect(Collectors.toMap(TaskDefinition::getTaskId, Function.identity()));
+        Map<String, List<TaskParameter>> taskParams = taskParameterRepository.findByTaskIdIn(taskIds).stream()
+                .collect(Collectors.groupingBy(TaskParameter::getTaskId));
+        Map<String, List<TaskDependency>> dependencyMap = taskDependencyRepository.findByTaskIdIn(taskIds).stream()
+                .collect(Collectors.groupingBy(TaskDependency::getTaskId));
 
         Set<String> pending = new LinkedHashSet<>(taskIds);
         Map<String, TaskExecutionStatus> nodeStatus = new HashMap<>();
@@ -122,7 +123,8 @@ public class DagOrchestratorService {
                     break;
                 }
 
-                DependencyState depState = resolveDependencies(taskId, dependencyMap.getOrDefault(taskId, List.of()), nodeStatus);
+                DependencyState depState =
+                        resolveDependencies(taskId, dependencyMap.getOrDefault(taskId, List.of()), nodeStatus);
                 if (depState == DependencyState.WAITING) {
                     continue;
                 }
@@ -156,7 +158,8 @@ public class DagOrchestratorService {
                     continue;
                 }
 
-                NodeExecutionResult result = executeNode(run, taskDefinition, taskParams.getOrDefault(taskId, List.of()));
+                NodeExecutionResult result =
+                        executeNode(run, taskDefinition, taskParams.getOrDefault(taskId, List.of()));
                 nodeStatus.put(taskId, result.status());
                 markNode(run, taskId, result.status(), result.message());
                 if (result.status() == TaskExecutionStatus.FAILED && failFast) {
@@ -166,7 +169,8 @@ public class DagOrchestratorService {
             }
 
             if (!progressed && !pending.isEmpty()) {
-                markRemainingAsFailed(run, pending, nodeStatus, "No progress, unresolved dependency loop or missing upstream status");
+                markRemainingAsFailed(
+                        run, pending, nodeStatus, "No progress, unresolved dependency loop or missing upstream status");
                 pending.clear();
             }
         }
@@ -174,16 +178,20 @@ public class DagOrchestratorService {
         finalizeDagStatus(run, nodeStatus);
     }
 
-    private DependencyState resolveDependencies(String taskId,
-                                                List<TaskDependency> dependencies,
-                                                Map<String, TaskExecutionStatus> nodeStatus) {
+    private DependencyState resolveDependencies(
+            String taskId, List<TaskDependency> dependencies, Map<String, TaskExecutionStatus> nodeStatus) {
         for (TaskDependency dep : dependencies) {
             TaskExecutionStatus depStatus = nodeStatus.get(dep.getDependsOnTaskId());
-            if (depStatus == null || depStatus == TaskExecutionStatus.RUNNING || depStatus == TaskExecutionStatus.BLOCKED || depStatus == TaskExecutionStatus.READY) {
+            if (depStatus == null
+                    || depStatus == TaskExecutionStatus.RUNNING
+                    || depStatus == TaskExecutionStatus.BLOCKED
+                    || depStatus == TaskExecutionStatus.READY) {
                 return DependencyState.WAITING;
             }
             if (depStatus == TaskExecutionStatus.FAILED || depStatus == TaskExecutionStatus.PARTIAL) {
-                String action = dep.getOnFailureAction() == null ? "FAIL" : dep.getOnFailureAction().trim().toUpperCase(Locale.ROOT);
+                String action = dep.getOnFailureAction() == null
+                        ? "FAIL"
+                        : dep.getOnFailureAction().trim().toUpperCase(Locale.ROOT);
                 if ("SKIP".equals(action)) {
                     return DependencyState.SKIPPED;
                 }
@@ -199,7 +207,8 @@ public class DagOrchestratorService {
     private NodeExecutionResult executeNode(DagRun run, TaskDefinition taskDefinition, List<TaskParameter> parameters) {
         Map<String, Job> jobs = jobsProvider.getIfAvailable();
         if (jobs == null || !jobs.containsKey(taskDefinition.getJobName())) {
-            return new NodeExecutionResult(TaskExecutionStatus.FAILED, "Job bean not found: " + taskDefinition.getJobName());
+            return new NodeExecutionResult(
+                    TaskExecutionStatus.FAILED, "Job bean not found: " + taskDefinition.getJobName());
         }
 
         Job job = jobs.get(taskDefinition.getJobName());
@@ -232,8 +241,7 @@ public class DagOrchestratorService {
                 null,
                 null,
                 false,
-                null
-        );
+                null);
         try {
             JobExecution execution = jobLauncher.run(job, builder.toJobParameters());
             BatchStatus status = execution.getStatus();
@@ -249,8 +257,7 @@ public class DagOrchestratorService {
                     normalized == TaskExecutionStatus.FAILED ? "Node execution failed" : null,
                     null,
                     normalized == TaskExecutionStatus.FAILED,
-                    null
-            );
+                    null);
             long duration = Instant.now().toEpochMilli() - started.toEpochMilli();
             return new NodeExecutionResult(normalized, "executionId=" + execution.getId() + ",durationMs=" + duration);
         } catch (Exception ex) {
@@ -265,8 +272,7 @@ public class DagOrchestratorService {
                     trim(ex.getMessage(), 1000),
                     null,
                     true,
-                    null
-            );
+                    null);
             return new NodeExecutionResult(TaskExecutionStatus.FAILED, trim("Exception: " + ex.getMessage(), 1000));
         }
     }
@@ -275,7 +281,8 @@ public class DagOrchestratorService {
         if (status == BatchStatus.FAILED || status == BatchStatus.STOPPED || status == BatchStatus.ABANDONED) {
             return TaskExecutionStatus.FAILED;
         }
-        long skip = stepExecutions.stream().mapToLong(StepExecution::getSkipCount).sum();
+        long skip =
+                stepExecutions.stream().mapToLong(StepExecution::getSkipCount).sum();
         if (skip > 0) {
             return TaskExecutionStatus.PARTIAL;
         }
@@ -283,7 +290,9 @@ public class DagOrchestratorService {
     }
 
     private void markNode(DagRun run, String taskId, TaskExecutionStatus status, String message) {
-        DagNodeRun nodeRun = dagNodeRunRepository.findByDagRunIdAndTaskId(run.getId(), taskId).orElseGet(DagNodeRun::new);
+        DagNodeRun nodeRun = dagNodeRunRepository
+                .findByDagRunIdAndTaskId(run.getId(), taskId)
+                .orElseGet(DagNodeRun::new);
         if (nodeRun.getId() == null) {
             nodeRun.setDagRunId(run.getId());
             nodeRun.setTaskId(taskId);
@@ -295,14 +304,16 @@ public class DagOrchestratorService {
         dagNodeRunRepository.save(nodeRun);
     }
 
-    private void markRemainingAsFailed(DagRun run, Set<String> pending, Map<String, TaskExecutionStatus> nodeStatus, String reason) {
+    private void markRemainingAsFailed(
+            DagRun run, Set<String> pending, Map<String, TaskExecutionStatus> nodeStatus, String reason) {
         for (String taskId : pending) {
             nodeStatus.put(taskId, TaskExecutionStatus.FAILED);
             markNode(run, taskId, TaskExecutionStatus.FAILED, reason);
         }
     }
 
-    private void markRemainingAsSkipped(DagRun run, Set<String> pending, Map<String, TaskExecutionStatus> nodeStatus, String reason) {
+    private void markRemainingAsSkipped(
+            DagRun run, Set<String> pending, Map<String, TaskExecutionStatus> nodeStatus, String reason) {
         for (String taskId : pending) {
             nodeStatus.put(taskId, TaskExecutionStatus.SKIPPED);
             markNode(run, taskId, TaskExecutionStatus.SKIPPED, reason);
@@ -328,9 +339,7 @@ public class DagOrchestratorService {
         if (raw == null) {
             return "";
         }
-        return raw
-                .replace("${batchDate}", batchDate)
-                .replace("${rerunId}", rerunId == null ? "" : rerunId);
+        return raw.replace("${batchDate}", batchDate).replace("${rerunId}", rerunId == null ? "" : rerunId);
     }
 
     private String normalizeBatchDate(String batchDate) {
@@ -354,6 +363,5 @@ public class DagOrchestratorService {
         SKIPPED
     }
 
-    private record NodeExecutionResult(TaskExecutionStatus status, String message) {
-    }
+    private record NodeExecutionResult(TaskExecutionStatus status, String message) {}
 }

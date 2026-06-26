@@ -6,4 +6,3 @@ public enum TriggerType {
     FIXED_DELAY,
     ONE_TIME
 }
-

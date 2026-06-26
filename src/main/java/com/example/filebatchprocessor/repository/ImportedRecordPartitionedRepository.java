@@ -1,15 +1,14 @@
 package com.example.filebatchprocessor.repository;
 
 import com.example.filebatchprocessor.model.ImportedRecordPartitioned;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.stereotype.Repository;
-
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.stereotype.Repository;
 
 @Repository
 public interface ImportedRecordPartitionedRepository extends JpaRepository<ImportedRecordPartitioned, Long> {
@@ -36,7 +35,8 @@ public interface ImportedRecordPartitionedRepository extends JpaRepository<Impor
     /**
      * 分区范围查询
      */
-    @Query("SELECT r FROM ImportedRecordPartitioned r WHERE r.partitionKey >= :startPartition AND r.partitionKey <= :endPartition")
+    @Query(
+            "SELECT r FROM ImportedRecordPartitioned r WHERE r.partitionKey >= :startPartition AND r.partitionKey <= :endPartition")
     List<ImportedRecordPartitioned> findByPartitionKeyRange(String startPartition, String endPartition);
 
     /**

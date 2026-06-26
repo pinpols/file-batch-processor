@@ -2,16 +2,15 @@ package com.example.filebatchprocessor.batch.scheduler;
 
 import com.example.filebatchprocessor.config.CircuitBreakerProperties;
 import com.example.filebatchprocessor.model.TargetSystemCircuitState;
-import com.example.filebatchprocessor.repository.TargetSystemCircuitStateRepository;
 import com.example.filebatchprocessor.observability.BatchMetrics;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
-
+import com.example.filebatchprocessor.repository.TargetSystemCircuitStateRepository;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Component
@@ -24,9 +23,10 @@ public class TargetSystemCircuitBreaker {
     // In-memory sliding window counters (targetSystem -> failureCount)
     private final ConcurrentMap<String, Long> failureCounters = new ConcurrentHashMap<>();
 
-    public TargetSystemCircuitBreaker(TargetSystemCircuitStateRepository repository,
-                                      CircuitBreakerProperties properties,
-                                      BatchMetrics batchMetrics) {
+    public TargetSystemCircuitBreaker(
+            TargetSystemCircuitStateRepository repository,
+            CircuitBreakerProperties properties,
+            BatchMetrics batchMetrics) {
         this.repository = repository;
         this.properties = properties;
         this.batchMetrics = batchMetrics;
@@ -65,7 +65,8 @@ public class TargetSystemCircuitBreaker {
      */
     @Transactional
     public void recordResult(String targetSystem, boolean success) {
-        TargetSystemCircuitState state = repository.findByTargetSystem(targetSystem)
+        TargetSystemCircuitState state = repository
+                .findByTargetSystem(targetSystem)
                 .orElseGet(() -> {
                     TargetSystemCircuitState s = new TargetSystemCircuitState();
                     s.setTargetSystem(targetSystem);
@@ -100,7 +101,11 @@ public class TargetSystemCircuitBreaker {
                 state.setCooldownUntil(LocalDateTime.now().plusNanos(state.getCooldownDurationMs() * 1_000_000L));
                 repository.save(state);
                 batchMetrics.counter("circuit_open_total", "target", targetSystem);
-                log.warn("Circuit opened for targetSystem={} due to failureRate={}/{}", targetSystem, failureRate, state.getFailureRateThreshold());
+                log.warn(
+                        "Circuit opened for targetSystem={} due to failureRate={}/{}",
+                        targetSystem,
+                        failureRate,
+                        state.getFailureRateThreshold());
             } else {
                 repository.save(state);
             }

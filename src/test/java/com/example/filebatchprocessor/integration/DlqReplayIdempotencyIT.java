@@ -1,17 +1,13 @@
 package com.example.filebatchprocessor.integration;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import com.example.filebatchprocessor.model.DlqRecord;
 import com.example.filebatchprocessor.repository.DlqRecordRepository;
 import com.example.filebatchprocessor.repository.ImportedRecordPartitionedRepository;
 import com.example.filebatchprocessor.service.DlqCompensationService;
 import com.example.filebatchprocessor.support.PostgresContainerSupport;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.annotation.DirtiesContext;
-import org.springframework.test.context.ActiveProfiles;
-
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -20,9 +16,12 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.test.context.ActiveProfiles;
 
 @SpringBootTest
 @ActiveProfiles("test")
@@ -31,8 +30,10 @@ class DlqReplayIdempotencyIT extends PostgresContainerSupport {
 
     @Autowired
     private DlqCompensationService dlqCompensationService;
+
     @Autowired
     private DlqRecordRepository dlqRecordRepository;
+
     @Autowired
     private ImportedRecordPartitionedRepository importedRecordPartitionedRepository;
 
@@ -59,9 +60,7 @@ class DlqReplayIdempotencyIT extends PostgresContainerSupport {
         ExecutorService pool = Executors.newFixedThreadPool(2);
         try {
             List<Callable<Integer>> calls = List.of(
-                    () -> dlqCompensationService.replayPending(10),
-                    () -> dlqCompensationService.replayPending(10)
-            );
+                    () -> dlqCompensationService.replayPending(10), () -> dlqCompensationService.replayPending(10));
             List<Future<Integer>> futures = new ArrayList<>();
             for (Callable<Integer> call : calls) {
                 futures.add(pool.submit(call));
@@ -78,7 +77,8 @@ class DlqReplayIdempotencyIT extends PostgresContainerSupport {
 
         List<DlqRecord> records = dlqRecordRepository.findAll();
         assertEquals(2, records.size());
-        assertTrue(records.stream().allMatch(r -> Boolean.TRUE.equals(r.getHandled())),
+        assertTrue(
+                records.stream().allMatch(r -> Boolean.TRUE.equals(r.getHandled())),
                 "all replayed DLQ messages should be marked handled");
     }
 

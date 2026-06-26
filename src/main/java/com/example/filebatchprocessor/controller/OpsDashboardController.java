@@ -6,14 +6,13 @@ import com.example.filebatchprocessor.repository.BatchRunRecordRepository;
 import com.example.filebatchprocessor.repository.DlqRecordRepository;
 import com.example.filebatchprocessor.repository.OpsChangeRequestRepository;
 import com.example.filebatchprocessor.repository.TaskExecutionStateRepository;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 /**
  * 轻量运维看板接口，可直接被 Grafana/前端查询。
@@ -27,10 +26,11 @@ public class OpsDashboardController {
     private final TaskExecutionStateRepository taskExecutionStateRepository;
     private final OpsChangeRequestRepository opsChangeRequestRepository;
 
-    public OpsDashboardController(BatchRunRecordRepository batchRunRecordRepository,
-                                  DlqRecordRepository dlqRecordRepository,
-                                  TaskExecutionStateRepository taskExecutionStateRepository,
-                                  OpsChangeRequestRepository opsChangeRequestRepository) {
+    public OpsDashboardController(
+            BatchRunRecordRepository batchRunRecordRepository,
+            DlqRecordRepository dlqRecordRepository,
+            TaskExecutionStateRepository taskExecutionStateRepository,
+            OpsChangeRequestRepository opsChangeRequestRepository) {
         this.batchRunRecordRepository = batchRunRecordRepository;
         this.dlqRecordRepository = dlqRecordRepository;
         this.taskExecutionStateRepository = taskExecutionStateRepository;
@@ -57,7 +57,8 @@ public class OpsDashboardController {
         List<BatchRunRecord> recentRuns = batchRunRecordRepository.findTop200ByOrderByCreatedAtDesc();
         double avgThroughputRps = recentRuns.stream()
                 .mapToDouble(v -> v.getThroughputRps() == null ? 0.0 : v.getThroughputRps())
-                .average().orElse(0.0);
+                .average()
+                .orElse(0.0);
 
         List<TaskExecutionState> latestTaskStates = taskExecutionStateRepository.findTop200ByOrderByUpdatedAtDesc();
 

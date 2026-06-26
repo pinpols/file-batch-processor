@@ -4,14 +4,13 @@ import com.example.filebatchprocessor.model.ReconcileDiffRecord;
 import com.example.filebatchprocessor.model.ReconcileRunRecord;
 import com.example.filebatchprocessor.repository.ReconcileDiffRecordRepository;
 import com.example.filebatchprocessor.repository.ReconcileRunRecordRepository;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/reconcile")
@@ -20,8 +19,9 @@ public class ReconcileController {
     private final ReconcileRunRecordRepository reconcileRunRecordRepository;
     private final ReconcileDiffRecordRepository reconcileDiffRecordRepository;
 
-    public ReconcileController(ReconcileRunRecordRepository reconcileRunRecordRepository,
-                              ReconcileDiffRecordRepository reconcileDiffRecordRepository) {
+    public ReconcileController(
+            ReconcileRunRecordRepository reconcileRunRecordRepository,
+            ReconcileDiffRecordRepository reconcileDiffRecordRepository) {
         this.reconcileRunRecordRepository = reconcileRunRecordRepository;
         this.reconcileDiffRecordRepository = reconcileDiffRecordRepository;
     }

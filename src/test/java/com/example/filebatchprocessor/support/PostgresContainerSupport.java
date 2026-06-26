@@ -1,17 +1,16 @@
 package com.example.filebatchprocessor.support;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.PostgreSQLContainer;
-
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Locale;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.containers.PostgreSQLContainer;
 
 public abstract class PostgresContainerSupport {
 
@@ -63,8 +62,7 @@ public abstract class PostgresContainerSupport {
                     POSTGRES.getUsername(),
                     POSTGRES.getPassword(),
                     POSTGRES.getDriverClassName(),
-                    "testcontainers"
-            );
+                    "testcontainers");
             log.info("Using Testcontainers PostgreSQL for integration tests: schema={}", config.schema());
             return config;
         } catch (Throwable dockerFailure) {
@@ -74,7 +72,8 @@ public abstract class PostgresContainerSupport {
     }
 
     private static DatabaseConfig createLocalFallbackConfig(Throwable dockerFailure) {
-        String jdbcUrl = readSetting("TEST_POSTGRES_URL", "test.postgres.url", "jdbc:postgresql://localhost:5432/postgres");
+        String jdbcUrl =
+                readSetting("TEST_POSTGRES_URL", "test.postgres.url", "jdbc:postgresql://localhost:5432/postgres");
         String username = readSetting("TEST_POSTGRES_USERNAME", "test.postgres.username", "postgres");
         String password = readSetting("TEST_POSTGRES_PASSWORD", "test.postgres.password", "postgres");
         String driverClassName = "org.postgresql.Driver";
@@ -88,20 +87,12 @@ public abstract class PostgresContainerSupport {
         }
     }
 
-    private static DatabaseConfig createSchemaScopedConfig(String baseJdbcUrl,
-                                                           String username,
-                                                           String password,
-                                                           String driverClassName,
-                                                           String prefix) {
+    private static DatabaseConfig createSchemaScopedConfig(
+            String baseJdbcUrl, String username, String password, String driverClassName, String prefix) {
         String schema = buildSchemaName(prefix);
         ensureSchemaExists(baseJdbcUrl, username, password, schema);
         return new DatabaseConfig(
-                appendCurrentSchema(baseJdbcUrl, schema),
-                username,
-                password,
-                driverClassName,
-                schema
-        );
+                appendCurrentSchema(baseJdbcUrl, schema), username, password, driverClassName, schema);
     }
 
     private static String readSetting(String envKey, String systemPropertyKey, String defaultValue) {
@@ -117,13 +108,12 @@ public abstract class PostgresContainerSupport {
     }
 
     private static String buildSchemaName(String prefix) {
-        return (prefix + "_" + UUID.randomUUID().toString().replace("-", ""))
-                .toLowerCase(Locale.ROOT);
+        return (prefix + "_" + UUID.randomUUID().toString().replace("-", "")).toLowerCase(Locale.ROOT);
     }
 
     private static void ensureSchemaExists(String jdbcUrl, String username, String password, String schema) {
         try (Connection connection = DriverManager.getConnection(jdbcUrl, username, password);
-             Statement statement = connection.createStatement()) {
+                Statement statement = connection.createStatement()) {
             statement.execute("create schema if not exists " + schema);
         } catch (SQLException ex) {
             throw new IllegalStateException("Failed to prepare PostgreSQL schema for integration tests: " + schema, ex);
@@ -134,10 +124,6 @@ public abstract class PostgresContainerSupport {
         return jdbcUrl + (jdbcUrl.contains("?") ? "&" : "?") + "currentSchema=" + schema;
     }
 
-    private record DatabaseConfig(String jdbcUrl,
-                                  String username,
-                                  String password,
-                                  String driverClassName,
-                                  String schema) {
-    }
+    private record DatabaseConfig(
+            String jdbcUrl, String username, String password, String driverClassName, String schema) {}
 }

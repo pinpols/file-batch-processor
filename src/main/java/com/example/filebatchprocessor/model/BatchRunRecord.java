@@ -1,12 +1,11 @@
 package com.example.filebatchprocessor.model;
 
 import jakarta.persistence.*;
+import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-
-import java.time.LocalDateTime;
 
 /**
  * 批次运行审计记录：用于追踪每次作业执行状态与核心指标。
@@ -16,10 +15,12 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "batch_run_records", indexes = {
-        @Index(name = "idx_batch_run_job_name", columnList = "jobName"),
-        @Index(name = "idx_batch_run_status", columnList = "status")
-})
+@Table(
+        name = "batch_run_records",
+        indexes = {
+            @Index(name = "idx_batch_run_job_name", columnList = "jobName"),
+            @Index(name = "idx_batch_run_status", columnList = "status")
+        })
 public class BatchRunRecord {
 
     @Id
@@ -55,6 +56,7 @@ public class BatchRunRecord {
     private Long retryCount = 0L;
 
     private Boolean qualityPassed = Boolean.TRUE;
+
     @Column(length = 500)
     private String qualityMessage;
 
@@ -68,7 +70,7 @@ public class BatchRunRecord {
     private LocalDateTime updatedAt = LocalDateTime.now();
 
     // Explicit getters and setters as workaround for Lombok annotation processing issue
-    
+
     public Long getId() {
         return id;
     }
