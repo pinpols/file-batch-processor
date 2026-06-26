@@ -94,6 +94,11 @@ class BatchE2ERegressionIT extends PostgresContainerSupport {
                 + "&source=record-writer");
         dlq.setErrorMessage("synthetic replay case");
         dlq.setHandled(false);
+        // replayPending 查询要求 retryable=true & manualRequired=false & nextRetryAt<now,缺一即不被认领
+        dlq.setRetryable(true);
+        dlq.setManualRequired(false);
+        dlq.setCompensationStatus("PENDING");
+        dlq.setNextRetryAt(java.time.LocalDateTime.now().minusMinutes(1));
         DlqRecord savedDlq = dlqRecordRepository.save(dlq);
 
         int replayed = dlqCompensationService.replayPending(10);
