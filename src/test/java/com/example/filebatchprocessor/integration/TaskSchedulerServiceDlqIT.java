@@ -12,7 +12,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
-import org.opentest4j.TestAbortedException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -31,8 +30,10 @@ class TaskSchedulerServiceDlqIT extends PostgresContainerSupport {
 
     @DynamicPropertySource
     static void registerProperties(DynamicPropertyRegistry registry) {
+        // Docker 不可用时不抛异常(避免上下文加载直接报错):退回父类 PostgresContainerSupport 的
+        // 本地 fallback,context 仍能加载;具体测试方法由 @BeforeEach 的 assumeTrue 干净跳过。
         if (!isDockerAvailable()) {
-            throw new TestAbortedException("Docker not available for Testcontainers");
+            return;
         }
         if (!POSTGRES.isRunning()) {
             POSTGRES.start();
@@ -42,6 +43,10 @@ class TaskSchedulerServiceDlqIT extends PostgresContainerSupport {
         registry.add("spring.datasource.password", POSTGRES::getPassword);
         registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
         registry.add("spring.quartz.job-store-type", () -> "jdbc");
+        // PG 的 qrtz_*.job_data 是 BYTEA,JDBC JobStore 须用 PostgreSQLDelegate
+        registry.add(
+                "spring.quartz.properties.org.quartz.jobStore.driverDelegateClass",
+                () -> "org.quartz.impl.jdbcjobstore.PostgreSQLDelegate");
         registry.add("spring.quartz.jdbc.initialize-schema", () -> "never");
         registry.add("orchestration.config-source", () -> "db");
     }
@@ -57,6 +62,9 @@ class TaskSchedulerServiceDlqIT extends PostgresContainerSupport {
 
     @BeforeEach
     void reset() {
+        // 该用例需真实 Testcontainers(独立容器 + JDBC Quartz);本机无 Docker 时干净跳过,交 CI 跑。
+        org.junit.jupiter.api.Assumptions.assumeTrue(
+                isDockerAvailable(), "Docker required for Testcontainers; skipping (runs in CI)");
         dlqRecordRepository.deleteAll();
     }
 
