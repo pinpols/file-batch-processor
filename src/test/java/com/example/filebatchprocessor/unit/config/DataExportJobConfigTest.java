@@ -57,7 +57,7 @@ class DataExportJobConfigTest {
         jobParameters.put("output.file.name", "test.csv");
 
         // When
-        ItemReader<ExportRecord> reader = dataExportJobConfig.exportReader(jobParameters);
+        ItemReader<ExportRecord> reader = dataExportJobConfig.exportReader(jobParameters, 500);
 
         // Then
         assertNotNull(reader);
@@ -71,7 +71,7 @@ class DataExportJobConfigTest {
         // No export.sql parameter
 
         // When
-        ItemReader<ExportRecord> reader = dataExportJobConfig.exportReader(jobParameters);
+        ItemReader<ExportRecord> reader = dataExportJobConfig.exportReader(jobParameters, 500);
 
         // Then
         assertNotNull(reader);
@@ -87,7 +87,7 @@ class DataExportJobConfigTest {
 
         // When & Then
         assertThrows(IllegalArgumentException.class, () -> {
-            dataExportJobConfig.exportReader(jobParameters);
+            dataExportJobConfig.exportReader(jobParameters, 500);
         });
     }
 

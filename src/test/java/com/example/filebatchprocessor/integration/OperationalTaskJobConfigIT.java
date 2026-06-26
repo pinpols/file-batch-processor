@@ -90,8 +90,8 @@ class OperationalTaskJobConfigIT {
 
         fileReceptionService = new FileReceptionService(fileReceptionQueueRepository);
         fileDistributionService = new FileDistributionService(fileDistributionTaskRepository, recordTraceRepository);
-        PartitionedImportService partitionedImportService =
-                new PartitionedImportService(importedRecordPartitionedRepository);
+        PartitionedImportService partitionedImportService = new PartitionedImportService(
+                importedRecordPartitionedRepository, mock(org.springframework.jdbc.core.JdbcTemplate.class));
         FileExportService fileExportService = new FileExportService();
         FileDistributorDispatcher fileDistributorDispatcher =
                 new FileDistributorDispatcher(List.of(new HttpFileDistributor(fileDistributionService)));
