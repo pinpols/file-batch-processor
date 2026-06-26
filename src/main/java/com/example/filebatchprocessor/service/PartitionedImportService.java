@@ -12,7 +12,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.TransientDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -58,17 +57,6 @@ public class PartitionedImportService {
             // 生成分区键（yyyy_MM 格式）
             String partitionKey = generatePartitionKey(normalizedBatchDate);
 
-            // 检查是否已存在
-            var existing = partitionedRepository.findByBusinessKeyAndBatchDate(businessKey, normalizedBatchDate);
-            if (existing.isPresent()) {
-                // 幂等：重复导入时直接返回已存在记录，避免抛错污染日志
-                log.debug(
-                        "Record already exists (idempotent hit): key={}, batchDate={}",
-                        businessKey,
-                        normalizedBatchDate);
-                return existing.get();
-            }
-
             ImportedRecordPartitioned record = new ImportedRecordPartitioned();
             record.setBusinessKey(businessKey);
             record.setName(name);
@@ -80,21 +68,13 @@ public class PartitionedImportService {
             record.setCreatedAt(LocalDateTime.now());
             record.setUpdatedAt(LocalDateTime.now());
 
-            ImportedRecordPartitioned saved = partitionedRepository.save(record);
-            log.info("Record imported successfully: id={}, partition={}", saved.getId(), partitionKey);
-            return saved;
-        } catch (DataIntegrityViolationException e) {
-            // 并发下可能出现先查不存在、后插入冲突，按幂等命中处理
+            // 用 INSERT ... ON CONFLICT DO NOTHING 落库:重复键不抛异常(不污染事务),
+            // 并发同键时后到者会阻塞到先到者提交、再 DO NOTHING,天然幂等。
+            // 随后回查返回实体(自己刚插的或并发赢家已提交的那条)。
+            batchImportIdempotent(List.of(record));
             return partitionedRepository
                     .findByBusinessKeyAndBatchDate(businessKey, normalizedBatchDate)
-                    .map(existing -> {
-                        log.debug(
-                                "Record already exists after concurrent insert (idempotent hit): key={}, batchDate={}",
-                                businessKey,
-                                normalizedBatchDate);
-                        return existing;
-                    })
-                    .orElseThrow(() -> e);
+                    .orElse(record);
         } catch (TransientDataAccessException e) {
             throw new TransientImportException("Transient failure while importing record", e);
         } catch (Exception e) {

@@ -90,8 +90,35 @@ class OperationalTaskJobConfigIT {
 
         fileReceptionService = new FileReceptionService(fileReceptionQueueRepository);
         fileDistributionService = new FileDistributionService(fileDistributionTaskRepository, recordTraceRepository);
-        PartitionedImportService partitionedImportService = new PartitionedImportService(
-                importedRecordPartitionedRepository, mock(org.springframework.jdbc.core.JdbcTemplate.class));
+        // importRecord 现走 jdbcTemplate 的 INSERT ... ON CONFLICT(并发安全),
+        // 此处用 fake batchUpdate 把记录落到内存 partitionedStore,模拟真实落库
+        org.springframework.jdbc.core.JdbcTemplate jdbcTemplate =
+                mock(org.springframework.jdbc.core.JdbcTemplate.class);
+        when(jdbcTemplate.batchUpdate(
+                        anyString(),
+                        org.mockito.ArgumentMatchers.<ImportedRecordPartitioned>anyList(),
+                        org.mockito.ArgumentMatchers.anyInt(),
+                        org.mockito.ArgumentMatchers
+                                .<org.springframework.jdbc.core.ParameterizedPreparedStatementSetter<
+                                                ImportedRecordPartitioned>>
+                                        any()))
+                .thenAnswer(invocation -> {
+                    List<ImportedRecordPartitioned> rows = invocation.getArgument(1);
+                    for (ImportedRecordPartitioned row : rows) {
+                        boolean exists = partitionedStore.values().stream()
+                                .anyMatch(r -> r.getBusinessKey().equals(row.getBusinessKey())
+                                        && r.getBatchDate().equals(row.getBatchDate()));
+                        if (!exists) {
+                            if (row.getId() == null) {
+                                row.setId(partitionedIds.getAndIncrement());
+                            }
+                            partitionedStore.put(row.getId(), row);
+                        }
+                    }
+                    return new int[][] {};
+                });
+        PartitionedImportService partitionedImportService =
+                new PartitionedImportService(importedRecordPartitionedRepository, jdbcTemplate);
         FileExportService fileExportService = new FileExportService();
         FileDistributorDispatcher fileDistributorDispatcher =
                 new FileDistributorDispatcher(List.of(new HttpFileDistributor(fileDistributionService)));
