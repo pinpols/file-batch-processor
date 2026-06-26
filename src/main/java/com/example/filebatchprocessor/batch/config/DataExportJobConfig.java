@@ -19,6 +19,7 @@ import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.Step;
 import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.infrastructure.item.database.JdbcCursorItemReader;
+import org.springframework.batch.infrastructure.item.database.builder.JdbcCursorItemReaderBuilder;
 import org.springframework.batch.infrastructure.item.file.FlatFileItemWriter;
 import org.springframework.batch.infrastructure.item.file.builder.FlatFileItemWriterBuilder;
 import org.springframework.batch.infrastructure.item.file.transform.DelimitedLineAggregator;
@@ -52,11 +53,19 @@ public class DataExportJobConfig {
     @Bean
     @StepScope
     public JdbcCursorItemReader<ExportRecord> exportReader(
-            @Value("#{jobParameters}") Map<String, Object> jobParameters) {
+            @Value("#{jobParameters}") Map<String, Object> jobParameters,
+            @Value("${batch.export.fetch-size:500}") int fetchSize) {
 
         ExportJobParams params = ExportJobParams.from(jobParameters);
         String sql = resolveSafeExportSql(params.getExportSql());
-        return new JdbcCursorItemReader<>(dataSource, sql, DataExportJobConfig::mapRow);
+        // setFetchSize 让 PostgreSQL 走服务端游标按批拉取,避免默认把整个结果集读进内存导致大导出 OOM
+        return new JdbcCursorItemReaderBuilder<ExportRecord>()
+                .name("exportReader")
+                .dataSource(dataSource)
+                .sql(sql)
+                .rowMapper(DataExportJobConfig::mapRow)
+                .fetchSize(fetchSize)
+                .build();
     }
 
     private String resolveSafeExportSql(String exportSql) {

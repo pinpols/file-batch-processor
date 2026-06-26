@@ -6,6 +6,9 @@ import com.example.filebatchprocessor.batch.processor.FileImportRecordProcessor;
 import com.example.filebatchprocessor.batch.reader.FileImportRecordReader;
 import com.example.filebatchprocessor.batch.reader.spi.RecordLineParserFactory;
 import com.example.filebatchprocessor.batch.writer.FileImportRecordWriter;
+import com.example.filebatchprocessor.batch.writer.strategy.BatchChunkImportStrategy;
+import com.example.filebatchprocessor.batch.writer.strategy.ChunkImportStrategy;
+import com.example.filebatchprocessor.batch.writer.strategy.PerRecordChunkImportStrategy;
 import com.example.filebatchprocessor.exception.RecordValidationException;
 import com.example.filebatchprocessor.exception.TransientImportException;
 import com.example.filebatchprocessor.listener.JobCompletionNotificationListener;
@@ -88,6 +91,9 @@ public class FileImportJobConfig {
                 recordLineParserFactory);
     }
 
+    @Value("${batch.import.max-dedup-keys:1000000}")
+    private int maxDedupKeys;
+
     @Bean
     @StepScope
     public FileImportRecordWriter importWriter(
@@ -97,12 +103,12 @@ public class FileImportJobConfig {
             RecordTraceRepository recordTraceRepository) {
         ImportJobParams params = ImportJobParams.from(jobParameters);
         params.validateForWriter();
-        return new FileImportRecordWriter(
-                params.getBatchDate(),
-                partitionedImportService,
-                dlqRecordRepository,
-                recordTraceRepository,
-                transactionManager);
+        // Strategy 模式:批量快路径 + 逐条降级路径,由 writer 作为 Context 选择
+        ChunkImportStrategy batchStrategy =
+                new BatchChunkImportStrategy(partitionedImportService, recordTraceRepository);
+        ChunkImportStrategy fallbackStrategy = new PerRecordChunkImportStrategy(
+                partitionedImportService, dlqRecordRepository, recordTraceRepository, transactionManager);
+        return new FileImportRecordWriter(params.getBatchDate(), batchStrategy, fallbackStrategy, maxDedupKeys);
     }
 
     @Bean
@@ -116,9 +122,10 @@ public class FileImportJobConfig {
             ParseErrorRateGateListener parseErrorRateGateListener,
             ShardContextListener shardContextListener,
             @Value("${batch.retry.limit:3}") int retryLimit,
-            @Value("${batch.skip.limit:100}") int skipLimit) {
+            @Value("${batch.skip.limit:100}") int skipLimit,
+            @Value("${batch.import.chunk-size:200}") int chunkSize) {
         return new StepBuilder("importStep", jobRepository)
-                .<FileRecord, FileRecord>chunk(10)
+                .<FileRecord, FileRecord>chunk(chunkSize)
                 .reader(reader)
                 .processor(processor)
                 .writer(writer)

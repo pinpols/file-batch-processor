@@ -117,7 +117,8 @@ class FileImportJobConfigTest {
                 parseErrorRateGateListener,
                 shardContextListener,
                 3,
-                100);
+                100,
+                200);
 
         // Then
         assertNotNull(step);
