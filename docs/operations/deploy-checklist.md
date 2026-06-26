@@ -2,7 +2,7 @@
 > 中文名：上线检查清单
 
 ## 1. 环境与依赖
-- [ ] JDK 25 与 Maven 3.9+ 已确认
+- [ ] JDK 21 (LTS) 与 Maven 3.9+ 已确认
 - [ ] Docker / Docker Compose 可用
 - [ ] PostgreSQL 17 实例可访问（网络、账号、库名）
 - [ ] 时区统一（建议 Asia/Shanghai）

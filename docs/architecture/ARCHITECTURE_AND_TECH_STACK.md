@@ -8,12 +8,15 @@
 
 ## 🏗️ **技术栈**
 
+### **运行环境**
+- ✅ **Java 21 (LTS)** - 编译/运行目标(由 maven-enforcer 强制 `[21,)`)
+- ✅ **Spring Boot 4.0.3** - 主框架和依赖管理
+
 ### **核心框架**
-- ✅ **Spring Boot 4.0.0** - 主框架和依赖管理
-- ✅ **Spring Batch** - 批量处理核心框架
-- ✅ **Spring Security** - 安全认证和授权
-- ✅ **Spring Data JPA** - 数据访问层
-- ✅ **Spring Quartz** - 任务调度框架
+- ✅ **Spring Batch** - 批量处理核心框架(chunk-oriented:Reader/Processor/Writer)
+- ✅ **Spring Security** - 角色鉴权(viewer / operator / admin)
+- ✅ **Spring Data JPA + JdbcTemplate** - 数据访问层(JPA 为主,批量热点用 JdbcTemplate)
+- ✅ **Spring Quartz** - 任务调度框架(JDBC JobStore)
 
 ### **数据库和持久化**
 - ✅ **PostgreSQL** - 主数据库
@@ -41,6 +44,13 @@
 - ✅ **Testcontainers 1.21.3** - 容器化测试
 - ✅ **JUnit 5** - 单元测试框架
 - ✅ **Mockito** - Mock测试框架
+
+### **代码质量门禁(CI 强制)**
+- ✅ **Spotless (palantir-java-format)** - 统一格式化,`spotless:check` 拦截不合规 PR
+- ✅ **SpotBugs (effort=Max)** - 静态分析,带注释的排除过滤器(`config/spotbugs/spotbugs-exclude.xml`)只排除 Spring DI / DTO 公认误报与低价值 perf 模式,门禁聚焦正确性与安全
+- ✅ **OWASP Dependency-Check + Trivy** - 依赖与文件系统安全扫描
+
+> CI(`.github/workflows/ci.yml`)的 `code-quality` job 跑 Spotless + SpotBugs;`build-and-unit-test` 跑编译 + 单测;`integration-test` 在真 PostgreSQL 上跑 IT。
 
 ---
 
@@ -107,8 +117,13 @@ com.example.filebatchprocessor/
 │   │   ├── FileImportRecordReader.java   # 文件读取器
 │   │   └── spi/                          # 解析器SPI
 │   ├── 📁 writer/              # 数据写入器
-│   │   ├── FileImportRecordWriter.java   # 数据库写入器
-│   │   └── ExportRecordTraceWriter.java  # 追踪写入器
+│   │   ├── FileImportRecordWriter.java   # 导入写入器(Strategy Context)
+│   │   ├── ExportRecordTraceWriter.java  # 追踪写入器
+│   │   └── 📁 strategy/                   # 导入持久化策略(Strategy 模式)
+│   │       ├── ChunkImportStrategy.java          # 策略接口
+│   │       ├── BatchChunkImportStrategy.java     # 批量快路径
+│   │       ├── PerRecordChunkImportStrategy.java # 逐条韧性降级
+│   │       └── ImportContext.java                # step 内上下文
 │   ├── 📁 scheduler/           # 调度器
 │   │   ├── FixedDelayScheduler.java      # 固定延迟调度器
 │   │   └── [其他调度组件]                 # 调度相关组件
@@ -187,15 +202,53 @@ com.example.filebatchprocessor/
 
 ---
 
+## 🧩 **导入写入设计(Strategy 模式)**
+
+导入写入器 `FileImportRecordWriter` 是 Strategy 模式的 **Context**,对每个 chunk 选择持久化策略:
+
+```
+chunk 到达
+    ↓
+批内去重(有界,batch.import.max-dedup-keys 默认 100w,防超大文件 OOM)
+    ↓
+┌─ 默认:BatchChunkImportStrategy(快路径)
+│     • 一次 INSERT ... ON CONFLICT (business_key,batch_date,partition_key) DO NOTHING
+│     • 一次批量回查 id 关联 trace
+│     • 3N 次 round-trip → 约 3 次/chunk;幂等交唯一约束兜底,去掉逐条 SELECT
+│
+└─ 批量失败(非瞬时)自动降级 → PerRecordChunkImportStrategy(韧性路径)
+      • 每条 REQUIRES_NEW 独立事务,单条失败不连累整批
+      • 坏记录落 DLQ 后上抛,交 Spring Batch skip/retry
+      （瞬时异常 TransientImportException 直接上抛由 Batch 重试,不降级）
+```
+
+| | 批量快路径 | 逐条韧性路径 |
+|---|---|---|
+| 何时用 | 默认(健康 chunk) | 批量抛非瞬时异常时降级 |
+| round-trip | ~3 次/chunk | 3N 次/chunk |
+| 失败粒度 | 整 chunk 回滚后降级 | 单条隔离 → DLQ |
+| 幂等 | ON CONFLICT DO NOTHING | importRecord 先查/撞约束回查 |
+
+**落库幂等的唯一真相**:唯一索引 `(business_key, batch_date, partition_key)`——两条路径都靠它兜底,不依赖"先查后插"的原子性。
+
+`chunk-size`(默认 200)、`max-dedup-keys`、`fetch-size` 均可通过配置调整。
+
+## 🧩 **导出流式设计**
+
+导出 `exportReader` 使用 `JdbcCursorItemReaderBuilder` + `setFetchSize`(`batch.export.fetch-size` 默认 500),
+让 PostgreSQL 走**服务端游标按批拉取**,内存恒定,避免默认把整个结果集读进内存导致大导出 OOM。
+
+---
+
 ## ⚡ **核心特性**
 
 ### **1. 批量处理能力**
 
 #### **文件导入**
-- ✅ **多格式支持** - CSV、Excel、JSON
-- ✅ **分片处理** - 大文件并行处理
-- ✅ **SPI扩展** - 自定义文件解析器
-- ✅ **数据验证** - 业务规则校验
+- ✅ **流式解析** - 逐行读取,CSV / 定长(SPI 可扩展)
+- ✅ **分片处理** - 按 shardIndex/shardTotal 切分
+- ✅ **批量幂等写入** - chunk 级 `ON CONFLICT DO NOTHING`,失败降级逐条 + DLQ(见上文 Strategy 设计)
+- ✅ **数据验证** - 业务规则校验 + 解析错误率门禁
 
 #### **数据导出**
 - ✅ **自定义SQL** - 灵活的数据查询
@@ -241,9 +294,9 @@ com.example.filebatchprocessor/
 
 #### **认证授权**
 - ✅ **Spring Security** - 安全框架
-- ✅ **JWT支持** - 无状态认证
-- ✅ **角色控制** - 细粒度权限
-- ✅ **API安全** - 接口访问控制
+- ✅ **角色鉴权** - viewer / operator / admin 三级(密码带编码前缀,如 `{noop}`/`{bcrypt}`)
+- ✅ **变更审批** - Ops 变更请求带审批流(OpsChangeManagementService)
+- ✅ **API安全** - 接口访问控制 + 审计
 
 #### **数据安全**
 - ✅ **SQL注入防护** - 参数化查询
@@ -273,11 +326,11 @@ com.example.filebatchprocessor/
 - **配置驱动** - 运行时参数配置
 - **模块化设计** - 功能独立可扩展
 
-### **4. 现代化技术栈**
-- **Java 25** - 最新Java特性
-- **Spring Boot 4.0** - 最新Spring生态
-- **容器化支持** - Docker和Kubernetes
-- **云原生架构** - 微服务友好
+### **4. 技术栈**
+- **Java 21 (LTS)** - 长期支持版本,工具链兼容性好
+- **Spring Boot 4.0.3** - Spring 生态
+- **容器化支持** - Docker(eclipse-temurin:21)
+- **质量门禁** - Spotless + SpotBugs 进 CI,规范靠机器强制而非自觉
 
 ---
 
@@ -304,8 +357,16 @@ spring:
     job:
       enabled: false
   quartz:
-    job-store-type: memory
+    job-store-type: jdbc
     threadCount: 8
+
+# 导入/导出调优(均有默认值,可按硬件与数据形态调整)
+batch:
+  import:
+    chunk-size: 200          # 导入 chunk 大小
+    max-dedup-keys: 1000000  # 批内去重集合上限,超过仅靠 DB 唯一约束兜底
+  export:
+    fetch-size: 500          # 导出游标 fetchSize(PG 服务端游标按批拉取)
 ```
 
 #### **监控配置**
@@ -320,7 +381,7 @@ management:
 ### **部署要求**
 
 #### **环境要求**
-- **Java 25+** - 运行环境
+- **Java 21 (LTS)** - 运行环境(maven-enforcer 强制 `[21,)`)
 - **PostgreSQL 12+** - 数据库
 - **内存要求** - 最小2GB，推荐4GB+
 - **CPU要求** - 最小2核，推荐4核+
@@ -335,17 +396,17 @@ management:
 
 ## 📈 **性能指标**
 
-### **处理能力**
-- **文件处理** - 支持GB级大文件
-- **并发处理** - 多线程并行处理
-- **吞吐量** - 10000+记录/秒
-- **延迟控制** - 毫秒级响应时间
+> 说明:以下为设计目标/方向,非基准实测值;真实吞吐取决于硬件、PG 配置与数据形态,需以压测为准。
+
+### **处理能力(设计取向)**
+- **大文件** - 导入逐行流式读、导出服务端游标,内存随文件大小恒定
+- **导入吞吐** - chunk 级批量插入把每条 3 次 round-trip 降到约 3 次/chunk,是主要吞吐杠杆
+- **容错** - 批量失败降级逐条 + DLQ,坏数据不阻断整批
 
 ### **资源使用**
-- **内存效率** - 流式处理低内存占用
-- **CPU优化** - 多核并行利用
-- **I/O优化** - 批量读写优化
-- **网络效率** - 压缩传输支持
+- **内存效率** - 导入流式 + 导出 fetchSize 游标 + 去重集合有界,避免随数据量线性膨胀
+- **I/O优化** - 批量读写(JDBC batchUpdate + chunk 提交)
+- **可调** - chunk-size / fetch-size / max-dedup-keys 均可配
 
 ---
 

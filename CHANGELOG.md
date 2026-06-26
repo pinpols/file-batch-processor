@@ -2,6 +2,21 @@
 
 所有重要的项目变更都会记录在此文件中。
 
+## [Unreleased] - 2026-06-26
+
+### ⚡ 性能优化
+- **导入批量化(Strategy 模式)**:`ChunkImportStrategy` 接口 + 批量快路径(`ON CONFLICT DO NOTHING`,3N→~3 次 round-trip/chunk)+ 逐条韧性降级(REQUIRES_NEW + DLQ),`FileImportRecordWriter` 作为 Context
+- **导出流式**:`exportReader` 改服务端游标 `setFetchSize`(默认 500),防大导出 OOM
+- 批内去重有界(`batch.import.max-dedup-keys`)、`chunk-size` / `fetch-size` 可配
+
+### 🔧 平台与门禁
+- JDK **25 → 21 (LTS)**;Spring Boot 4.0.0 → 4.0.3
+- 接入 **Spotless + SpotBugs** CI 质量门禁(SpotBugs 真 bug 155→0)
+- 修复:Statement 资源泄漏、两处 `getFileName()` NPE、CSV 默认编码→UTF-8、冗余分支/死字段、`System.out`→slf4j
+
+### 📝 文档
+- 更新 `docs/architecture/ARCHITECTURE_AND_TECH_STACK.md`(技术栈/导入写入设计/导出流式/性能取向)
+
 ## [2.0.0] - 2026-03-05
 
 ### 🎉 新增功能
