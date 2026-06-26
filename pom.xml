@@ -138,6 +138,14 @@
             <artifactId>spring-batch-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- QuartzJdbcRecoveryIT 用独立 StdSchedulerFactory + JDBC JobStore 模拟重启,
+             Quartz 默认连接池是 C3P0(C3p0PoolingConnectionProvider),须显式提供 -->
+        <dependency>
+            <groupId>com.mchange</groupId>
+            <artifactId>c3p0</artifactId>
+            <version>0.10.1</version>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>junit-jupiter</artifactId>
@@ -368,6 +376,10 @@
                             <systemPropertyVariables>
                                 <spring.profiles.active>test</spring.profiles.active>
                             </systemPropertyVariables>
+                            <!-- 每个 IT 类独立 JVM:隔离 PostgresContainerSupport 的 static schema
+                                 与 Spring 上下文缓存,避免跨类数据/上下文污染(FK 冲突、BufferingApplicationStartup) -->
+                            <forkCount>1</forkCount>
+                            <reuseForks>false</reuseForks>
                             <includes>
                                 <include>**/integration/**/*IT.java</include>
                             </includes>

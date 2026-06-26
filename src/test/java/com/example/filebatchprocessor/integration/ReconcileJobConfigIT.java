@@ -54,6 +54,7 @@ class ReconcileJobConfigIT extends PostgresContainerSupport {
         row.setName("ALICE");
         row.setDescription("x");
         row.setBatchDate(batchDate);
+        row.setPartitionKey(batchDate.substring(0, 4) + "_" + batchDate.substring(5, 7));
         importedRecordPartitionedRepository.save(row);
 
         Path csv = Files.createTempFile("reconcile", ".csv");

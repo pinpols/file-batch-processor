@@ -27,6 +27,9 @@ import org.springframework.test.context.TestPropertySource;
 @TestPropertySource(
         properties = {
             "spring.quartz.job-store-type=jdbc",
+            // PostgreSQL 的 qrtz_*.job_data 是 BYTEA,须用 PostgreSQLDelegate,
+            // 否则默认 StdJDBCDelegate 把 BYTEA 当 long 读 -> "Cannot convert BYTEA to long"
+            "spring.quartz.properties.org.quartz.jobStore.driverDelegateClass=org.quartz.impl.jdbcjobstore.PostgreSQLDelegate",
             "spring.quartz.jdbc.initialize-schema=never",
             "orchestration.enabled=true",
             "orchestration.scheduler.force-leader=true"
@@ -70,7 +73,9 @@ class QuartzJdbcRecoveryIT extends PostgresContainerSupport {
         scheduler.shutdown(true);
 
         Properties props = new Properties();
-        props.setProperty("org.quartz.scheduler.instanceName", "recovery-checker");
+        // 必须与原调度器同名:Quartz JDBC JobStore 按 SCHED_NAME 隔离数据,
+        // 名字不一致就读不到此前持久化的 job/trigger(原调度器名见 application.yml)
+        props.setProperty("org.quartz.scheduler.instanceName", "fileBatchQuartzScheduler");
         props.setProperty("org.quartz.scheduler.instanceId", "AUTO");
         props.setProperty("org.quartz.threadPool.threadCount", "1");
         props.setProperty("org.quartz.jobStore.class", "org.quartz.impl.jdbcjobstore.JobStoreTX");
