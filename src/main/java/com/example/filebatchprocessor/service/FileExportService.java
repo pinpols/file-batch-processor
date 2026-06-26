@@ -5,13 +5,10 @@ import cn.hutool.poi.excel.ExcelWriter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.opencsv.CSVWriter;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
@@ -21,6 +18,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
 /**
  * 增强型导出服务：
@@ -39,9 +39,8 @@ public class FileExportService {
     private final FileProcessLogService fileProcessLogService;
 
     @Autowired
-    public FileExportService(ObjectMapper objectMapper,
-                             FileAssetService fileAssetService,
-                             FileProcessLogService fileProcessLogService) {
+    public FileExportService(
+            ObjectMapper objectMapper, FileAssetService fileAssetService, FileProcessLogService fileProcessLogService) {
         this.objectMapper = objectMapper.copy().enable(SerializationFeature.INDENT_OUTPUT);
         this.fileAssetService = fileAssetService;
         this.fileProcessLogService = fileProcessLogService;
@@ -55,23 +54,42 @@ public class FileExportService {
         if ("csv".equalsIgnoreCase(format)) {
             String[] headers = {"id", "business_key", "name", "description", "batch_date"};
             String[][] data = {
-                    {"1", "key1", "name1", "desc1", batchDate},
-                    {"2", "key2", "name2", "desc2", batchDate}
+                {"1", "key1", "name1", "desc1", batchDate},
+                {"2", "key2", "name2", "desc2", batchDate}
             };
             return exportToCSV(outputDir, fileName, data, headers);
         }
         if ("json".equalsIgnoreCase(format)) {
             List<Map<String, String>> data = List.of(
-                    Map.of("id", "1", "business_key", "key1", "name", "name1", "description", "desc1", "batch_date", batchDate),
-                    Map.of("id", "2", "business_key", "key2", "name", "name2", "description", "desc2", "batch_date", batchDate)
-            );
+                    Map.of(
+                            "id",
+                            "1",
+                            "business_key",
+                            "key1",
+                            "name",
+                            "name1",
+                            "description",
+                            "desc1",
+                            "batch_date",
+                            batchDate),
+                    Map.of(
+                            "id",
+                            "2",
+                            "business_key",
+                            "key2",
+                            "name",
+                            "name2",
+                            "description",
+                            "desc2",
+                            "batch_date",
+                            batchDate));
             return exportToJSON(outputDir, fileName, data);
         }
         if ("excel".equalsIgnoreCase(format)) {
             String[] headers = {"id", "business_key", "name", "description", "batch_date"};
             String[][] data = {
-                    {"1", "key1", "name1", "desc1", batchDate},
-                    {"2", "key2", "name2", "desc2", batchDate}
+                {"1", "key1", "name1", "desc1", batchDate},
+                {"2", "key2", "name2", "desc2", batchDate}
             };
             return exportToExcel(outputDir, fileName, data, headers);
         }
@@ -91,21 +109,27 @@ public class FileExportService {
             // 生成完整路径
             String filePath = Paths.get(outputDir, fileName).toString();
 
-            // 写入 CSV 文件
-            try (CSVWriter writer = new CSVWriter(new FileWriter(filePath))) {
+            // 写入 CSV 文件(显式 UTF-8,避免依赖平台默认编码)
+            try (CSVWriter writer = new CSVWriter(new FileWriter(filePath, StandardCharsets.UTF_8))) {
                 // 写入头
                 if (headers != null && headers.length > 0) {
                     writer.writeNext(headers);
                 }
 
                 // 写入数据
-                for (String[] row : data) {
-                    writer.writeNext(row);
+                if (data != null) {
+                    for (String[] row : data) {
+                        writer.writeNext(row);
+                    }
                 }
             }
 
             log.info("CSV export completed: {}", filePath);
-            registerGeneratedFile(fileName, filePath, "FILE_EXPORT", null,
+            registerGeneratedFile(
+                    fileName,
+                    filePath,
+                    "FILE_EXPORT",
+                    null,
                     Map.of("format", "csv", "rowCount", data == null ? 0 : data.length));
             return filePath;
         } catch (Exception e) {
@@ -126,7 +150,11 @@ public class FileExportService {
             objectMapper.writeValue(Paths.get(filePath).toFile(), data);
 
             log.info("JSON export completed: {}", filePath);
-            registerGeneratedFile(fileName, filePath, "FILE_EXPORT", null,
+            registerGeneratedFile(
+                    fileName,
+                    filePath,
+                    "FILE_EXPORT",
+                    null,
                     Map.of("format", "json", "rowCount", data == null ? 0 : data.size()));
             return filePath;
         } catch (Exception e) {
@@ -156,7 +184,11 @@ public class FileExportService {
                 }
                 writer.flush();
             }
-            registerGeneratedFile(fileName, filePath, "FILE_EXPORT", null,
+            registerGeneratedFile(
+                    fileName,
+                    filePath,
+                    "FILE_EXPORT",
+                    null,
                     Map.of("format", "excel", "rowCount", data == null ? 0 : data.length));
             return filePath;
         } catch (Exception e) {
@@ -185,8 +217,8 @@ public class FileExportService {
                 zos.closeEntry();
             }
 
-            registerGeneratedFile(fileName, zipPath, "FILE_EXPORT", null,
-                    Map.of("format", "zip", "sourceFile", sourceFilePath));
+            registerGeneratedFile(
+                    fileName, zipPath, "FILE_EXPORT", null, Map.of("format", "zip", "sourceFile", sourceFilePath));
             return zipPath;
         } catch (Exception e) {
             log.error("Failed to export compressed file: {}", fileName, e);
@@ -224,12 +256,7 @@ public class FileExportService {
             throw new IllegalArgumentException("File not found: " + filePath);
         }
 
-        return new ExportFileInfo(
-                file.getName(),
-                file.getAbsolutePath(),
-                file.length(),
-                file.lastModified()
-        );
+        return new ExportFileInfo(file.getName(), file.getAbsolutePath(), file.length(), file.lastModified());
     }
 
     /**
@@ -249,27 +276,27 @@ public class FileExportService {
         }
     }
 
-    private void registerGeneratedFile(String fileName,
-                                       String filePath,
-                                       String bizType,
-                                       String batchDate,
-                                       Map<String, Object> metadata) {
+    private void registerGeneratedFile(
+            String fileName, String filePath, String bizType, String batchDate, Map<String, Object> metadata) {
         if (fileAssetService == null) {
             return;
         }
         var fileRecord = fileAssetService.registerOutboundFile(
-                fileName,
-                filePath,
-                bizType,
-                batchDate,
-                null,
-                null,
-                "PROCESSED",
-                metadata
-        );
+                fileName, filePath, bizType, batchDate, null, null, "PROCESSED", metadata);
         if (fileProcessLogService != null) {
-            fileProcessLogService.log(fileRecord.getId(), "exportFile", "EXPORT", null, "PROCESSED",
-                    "SUCCESS", null, "fileExportJob", 0, null, null, metadata);
+            fileProcessLogService.log(
+                    fileRecord.getId(),
+                    "exportFile",
+                    "EXPORT",
+                    null,
+                    "PROCESSED",
+                    "SUCCESS",
+                    null,
+                    "fileExportJob",
+                    0,
+                    null,
+                    null,
+                    metadata);
         }
     }
 }

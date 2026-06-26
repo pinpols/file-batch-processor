@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  JAVA_VERSION: '25'
+  JAVA_VERSION: '21'
 
 jobs:
   build-and-unit-test:
@@ -64,6 +64,31 @@ jobs:
             **/target/*.jar
             **/target/*.war
           if-no-files-found: ignore
+
+  code-quality:
+    name: Code Quality (Spotless + SpotBugs)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+
+      - name: Grant execute permission for mvnw
+        run: chmod +x ./mvnw
+
+      - name: Spotless format check
+        run: ./mvnw -B -ntp spotless:check
+
+      - name: SpotBugs static analysis
+        run: ./mvnw -B -ntp -DskipTests compile spotbugs:check
 
   integration-test:
     name: Integration Test

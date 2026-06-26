@@ -7,7 +7,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>4.0.0</version>
+        <version>4.0.3</version>
         <relativePath/>
     </parent>
 
@@ -18,7 +18,7 @@
     <description>Batch processing system with Spring Batch and internal orchestration</description>
 
     <properties>
-        <java.version>25</java.version>
+        <java.version>21</java.version>
 
         <opencsv.version>5.8</opencsv.version>
         <commons-lang3.version>3.14.0</commons-lang3.version>
@@ -32,6 +32,9 @@
         <maven.surefire.plugin.version>3.5.2</maven.surefire.plugin.version>
         <maven.enforcer.plugin.version>3.6.2</maven.enforcer.plugin.version>
         <dependency-check.plugin.version>12.1.0</dependency-check.plugin.version>
+        <spotless.plugin.version>2.44.5</spotless.plugin.version>
+        <palantir-java-format.version>2.58.0</palantir-java-format.version>
+        <spotbugs.plugin.version>4.9.3.0</spotbugs.plugin.version>
     </properties>
 
     <dependencies>
@@ -231,13 +234,62 @@
                         <configuration>
                             <rules>
                                 <requireJavaVersion>
-                                    <version>[25,)</version>
+                                    <version>[21,)</version>
                                 </requireJavaVersion>
                                 <requireMavenVersion>
                                     <version>[3.9.0,)</version>
                                 </requireMavenVersion>
                             </rules>
                         </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Code style gate: 自动格式化 + 校验(palantir-java-format) -->
+            <plugin>
+                <groupId>com.diffplug.spotless</groupId>
+                <artifactId>spotless-maven-plugin</artifactId>
+                <version>${spotless.plugin.version}</version>
+                <configuration>
+                    <java>
+                        <palantirJavaFormat>
+                            <version>${palantir-java-format.version}</version>
+                        </palantirJavaFormat>
+                        <removeUnusedImports/>
+                        <importOrder/>
+                        <trimTrailingWhitespace/>
+                        <endWithNewline/>
+                    </java>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>spotless-check</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Static analysis gate: SpotBugs(找空指针 / 资源泄漏 / 错误模式) -->
+            <plugin>
+                <groupId>com.github.spotbugs</groupId>
+                <artifactId>spotbugs-maven-plugin</artifactId>
+                <version>${spotbugs.plugin.version}</version>
+                <configuration>
+                    <effort>Max</effort>
+                    <threshold>Medium</threshold>
+                    <includeTests>false</includeTests>
+                    <excludeFilterFile>config/spotbugs/spotbugs-exclude.xml</excludeFilterFile>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>spotbugs-check</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
                     </execution>
                 </executions>
             </plugin>

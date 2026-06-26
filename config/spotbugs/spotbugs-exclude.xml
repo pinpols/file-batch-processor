@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  SpotBugs 排除过滤器。
+  只排除「在 Spring / DTO 场景下属于公认误报或 by-design」的模式,真问题不在此列。
+-->
+<FindBugsFilter>
+
+    <!-- EI_EXPOSE_REP / EI_EXPOSE_REP2:Spring 通过构造器注入单例 bean 并存为字段,
+         这些依赖本就是共享的协作者,不需要防御性拷贝。@ConfigurationProperties 暴露内部
+         集合也属同类。属框架惯用法,非真实可变性泄漏。 -->
+    <Match>
+        <Bug pattern="EI_EXPOSE_REP"/>
+    </Match>
+    <Match>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+
+    <!-- URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD:DTO / model / properties 的公有字段
+         通过序列化 / 反射 / 框架绑定读取,SpotBugs 看不到这些读路径。 -->
+    <Match>
+        <Bug pattern="URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD"/>
+    </Match>
+
+    <!-- ST_WRITE_TO_STATIC_FROM_INSTANCE_METHOD:SpringContextHolder 是有意的静态
+         ApplicationContext 持有者,由 Spring 在初始化时单次写入。 -->
+    <Match>
+        <Class name="com.example.filebatchprocessor.config.SpringContextHolder"/>
+        <Bug pattern="ST_WRITE_TO_STATIC_FROM_INSTANCE_METHOD"/>
+    </Match>
+
+    <!-- 以下为「低价值 / 防御性」模式,门禁聚焦正确性与安全,不为这些纠缠:
+         BX_UNBOXING_IMMEDIATELY_REBOXED:装箱/拆箱微优化,无正确性影响。
+         RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE:有意保留的防御性判空。
+         REC_CATCH_EXCEPTION:分发器 / 外部 IO 处有意的兜底 catch(Exception),
+         为把任意失败统一转成 markAsFailed,属可靠性设计而非坏味道。 -->
+    <Match>
+        <Bug pattern="BX_UNBOXING_IMMEDIATELY_REBOXED"/>
+    </Match>
+    <Match>
+        <Bug pattern="RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE"/>
+    </Match>
+    <Match>
+        <Bug pattern="REC_CATCH_EXCEPTION"/>
+    </Match>
+
+</FindBugsFilter>
