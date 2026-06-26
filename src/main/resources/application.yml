@@ -24,13 +24,23 @@ spring:
     auto-startup: false
     # 不覆盖 DB 中已存在的 Job/Trigger，避免误改历史调度
     overwrite-existing-jobs: false
+    # JDBC JobStore：触发器持久化到 QRTZ_* 表（由 Flyway V1_20 建表）。
+    # 放在 base 而非仅 dev/prod，避免无 profile 启动时退回 MEMORY 丢调度。
+    job-store-type: jdbc
+    jdbc:
+      initialize-schema: never
     properties:
       org:
         quartz:
           scheduler:
-            # Quartz 集群调度器名（对应 qrtz_* 的 sched_name）
+            # Quartz 调度器名（对应 qrtz_* 的 sched_name）
             instanceName: fileBatchQuartzScheduler
             instanceId: AUTO
+          jobStore:
+            driverDelegateClass: org.quartz.impl.jdbcjobstore.PostgreSQLDelegate
+            tablePrefix: QRTZ_
+            misfireThreshold: 60000
+            acquireTriggersWithinLock: true
           threadPool:
             # Quartz 调度线程数（不是业务执行线程）
             threadCount: 8
@@ -147,12 +157,8 @@ orchestration:
     default-retry-backoff-ms: 60000
     default-retry-jitter-ratio: 0.0
     default-max-attempts: 3
-    # 集群配置：自研 Leader 协调 / Quartz 锁模式
-    cluster:
-      mode: custom # custom | quartz
-      instance-id: ${CLUSTER_INSTANCE_ID:}
-      checkin-interval-ms: 15000
-      max-failure-count: 3
+    # 多节点协调统一由自研 Leader 锁（scheduler_leader_lock，见下方 leader 段）负责：
+    # 只有持锁实例注册触发与 drain 队列；不依赖 Quartz 原生集群模式。
     # Misfire 策略（错过触发点后的恢复）
     misfire:
       enabled: true
@@ -200,6 +206,12 @@ orchestration:
     window-size: 10
     failure-rate-threshold: 0.5
     cooldown-duration-ms: 300000
+
+# 质量门禁强制阻断的全局默认值（opt-in 硬闸门）。
+# false=保持「软降级 PARTIAL」原行为；true=任一质量门 FAIL 即把作业判为 FAILED。
+# 也可按作业用 job 参数 quality.enforce=true/false 覆盖（参数优先级高于此默认）。
+quality:
+  enforce-default: ${QUALITY_ENFORCE_DEFAULT:false}
 
 # SFTP 默认配置（开发/测试）
 sftp:
