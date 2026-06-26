@@ -1,9 +1,9 @@
 package com.example.filebatchprocessor.service;
 
-import com.example.filebatchprocessor.model.ExecutionDedupRecord;
-import com.example.filebatchprocessor.repository.ExecutionDedupRecordRepository;
+import java.sql.Timestamp;
+import java.time.LocalDateTime;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,34 +14,39 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class ExecutionDedupService {
 
-    private final ExecutionDedupRecordRepository dedupRecordRepository;
+    private final JdbcTemplate jdbcTemplate;
 
-    public ExecutionDedupService(ExecutionDedupRecordRepository dedupRecordRepository) {
-        this.dedupRecordRepository = dedupRecordRepository;
+    public ExecutionDedupService(JdbcTemplate jdbcTemplate) {
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     @Transactional
     public boolean tryAcquire(String dedupKey, String batchDate, String rerunId, long windowSeconds) {
         long safeWindow = Math.max(windowSeconds, 1L);
         long bucket = System.currentTimeMillis() / 1000L / safeWindow;
+        String safeRerunId = rerunId == null ? "" : rerunId;
 
-        ExecutionDedupRecord record = new ExecutionDedupRecord();
-        record.setDedupKey(dedupKey);
-        record.setBatchDate(batchDate);
-        record.setRerunId(rerunId == null ? "" : rerunId);
-        record.setWindowBucket(bucket);
+        // 用 INSERT ... ON CONFLICT DO NOTHING 抢占去重锁:重复键不抛异常(不会把事务标记成
+        // rollback-only 而在提交时抛 UnexpectedRollbackException),并发下后到者阻塞到先到者提交后 DO NOTHING。
+        // 受影响行数 == 1 表示本次抢到、0 表示已有人抢占。
+        int inserted = jdbcTemplate.update(
+                "INSERT INTO execution_dedup_records (dedup_key, batch_date, rerun_id, window_bucket, created_at) "
+                        + "VALUES (?, ?, ?, ?, ?) "
+                        + "ON CONFLICT (dedup_key, batch_date, rerun_id, window_bucket) DO NOTHING",
+                dedupKey,
+                batchDate,
+                safeRerunId,
+                bucket,
+                Timestamp.valueOf(LocalDateTime.now()));
 
-        try {
-            dedupRecordRepository.save(record);
-            return true;
-        } catch (DataIntegrityViolationException ex) {
+        if (inserted != 1) {
             log.info(
                     "Duplicate request rejected by DB dedup lock: dedupKey={}, batchDate={}, rerunId={}, bucket={}",
                     dedupKey,
                     batchDate,
                     rerunId,
                     bucket);
-            return false;
         }
+        return inserted == 1;
     }
 }

@@ -53,14 +53,14 @@ class DagDependencyTimeoutIT extends PostgresContainerSupport {
     @Autowired
     private TaskDependencyRepository taskDependencyRepository;
 
+    @Autowired
+    private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+
     @BeforeEach
     void setUp() {
-        dagNodeRunRepository.deleteAll();
-        dagRunRepository.deleteAll();
-        dagNodeRepository.deleteAll();
-        dagDefinitionRepository.deleteAll();
-        taskDependencyRepository.deleteAll();
-        taskDefinitionRepository.deleteAll();
+        // Flyway 给 task_definition 种了关联数据(task_trigger/task_parameter/task_dependency/dag_node),
+        // 直接删 task_definition 会撞各子表外键;用 TRUNCATE ... CASCADE 级联清空,顺序无关。
+        jdbcTemplate.execute("TRUNCATE task_definition, dag_definition, dag_run CASCADE");
     }
 
     @Test
