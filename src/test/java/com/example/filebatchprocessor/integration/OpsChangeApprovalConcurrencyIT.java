@@ -33,10 +33,15 @@ class OpsChangeApprovalConcurrencyIT extends PostgresContainerSupport {
     @Autowired
     private OpsChangeRequestRepository opsChangeRequestRepository;
 
+    @Autowired
+    private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+
     @BeforeEach
     void setUp() {
         opsChangeRequestRepository.deleteAll();
-        taskDefinitionRepository.deleteAll();
+        // Flyway 给 task_definition 种了关联子表数据(trigger/parameter/dependency/dag_node),
+        // 直接删会撞外键;用 TRUNCATE ... CASCADE 级联清空,顺序无关。
+        jdbcTemplate.execute("TRUNCATE task_definition CASCADE");
     }
 
     @Test
