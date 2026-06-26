@@ -9,11 +9,11 @@ import com.example.filebatchprocessor.repository.ImportedRecordPartitionedReposi
 import com.example.filebatchprocessor.service.DlqCompensationService;
 import com.example.filebatchprocessor.support.PostgresContainerSupport;
 import java.time.LocalDateTime;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.transaction.annotation.Transactional;
 
 @SpringBootTest
 @ActiveProfiles("test")
@@ -28,8 +28,16 @@ class DlqCompensationServiceIT extends PostgresContainerSupport {
     @Autowired
     private ImportedRecordPartitionedRepository importedRecordPartitionedRepository;
 
+    // replayPending 是 @Transactional(NOT_SUPPORTED),无事务、每条独立提交;
+    // 因此测试不能用 @Transactional 回滚(否则 setup 数据对 replay 不可见、replay 的提交也观察不到),
+    // 改为提交式 + 每个方法前清表隔离。
+    @BeforeEach
+    void cleanup() {
+        importedRecordPartitionedRepository.deleteAll();
+        dlqRecordRepository.deleteAll();
+    }
+
     @Test
-    @Transactional
     void shouldReplayRecordWriterDlq() {
         DlqRecord record = new DlqRecord();
         record.setJobName("importJob");
@@ -51,7 +59,6 @@ class DlqCompensationServiceIT extends PostgresContainerSupport {
     }
 
     @Test
-    @Transactional
     void shouldMarkManualRequiredWhenReplayExceedsMaxCount() {
         DlqRecord record = new DlqRecord();
         record.setJobName("importJob");
