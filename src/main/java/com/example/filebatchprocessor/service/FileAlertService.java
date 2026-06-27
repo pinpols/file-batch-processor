@@ -4,6 +4,9 @@ import com.example.filebatchprocessor.model.FileAlertLog;
 import com.example.filebatchprocessor.repository.FileAlertLogRepository;
 import com.example.filebatchprocessor.repository.FileAssetRecordRepository;
 import com.example.filebatchprocessor.repository.FileDispatchRecordRepository;
+import com.example.filebatchprocessor.service.alert.AlertDispatcher;
+import com.example.filebatchprocessor.service.alert.AlertEvent;
+import com.example.filebatchprocessor.service.alert.AlertSeverity;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -23,9 +26,13 @@ public class FileAlertService {
     private final FileAssetRecordRepository fileAssetRepository;
     private final FileDispatchRecordRepository dispatchRecordRepository;
     private final ObjectMapper objectMapper;
+    private final AlertDispatcher alertDispatcher;
 
     @Value("${file.alert.enabled:true}")
     private boolean enabled;
+
+    @Value("${file.alert.externalize-min-severity:CRITICAL}")
+    private String fileExternalizeMinSeverity;
 
     @Value("${file.alert.timeout.minutes:120}")
     private long timeoutMinutes;
@@ -40,11 +47,13 @@ public class FileAlertService {
             FileAlertLogRepository alertLogRepository,
             FileAssetRecordRepository fileAssetRepository,
             FileDispatchRecordRepository dispatchRecordRepository,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            AlertDispatcher alertDispatcher) {
         this.alertLogRepository = alertLogRepository;
         this.fileAssetRepository = fileAssetRepository;
         this.dispatchRecordRepository = dispatchRecordRepository;
         this.objectMapper = objectMapper;
+        this.alertDispatcher = alertDispatcher;
     }
 
     @Scheduled(fixedDelayString = "${file.alert.evaluate-ms:300000}")
@@ -150,7 +159,17 @@ public class FileAlertService {
             log.warn("Failed to serialize alert payload", e);
         }
 
-        return alertLogRepository.save(alert);
+        FileAlertLog saved = alertLogRepository.save(alert);
+        try {
+            AlertSeverity sev = AlertSeverity.valueOf(severity.trim().toUpperCase());
+            AlertSeverity floor = AlertSeverity.valueOf(fileExternalizeMinSeverity.trim().toUpperCase());
+            if (sev.ordinal() >= floor.ordinal()) {
+                alertDispatcher.dispatch(AlertEvent.of(alertCode, sev, title, payload == null ? Map.of() : payload));
+            }
+        } catch (Exception e) {
+            log.error("file alert externalize failed: code={}", alertCode, e);
+        }
+        return saved;
     }
 
     public void acknowledgeAlert(Long alertId, String operator) {

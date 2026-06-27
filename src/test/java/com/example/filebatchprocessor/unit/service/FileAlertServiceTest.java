@@ -34,6 +34,9 @@ class FileAlertServiceTest {
     @Spy
     private ObjectMapper objectMapper = new ObjectMapper();
 
+    @Mock
+    private com.example.filebatchprocessor.service.alert.AlertDispatcher alertDispatcher;
+
     @InjectMocks
     private FileAlertService fileAlertService;
 
