@@ -38,8 +38,17 @@ public class JsonDocumentRecordReader implements DocumentRecordReader {
                     return hasNextCached;
                 }
                 try {
-                    hasNextCached = parser.nextToken() == JsonToken.START_OBJECT;
+                    JsonToken token = parser.nextToken();
+                    if (token == JsonToken.END_ARRAY || token == null) {
+                        hasNextCached = false;
+                    } else if (token == JsonToken.START_OBJECT) {
+                        hasNextCached = true;
+                    } else {
+                        throw new IllegalArgumentException("JSON array element is not an object: " + token);
+                    }
                     return hasNextCached;
+                } catch (IllegalArgumentException e) {
+                    throw e;
                 } catch (Exception e) {
                     throw new RuntimeException("JSON parse error", e);
                 }
