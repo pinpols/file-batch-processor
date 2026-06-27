@@ -12,6 +12,7 @@ import com.example.filebatchprocessor.repository.FileAlertLogRepository;
 import com.example.filebatchprocessor.repository.FileReceptionQueueRepository;
 import com.example.filebatchprocessor.repository.ReceptionGroupMemberRepository;
 import com.example.filebatchprocessor.repository.ReceptionGroupRepository;
+import com.example.filebatchprocessor.service.FileReceptionService;
 import com.example.filebatchprocessor.service.ReceptionGroupCompletionService;
 import com.example.filebatchprocessor.service.ReceptionGroupService;
 import com.example.filebatchprocessor.support.PostgresContainerSupport;
@@ -27,6 +28,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestPropertySource;
 
 /**
  * 清单驱动入库(#3+#6)端到端 IT:建组 -> 绑定到达 -> 到齐判定 + 对账 -> 状态机 + 告警。
@@ -39,7 +41,11 @@ import org.springframework.test.context.ActiveProfiles;
  */
 @SpringBootTest
 @ActiveProfiles("test")
+@TestPropertySource(properties = "batch.file.reception.group.enabled=true")
 class ManifestDrivenIntakeIT extends PostgresContainerSupport {
+
+    @Autowired
+    private FileReceptionService fileReceptionService;
 
     @Autowired
     private ReceptionGroupService receptionGroupService;
@@ -82,6 +88,49 @@ class ManifestDrivenIntakeIT extends PostgresContainerSupport {
         return alertLogRepository.findAll().stream()
                 .filter(a -> alertType.equals(a.getAlertType()))
                 .count();
+    }
+
+    /**
+     * H1:manifest 先到、数据文件后到时,数据文件经 receiveFile 入队后应自动绑定到等待中的组,
+     * member.actualQueueId 与 queue.receptionGroupId 回填,到齐后可放行 DISPATCHED。
+     */
+    @Test
+    void manifestFirstThenDataFileBindsViaReceive(@TempDir Path dir) throws Exception {
+        String tag = "h" + UUID.randomUUID().toString().substring(0, 8);
+        String fa = tag + "-a.csv";
+        String manifestId = "M-h1-" + tag;
+
+        // 1) manifest 先到:建组,登记一个 required 成员(期望 2 条,checksum 留空)
+        ParsedManifest manifest = new ParsedManifest(
+                manifestId,
+                "S",
+                "2026-06-27",
+                List.of(new ExpectedFile(fa, 2L, null, "MD5", true)));
+        ReceptionGroup group = receptionGroupService.registerFromManifest(manifest);
+
+        // 此时数据文件尚未到达,成员未绑定
+        ReceptionGroupMember beforeMember =
+                memberRepo.findByGroupIdAndExpectedFileName(group.getId(), fa).orElseThrow();
+        assertNull(beforeMember.getActualQueueId(), "数据文件未到时不应已绑定");
+
+        // 2) 数据文件后到:写真文件(表头 + 2 行)并经 receiveFile 入队
+        Path file = dir.resolve(fa);
+        Files.writeString(file, "id,name,description\n1,name1,desc1\n2,name2,desc2\n", StandardCharsets.UTF_8);
+        FileReceptionQueue saved = fileReceptionService.receiveFile(fa, file.toString(), "S");
+
+        // 3) 断言:queue 行回填 receptionGroupId,对应 member.actualQueueId 回填
+        FileReceptionQueue reloadedQueue = queueRepo.findById(saved.getId()).orElseThrow();
+        assertEquals(group.getId(), reloadedQueue.getReceptionGroupId(), "数据文件后到应回填 receptionGroupId");
+
+        ReceptionGroupMember boundMember =
+                memberRepo.findByGroupIdAndExpectedFileName(group.getId(), fa).orElseThrow();
+        assertNotNull(boundMember.getActualQueueId(), "数据文件后到应回填 member.actualQueueId");
+        assertEquals(saved.getId(), boundMember.getActualQueueId());
+
+        // 4) 到齐 + 对账通过 -> DISPATCHED(证明数据后到也能绑定并放行)
+        completionService.evaluate(group.getId());
+        ReceptionGroup reloaded = groupRepo.findById(group.getId()).orElseThrow();
+        assertEquals("DISPATCHED", reloaded.getStatus());
     }
 
     @Test

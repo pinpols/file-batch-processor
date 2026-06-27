@@ -118,7 +118,13 @@
 
 告警写入 `file_alert_log`,payload 含 `manifestId`、到达/总数或 mismatch 明细,复用既有告警分发渠道。
 
-## 9. 与逐文件路径的兼容性
+## 9. 已知 v1 限制
+
+- **触发导入仅为钩子**:到齐对账通过后,`evaluate` 对各成员调用 `importTrigger.triggerImport`,当前默认实现 `DefaultReceptionImportTrigger` **仅记录日志**。因此组到达 `DISPATCHED` **不等于数据已入库**——它表示"齐套且对账通过、已放行可入库",真正接入下游导入 job 为后续迭代(M2)。
+- **条数对账口径仅适用行式文本(CSV)**:`expectedRecordCount` 按"带表头的行式文本文件数据行"计(UTF-8、跳过首行表头、仅计非空白行)。**JSON / Excel 等非行式文件请不要在 manifest 中设置 `expectedRecordCount`**(留空以跳过条数对账),否则会因口径不匹配而误判 FAIL;此类文件如需对账可仅依赖 `checksum`(MD5)。
+- **到达顺序无关**:数据文件与 manifest **任意先后到达均支持**——manifest 先到时,数据文件经接收链路入队后会自动绑定到等待中的组;数据文件先到时,建组回扫会绑定已到达的同名队列行。
+
+## 10. 与逐文件路径的兼容性
 
 - 非组文件:`file_reception_queue.reception_group_id` 为 `NULL`,行为不变,走原逐文件处理。
 - 组文件:绑定时回填 `reception_group_id`,由到达组统一判定,**到齐对账通过后**才触发导入,避免半套数据提前入库。
