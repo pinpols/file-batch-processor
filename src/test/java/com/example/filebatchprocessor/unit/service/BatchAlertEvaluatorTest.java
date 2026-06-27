@@ -10,6 +10,7 @@ import com.example.filebatchprocessor.model.BatchRunRecord;
 import com.example.filebatchprocessor.repository.BatchRunRecordRepository;
 import com.example.filebatchprocessor.repository.DlqRecordRepository;
 import com.example.filebatchprocessor.service.BatchAlertEvaluator;
+import com.example.filebatchprocessor.service.alert.AlertDispatcher;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,17 +29,19 @@ class BatchAlertEvaluatorTest {
     @Mock
     private DlqRecordRepository dlqRecordRepository;
 
+    @Mock
+    private AlertDispatcher alertDispatcher;
+
     private BatchAlertEvaluator evaluator;
 
     @BeforeEach
     void setUp() {
-        evaluator = new BatchAlertEvaluator(batchRunRecordRepository, dlqRecordRepository);
+        evaluator = new BatchAlertEvaluator(batchRunRecordRepository, dlqRecordRepository, alertDispatcher);
         ReflectionTestUtils.setField(evaluator, "enabled", true);
         ReflectionTestUtils.setField(evaluator, "failureRateThreshold", 0.2d);
         ReflectionTestUtils.setField(evaluator, "dlqBacklogThreshold", 100L);
         ReflectionTestUtils.setField(evaluator, "dlqManualThreshold", 20L);
         ReflectionTestUtils.setField(evaluator, "minThroughputRpsThreshold", 5.0d);
-        ReflectionTestUtils.setField(evaluator, "webhookEnabled", false);
     }
 
     @Test

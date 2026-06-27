@@ -2,15 +2,15 @@ package com.example.filebatchprocessor.service;
 
 import com.example.filebatchprocessor.repository.BatchRunRecordRepository;
 import com.example.filebatchprocessor.repository.DlqRecordRepository;
+import com.example.filebatchprocessor.service.alert.AlertDispatcher;
+import com.example.filebatchprocessor.service.alert.AlertEvent;
+import com.example.filebatchprocessor.service.alert.AlertSeverity;
 import java.time.LocalDateTime;
-import java.util.HashMap;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.MediaType;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestClient;
 
 @Slf4j
 @Component
@@ -18,7 +18,7 @@ public class BatchAlertEvaluator {
 
     private final BatchRunRecordRepository batchRunRecordRepository;
     private final DlqRecordRepository dlqRecordRepository;
-    private final RestClient restClient;
+    private final AlertDispatcher alertDispatcher;
 
     @Value("${batch.alert.enabled:true}")
     private boolean enabled;
@@ -35,17 +35,13 @@ public class BatchAlertEvaluator {
     @Value("${batch.alert.min-throughput-rps-threshold:5}")
     private double minThroughputRpsThreshold;
 
-    @Value("${batch.alert.webhook.enabled:false}")
-    private boolean webhookEnabled;
-
-    @Value("${batch.alert.webhook.url:}")
-    private String webhookUrl;
-
     public BatchAlertEvaluator(
-            BatchRunRecordRepository batchRunRecordRepository, DlqRecordRepository dlqRecordRepository) {
+            BatchRunRecordRepository batchRunRecordRepository,
+            DlqRecordRepository dlqRecordRepository,
+            AlertDispatcher alertDispatcher) {
         this.batchRunRecordRepository = batchRunRecordRepository;
         this.dlqRecordRepository = dlqRecordRepository;
-        this.restClient = RestClient.builder().build();
+        this.alertDispatcher = alertDispatcher;
     }
 
     @Scheduled(fixedDelayString = "${batch.alert.evaluate-ms:60000}")
@@ -63,29 +59,32 @@ public class BatchAlertEvaluator {
             double failureRate = (double) failures / total;
             if (failureRate >= failureRateThreshold) {
                 log.error("ALERT failure rate high: {} (threshold={})", failureRate, failureRateThreshold);
-                notifyWebhook(
+                alertDispatcher.dispatch(AlertEvent.of(
                         "BATCH_FAILURE_RATE_HIGH",
+                        AlertSeverity.CRITICAL,
                         "Failure ratio > threshold",
-                        Map.of("failureRate", failureRate, "threshold", failureRateThreshold, "windowMinutes", 15));
+                        Map.of("failureRate", failureRate, "threshold", failureRateThreshold, "windowMinutes", 15)));
             }
         }
 
         long backlog = dlqRecordRepository.countByHandledFalse();
         if (backlog >= dlqBacklogThreshold) {
             log.error("ALERT DLQ backlog high: {} (threshold={})", backlog, dlqBacklogThreshold);
-            notifyWebhook(
+            alertDispatcher.dispatch(AlertEvent.of(
                     "BATCH_DLQ_BACKLOG_HIGH",
+                    AlertSeverity.WARNING,
                     "DLQ backlog exceeded threshold",
-                    Map.of("backlog", backlog, "threshold", dlqBacklogThreshold));
+                    Map.of("backlog", backlog, "threshold", dlqBacklogThreshold)));
         }
 
         long manualBacklog = dlqRecordRepository.countByHandledFalseAndManualRequiredTrue();
         if (manualBacklog >= dlqManualThreshold) {
             log.error("ALERT DLQ manual backlog high: {} (threshold={})", manualBacklog, dlqManualThreshold);
-            notifyWebhook(
+            alertDispatcher.dispatch(AlertEvent.of(
                     "BATCH_DLQ_MANUAL_BACKLOG_HIGH",
+                    AlertSeverity.CRITICAL,
                     "DLQ manual-required backlog exceeded threshold",
-                    Map.of("manualBacklog", manualBacklog, "threshold", dlqManualThreshold));
+                    Map.of("manualBacklog", manualBacklog, "threshold", dlqManualThreshold)));
         }
 
         var recent = batchRunRecordRepository.findTop200ByOrderByCreatedAtDesc();
@@ -95,34 +94,11 @@ public class BatchAlertEvaluator {
                 .orElse(0.0);
         if (!recent.isEmpty() && avgThroughput < minThroughputRpsThreshold) {
             log.error("ALERT throughput degraded: {} rps (threshold={})", avgThroughput, minThroughputRpsThreshold);
-            notifyWebhook(
+            alertDispatcher.dispatch(AlertEvent.of(
                     "BATCH_THROUGHPUT_LOW",
+                    AlertSeverity.WARNING,
                     "Average throughput below threshold",
-                    Map.of("avgThroughputRps", avgThroughput, "threshold", minThroughputRpsThreshold));
-        }
-    }
-
-    private void notifyWebhook(String code, String message, Map<String, Object> data) {
-        if (!webhookEnabled || webhookUrl == null || webhookUrl.isBlank()) {
-            return;
-        }
-        try {
-            Map<String, Object> payload = new HashMap<>();
-            payload.put("alertCode", code);
-            payload.put("message", message);
-            payload.put("service", "file-batch-processor");
-            payload.put("timestamp", LocalDateTime.now().toString());
-            payload.put("data", data);
-
-            restClient
-                    .post()
-                    .uri(webhookUrl)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(payload)
-                    .retrieve()
-                    .toBodilessEntity();
-        } catch (Exception e) {
-            log.error("Failed to send webhook alert: code={}, url={}", code, webhookUrl, e);
+                    Map.of("avgThroughputRps", avgThroughput, "threshold", minThroughputRpsThreshold)));
         }
     }
 }
