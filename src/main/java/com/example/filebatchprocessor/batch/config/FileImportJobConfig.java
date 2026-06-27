@@ -93,8 +93,7 @@ public class FileImportJobConfig {
                 params.getFileDelimiter(),
                 recordLineParserFactory,
                 documentReaderFactory,
-                // Task 6 才透传 sheet 参数,这里先占位
-                new DocumentReadOptions(null, null));
+                new DocumentReadOptions(params.getExcelSheetIndex(), params.getExcelSheetName()));
     }
 
     @Value("${batch.import.max-dedup-keys:1000000}")
