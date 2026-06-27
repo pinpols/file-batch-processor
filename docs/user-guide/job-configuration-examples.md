@@ -95,7 +95,8 @@ quality:
 sftp:                                   # 仅当作业产物经 SFTP 分发时
   known-hosts-path: /etc/ssh/known_hosts   # 默认 fail-closed,必须配 known_hosts(或显式 insecure-skip)
 distribution:
-  allowed-hosts: dl.example.com,sftp.example.com   # HTTP/FTP 分发目标白名单(留空仍拦内网/环回/云元数据)
+  allowed-hosts: dl.example.com,sftp.example.com   # HTTP/FTP 分发目标白名单(SSRF 主控制;留空=不限制)
+  # block-internal-targets: true                   # 额外拦内网/环回/云元数据(默认 false,内网分发是合法用途)
 ```
 
 **按作业覆盖质量硬闸门**:在该作业的 `task_parameter` 加 `quality.enforce=true`(参数优先级高于全局默认)。

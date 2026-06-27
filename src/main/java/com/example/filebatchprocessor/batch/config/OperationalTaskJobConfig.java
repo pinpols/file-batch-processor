@@ -69,6 +69,11 @@ public class OperationalTaskJobConfig {
                 e.setName(record.getName());
                 e.setDescription(record.getDescription());
                 e.setBatchDate(batchDate);
+                // 显式补全 partition_key/时间戳(与 importRecord 一致):派生在实体上完成,
+                // 不依赖底层 INSERT 的 setter,生产与测试行为一致。
+                e.setPartitionKey(partitionedImportService.generatePartitionKey(batchDate));
+                e.setCreatedAt(java.time.LocalDateTime.now());
+                e.setUpdatedAt(java.time.LocalDateTime.now());
                 buffer.add(e);
                 if (buffer.size() >= 1000) {
                     imported += partitionedImportService.batchImportIdempotent(buffer);
@@ -122,7 +127,7 @@ public class OperationalTaskJobConfig {
             List<ImportedRecordPartitioned> records = importedRecordPartitionedRepository.findByBatchDate(batchDate);
             // #19:该 tasklet 把整批结果一次性物化进内存数组,大批量会 OOM。设置上界保护;
             // 超过上界应改用流式的 dataExportJob(JdbcCursorItemReader + fetchSize)。
-            if (records.size() > fileExportMaxRows) {
+            if (fileExportMaxRows > 0 && records.size() > fileExportMaxRows) {
                 throw new IllegalStateException("file export rows " + records.size() + " exceed cap "
                         + fileExportMaxRows + "; use the streaming dataExportJob for large exports");
             }

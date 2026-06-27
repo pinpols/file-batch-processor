@@ -242,8 +242,11 @@ sftp:
 
 # 文件分发安全
 distribution:
-  # HTTP/FTP 目标 host 白名单(逗号分隔,留空则不限制白名单但仍拦截内网/环回/云元数据地址防 SSRF)
+  # HTTP/FTP 目标 host 白名单(逗号分隔,留空=不限制白名单)。这是 SSRF 的主控制:生产建议显式配置。
   allowed-hosts: ${DISTRIBUTION_ALLOWED_HOSTS:}
+  # 是否额外拦截内网/环回/链路本地/云元数据地址。默认 false(向内网分发文件是合法主用途);
+  # 在不可信网络环境可设 true 加固 SSRF。
+  block-internal-targets: ${DISTRIBUTION_BLOCK_INTERNAL_TARGETS:false}
 
 ops:
   security:

@@ -17,8 +17,9 @@ import org.springframework.util.StringUtils;
  * 文件分发目标地址校验,防 SSRF / 内网外泄。
  *
  * <ul>
- *   <li>始终拦截:环回 / 链路本地(含 169.254.169.254 云元数据)/ 私网 / 站点本地地址;
- *   <li>配置 {@code distribution.allowed-hosts} 后:目标 host 必须命中白名单(精确或后缀匹配),否则拒绝。
+ *   <li>配置 {@code distribution.allowed-hosts} 后:目标 host 必须命中白名单(精确或后缀匹配),否则拒绝——这是主控制;
+ *   <li>{@code distribution.block-internal-targets=true} 时额外拦截环回 / 链路本地(含 169.254.169.254 云元数据)/
+ *       私网 / 站点本地地址。默认 false,因为向内网主机分发文件是合法主用途;在不可信网络环境再开启。
  * </ul>
  */
 @Slf4j
@@ -26,8 +27,12 @@ import org.springframework.util.StringUtils;
 public class DistributionTargetValidator {
 
     private final List<String> allowedHosts;
+    private final boolean blockInternal;
 
-    public DistributionTargetValidator(@Value("${distribution.allowed-hosts:}") String allowedHostsCsv) {
+    @org.springframework.beans.factory.annotation.Autowired
+    public DistributionTargetValidator(
+            @Value("${distribution.allowed-hosts:}") String allowedHostsCsv,
+            @Value("${distribution.block-internal-targets:false}") boolean blockInternal) {
         this.allowedHosts = StringUtils.hasText(allowedHostsCsv)
                 ? Arrays.stream(allowedHostsCsv.split(","))
                         .map(String::trim)
@@ -35,6 +40,12 @@ public class DistributionTargetValidator {
                         .filter(s -> !s.isEmpty())
                         .toList()
                 : List.of();
+        this.blockInternal = blockInternal;
+    }
+
+    /** 便捷构造:仅白名单、不拦内网(测试/内网部署默认)。 */
+    public DistributionTargetValidator(String allowedHostsCsv) {
+        this(allowedHostsCsv, false);
     }
 
     /** 校验 URL/地址,不通过则抛 BusinessException(INVALID_ARGUMENT)。 */
@@ -62,6 +73,9 @@ public class DistributionTargetValidator {
             }
         }
 
+        if (!blockInternal) {
+            return;
+        }
         try {
             for (InetAddress addr : InetAddress.getAllByName(host)) {
                 if (addr.isLoopbackAddress()
