@@ -1,6 +1,9 @@
 package com.example.filebatchprocessor.batch.reader;
 
 import com.example.filebatchprocessor.batch.reader.spi.CsvRecordLineParser;
+import com.example.filebatchprocessor.batch.reader.spi.DocumentReadOptions;
+import com.example.filebatchprocessor.batch.reader.spi.DocumentRecordReader;
+import com.example.filebatchprocessor.batch.reader.spi.DocumentRecordReaderFactory;
 import com.example.filebatchprocessor.batch.reader.spi.FixedRecordLineParser;
 import com.example.filebatchprocessor.batch.reader.spi.RecordLineParser;
 import com.example.filebatchprocessor.batch.reader.spi.RecordLineParserFactory;
@@ -41,6 +44,10 @@ public class FileImportRecordReader implements ItemStreamReader<FileRecord>, Ste
     private final Checksum checksum = new Adler32();
     // 文件格式解析 SPI
     private final RecordLineParser lineParser;
+    // 文档模式 reader(非 null 时走文档分支,行模式字段不参与)
+    private final DocumentRecordReader documentReader;
+    private java.util.Iterator<FileRecord> documentIterator;
+    private long recordSeq = 0;
 
     public FileImportRecordReader(Resource resource) {
         this(resource, 0, 1, "CSV", ",", null);
@@ -58,27 +65,60 @@ public class FileImportRecordReader implements ItemStreamReader<FileRecord>, Ste
             String format,
             String delimiter,
             RecordLineParserFactory parserFactory) {
+        this(resource, shardIndex, shardTotal, format, delimiter, parserFactory, null, null);
+    }
+
+    public FileImportRecordReader(
+            Resource resource,
+            Integer shardIndex,
+            Integer shardTotal,
+            String format,
+            String delimiter,
+            RecordLineParserFactory parserFactory,
+            DocumentRecordReaderFactory documentReaderFactory,
+            DocumentReadOptions documentReadOptions) {
         this.resource = resource;
         this.shardIndex = shardIndex == null ? 0 : shardIndex;
         int total = shardTotal == null ? 1 : shardTotal;
         this.shardTotal = total <= 0 ? 1 : total;
         this.shardingEnabled = this.shardTotal > 1;
 
-        if (parserFactory != null) {
-            this.lineParser = parserFactory.create(format, delimiter);
+        if (documentReaderFactory != null && documentReaderFactory.supportsDocument(format)) {
+            // 文档模式:整文档解析为 FileRecord 流,行模式 lineParser 不参与
+            this.documentReader = documentReaderFactory.create(format, documentReadOptions);
+            this.lineParser = null;
         } else {
-            // Backward-compatible fallback (used in tests/legacy wiring)
-            String resolvedFormat = (format == null || format.isEmpty()) ? "CSV" : format.toUpperCase();
-            if ("FIXED".equals(resolvedFormat)) {
-                this.lineParser = new FixedRecordLineParser();
+            this.documentReader = null;
+            if (parserFactory != null) {
+                this.lineParser = parserFactory.create(format, delimiter);
             } else {
-                this.lineParser = new CsvRecordLineParser(delimiter);
+                // Backward-compatible fallback (used in tests/legacy wiring)
+                String resolvedFormat = (format == null || format.isEmpty()) ? "CSV" : format.toUpperCase();
+                if ("FIXED".equals(resolvedFormat)) {
+                    this.lineParser = new FixedRecordLineParser();
+                } else {
+                    this.lineParser = new CsvRecordLineParser(delimiter);
+                }
             }
         }
     }
 
     @Override
     public FileRecord read() throws Exception {
+        if (documentReader != null) {
+            while (documentIterator.hasNext()) {
+                FileRecord rec = documentIterator.next();
+                recordSeq++;
+                if (shardingEnabled && ((recordSeq - 1) % shardTotal) != shardIndex) {
+                    continue;
+                }
+                rec.setLineNo(recordSeq);
+                checksum.update(documentChecksumBytes(rec));
+                return rec;
+            }
+            return null;
+        }
+
         if (reader == null) {
             initializeReader();
         }
@@ -125,6 +165,20 @@ public class FileImportRecordReader implements ItemStreamReader<FileRecord>, Ste
 
     @Override
     public void open(ExecutionContext executionContext) throws ItemStreamException {
+        if (documentReader != null) {
+            try {
+                documentIterator = documentReader.open(resource);
+                long skip = executionContext.containsKey("record.count") ? executionContext.getLong("record.count") : 0;
+                for (long i = 0; i < skip && documentIterator.hasNext(); i++) {
+                    documentIterator.next();
+                    recordSeq++;
+                }
+            } catch (Exception e) {
+                throw new ItemStreamException("Failed to open document reader", e);
+            }
+            return;
+        }
+
         // 重启时恢复读取位置
         if (executionContext.containsKey("line.count")) {
             lineCount = executionContext.getInt("line.count");
@@ -147,6 +201,12 @@ public class FileImportRecordReader implements ItemStreamReader<FileRecord>, Ste
 
     @Override
     public void update(ExecutionContext executionContext) throws ItemStreamException {
+        if (documentReader != null) {
+            executionContext.putLong("record.count", recordSeq);
+            executionContext.putLong("checksum", checksum.getValue());
+            return;
+        }
+
         executionContext.putInt("line.count", lineCount);
         executionContext.putLong("read.count", readCount);
         executionContext.putLong("checksum", checksum.getValue());
@@ -155,6 +215,14 @@ public class FileImportRecordReader implements ItemStreamReader<FileRecord>, Ste
 
     @Override
     public void close() throws ItemStreamException {
+        if (documentReader != null) {
+            try {
+                documentReader.close();
+            } catch (IOException e) {
+                log.error("Error closing document reader", e);
+            }
+            return;
+        }
         try {
             if (reader != null) {
                 reader.close();
@@ -187,4 +255,12 @@ public class FileImportRecordReader implements ItemStreamReader<FileRecord>, Ste
     }
 
     // 具体解析逻辑已抽到 RecordLineParser SPI 实现中
+
+    /** 文档模式校验和字节:用字段拼接代替行原文(文档模式无行原文)。 */
+    private byte[] documentChecksumBytes(FileRecord r) {
+        String id = r.getId() == null ? "" : String.valueOf(r.getId());
+        String name = r.getName() == null ? "" : r.getName();
+        String description = r.getDescription() == null ? "" : r.getDescription();
+        return (id + "|" + name + "|" + description).getBytes(StandardCharsets.UTF_8);
+    }
 }

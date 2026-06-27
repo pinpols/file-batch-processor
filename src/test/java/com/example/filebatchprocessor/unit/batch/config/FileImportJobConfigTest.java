@@ -69,7 +69,9 @@ class FileImportJobConfigTest {
 
         // When
         FileImportRecordReader reader = fileImportJobConfig.importReader(
-                jobParameters, mock(com.example.filebatchprocessor.batch.reader.spi.RecordLineParserFactory.class));
+                jobParameters,
+                mock(com.example.filebatchprocessor.batch.reader.spi.RecordLineParserFactory.class),
+                mock(com.example.filebatchprocessor.batch.reader.spi.DocumentRecordReaderFactory.class));
 
         // Then
         assertNotNull(reader);
@@ -188,7 +190,9 @@ class FileImportJobConfigTest {
         // When & Then
         assertThrows(IllegalArgumentException.class, () -> {
             fileImportJobConfig.importReader(
-                    jobParameters, mock(com.example.filebatchprocessor.batch.reader.spi.RecordLineParserFactory.class));
+                    jobParameters,
+                    mock(com.example.filebatchprocessor.batch.reader.spi.RecordLineParserFactory.class),
+                    mock(com.example.filebatchprocessor.batch.reader.spi.DocumentRecordReaderFactory.class));
         });
     }
 }
