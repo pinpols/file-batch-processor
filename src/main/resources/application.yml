@@ -55,6 +55,18 @@ spring:
     console:
       enabled: false
       path: /h2-console
+  mail:
+    # email 告警渠道用；全 env 注入，关闭时无副作用
+    host: ${SMTP_HOST:}
+    port: ${SMTP_PORT:587}
+    username: ${SMTP_USERNAME:}
+    password: ${SMTP_PASSWORD:}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+      mail.smtp.connectiontimeout: 3000
+      mail.smtp.timeout: 5000
+      mail.smtp.writetimeout: 5000
 management:
   endpoints:
     web:
@@ -73,10 +85,23 @@ batch:
   alert:
     # 批量告警：失败率、吞吐、DLQ 积压
     enabled: true
+    min-severity: WARNING
     failure-rate-threshold: 0.2
     dlq-backlog-threshold: 100
     dlq-manual-threshold: 20
     min-throughput-rps-threshold: 5
+    channels:
+      webhook:
+        enabled: false
+        url: ""
+      email:
+        enabled: false
+        from: "alert@example.com"
+        to: ""
+      im:
+        enabled: false
+        url: ""
+    # 兼容旧 key：WebhookAlertSender 回落到 batch.alert.webhook.url
     webhook:
       enabled: false
       url: ""
@@ -115,6 +140,11 @@ batch:
         stable-size-check-enabled: true
         stable-size-check-rounds: 2
         stable-size-check-interval-ms: 200
+
+file:
+  alert:
+    # 文件级告警外置化的最小严重级别
+    externalize-min-severity: CRITICAL
 
 orchestration:
   # 配置来源：db（推荐）| yaml（仅 local/dev）
