@@ -59,6 +59,9 @@ public class FileImportJobConfig {
     @Value("${batch.input.file:}")
     private String inputFile;
 
+    @Value("${batch.io.input-base-dir:}")
+    private String inputBaseDir;
+
     @Value("${batch.import.retry-limit:3}")
     private int retryLimit;
 
@@ -76,7 +79,9 @@ public class FileImportJobConfig {
 
         Resource resource;
         if (StringUtils.hasText(params.getInputFileName())) {
-            resource = new FileSystemResource(params.getInputFileName());
+            // 路径穿越防护:限定在 batch.io.input-base-dir 之内(未配置则至少拒绝 .. 逃逸)
+            resource = new FileSystemResource(
+                    com.example.filebatchprocessor.util.PathSafety.confine(inputBaseDir, params.getInputFileName()));
         } else if (StringUtils.hasText(inputFile)) {
             resource = new ClassPathResource(inputFile);
         } else {

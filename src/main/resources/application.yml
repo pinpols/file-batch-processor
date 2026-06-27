@@ -69,13 +69,18 @@ management:
   endpoints:
     web:
       exposure:
-        # 暴露健康检查、Prometheus 指标等端点
-        include: health,info,prometheus,metrics,beans
+        # 暴露健康检查、Prometheus 指标等端点(去掉 beans,避免泄漏内部 bean 拓扑)
+        include: health,info,prometheus,metrics
   endpoint:
     health:
-      show-details: always
+      # 仅对已认证用户展示详情,避免匿名探测泄漏内部信息
+      show-details: when_authorized
 
 batch:
+  io:
+    # 导入/导出文件路径基目录(配置后强制限定在其内,防路径穿越;留空则仅拒绝 .. 逃逸)
+    input-base-dir: ${BATCH_IO_INPUT_BASE_DIR:}
+    output-base-dir: ${BATCH_IO_OUTPUT_BASE_DIR:}
   schema:
     startup-bootstrap:
       # 仅兜底，主路径必须走 Flyway
@@ -220,6 +225,15 @@ sftp:
   username: ${SFTP_USERNAME:}
   password: ${SFTP_PASSWORD:}
   remoteDir: ${SFTP_REMOTE_DIR:/upload}
+  # 主机密钥校验:配置 known_hosts 文件路径以启用严格校验(留空则加载默认 ~/.ssh/known_hosts，缺失即拒连)
+  known-hosts-path: ${SFTP_KNOWN_HOSTS_PATH:}
+  # 仅本地/测试可设 true 跳过主机密钥校验(生产禁用)
+  insecure-skip-host-key-check: ${SFTP_INSECURE_SKIP_HOST_KEY_CHECK:false}
+
+# 文件分发安全
+distribution:
+  # HTTP/FTP 目标 host 白名单(逗号分隔,留空则不限制白名单但仍拦截内网/环回/云元数据地址防 SSRF)
+  allowed-hosts: ${DISTRIBUTION_ALLOWED_HOSTS:}
 
 ops:
   security:
