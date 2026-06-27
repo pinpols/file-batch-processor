@@ -81,6 +81,9 @@ batch:
     # 导入/导出文件路径基目录(配置后强制限定在其内,防路径穿越;留空则仅拒绝 .. 逃逸)
     input-base-dir: ${BATCH_IO_INPUT_BASE_DIR:}
     output-base-dir: ${BATCH_IO_OUTPUT_BASE_DIR:}
+  file-export:
+    # tasklet 式文件导出一次性物化进内存的行数上界,超过应改用流式 dataExportJob
+    max-rows: ${BATCH_FILE_EXPORT_MAX_ROWS:500000}
   schema:
     startup-bootstrap:
       # 仅兜底，主路径必须走 Flyway
@@ -198,6 +201,8 @@ orchestration:
       fileImportJob: 2
       fileExportJob: 1
       fileImportJob:SFTP: 1
+    # 周期性 drain tick:重新驱动 drainQueue 以重查 WAITING/被限流任务,替代忙旋
+    drain-tick-ms: 3000
     # 状态对账周期与僵尸 RUNNING 判定阈值
     reconcile-interval-ms: 60000
     reconcile-stale-running-ms: 3600000

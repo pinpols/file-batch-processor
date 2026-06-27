@@ -64,7 +64,9 @@ class MisfirePolicyServiceTest {
         stale.setStatus(TaskExecutionStatus.READY.name());
         stale.setAttempt(0);
         stale.setNextRetryAt(LocalDateTime.now().minusSeconds(20));
-        when(taskExecutionStateRepository.findAll()).thenReturn(List.of(stale));
+        // 新实现把阈值过滤下推到查询:未过阈值的记录不会被返回 → 模拟为空结果
+        when(taskExecutionStateRepository.findTop100ByStatusAndNextRetryAtBeforeOrderByNextRetryAtAsc(any(), any()))
+                .thenReturn(List.of());
 
         service.detectAndHandleMisfires();
 
@@ -80,7 +82,8 @@ class MisfirePolicyServiceTest {
         stale.setStatus(TaskExecutionStatus.READY.name());
         stale.setAttempt(3);
         stale.setNextRetryAt(LocalDateTime.now().minusMinutes(5));
-        when(taskExecutionStateRepository.findAll()).thenReturn(List.of(stale));
+        when(taskExecutionStateRepository.findTop100ByStatusAndNextRetryAtBeforeOrderByNextRetryAtAsc(any(), any()))
+                .thenReturn(List.of(stale));
         when(taskExecutionStateRepository.save(any(TaskExecutionState.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 

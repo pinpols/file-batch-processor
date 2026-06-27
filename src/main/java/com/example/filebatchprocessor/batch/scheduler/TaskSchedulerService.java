@@ -354,10 +354,23 @@ public class TaskSchedulerService {
         batchTaskExecutor.submit(this::drainQueue);
     }
 
+    // #3:周期性 drain tick——drainQueue 原本只在 enqueue 时触发,WAITING 任务靠忙旋自我重查。
+    // 改为:WAITING 任务暂存出队、轮末一次性重入队(本 pass 不再自旋),由本 tick 每隔几秒重新 drain
+    // 触发重查,把"CPU+DB 忙旋最长 10 分钟"降为"每 tick 重查一次"。
+    @org.springframework.scheduling.annotation.Scheduled(
+            fixedDelayString = "${orchestration.scheduler.drain-tick-ms:3000}")
+    public void scheduledDrainTick() {
+        if (schedulerLeaderService.isLeader() && queueManager.size() > 0) {
+            batchTaskExecutor.submit(this::drainQueue);
+        }
+    }
+
     private void drainQueue() {
         if (!schedulerLeaderService.isLeader()) {
             return;
         }
+        // 本轮被判定为依赖未就绪(WAITING)的任务暂存于此,轮末统一重入队,避免在同一 pass 内立即重 poll 自旋。
+        List<OrchestrationTaskDefinition> heldWaiting = new java.util.ArrayList<>();
         OrchestrationTaskDefinition def;
         while ((def = queueManager.poll()) != null) {
             String runKey = taskRunKey(def);
@@ -408,7 +421,8 @@ public class TaskSchedulerService {
                     continue;
                 }
                 upsertState(def, TaskExecutionStatus.BLOCKED.name(), null, false, null);
-                queueManager.requeue(def);
+                // #3:暂存出队,本轮不再立即重 poll;轮末统一重入队,靠周期 drain tick 重查依赖
+                heldWaiting.add(def);
                 continue;
             }
 
@@ -562,6 +576,11 @@ public class TaskSchedulerService {
             if (completedKeys.add(runKey)) {
                 completeRun(def, runKey);
             }
+        }
+        // #3:本轮暂存的 WAITING 任务统一重入队(enqueuedAt 由 putIfAbsent 保留,依赖超时仍正确计时),
+        // 由周期 drain tick 在下一轮重查依赖,避免在本 pass 内忙旋。
+        for (OrchestrationTaskDefinition held : heldWaiting) {
+            queueManager.requeue(held);
         }
     }
 
