@@ -9,6 +9,7 @@ import com.example.filebatchprocessor.repository.FileReceptionQueueRepository;
 import com.example.filebatchprocessor.repository.ReceptionGroupMemberRepository;
 import com.example.filebatchprocessor.repository.ReceptionGroupRepository;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -94,6 +95,25 @@ public class ReceptionGroupService {
     }
 
     /**
+     * 数据文件到达时,尝试将其绑定到正在等待该文件的到达组(manifest 先到、数据文件后到的场景)。
+     *
+     * <p>按文件名找尚未绑定的同名期望成员,取其所属组;若组存在且仍处于 WAITING_FILES,则绑定。
+     * 一个数据文件至多绑定一个等待组(绑定第一个匹配的即返回),避免一文件绑多组。
+     */
+    @Transactional
+    public void tryBindArrivedDataFile(FileReceptionQueue row) {
+        List<ReceptionGroupMember> members =
+                memberRepo.findByExpectedFileNameAndActualQueueIdIsNull(row.getFileName());
+        for (ReceptionGroupMember member : members) {
+            Optional<ReceptionGroup> groupOpt = groupRepo.findById(member.getGroupId());
+            if (groupOpt.isPresent() && "WAITING_FILES".equals(groupOpt.get().getStatus())) {
+                bindArrivedFile(groupOpt.get().getId(), row);
+                return;
+            }
+        }
+    }
+
+    /**
      * 将一条已到达的队列行绑定到对应的预期成员上,并推进组的到达计数。
      */
     @Transactional
@@ -107,6 +127,8 @@ public class ReceptionGroupService {
         }
 
         ReceptionGroupMember member = memberOpt.get();
+        // L1:仅首次绑定(原 actualQueueId 为 null)才推进到达计数,避免重复绑同一成员重复计数。
+        boolean firstBind = member.getActualQueueId() == null;
         member.setActualQueueId(row.getId());
         // actualRecordCount 暂留 null,对账阶段再计算
         memberRepo.save(member);
@@ -121,8 +143,10 @@ public class ReceptionGroupService {
                                 () ->
                                         new IllegalStateException(
                                                 "到达组不存在 groupId=" + groupId));
-        group.setArrivedMembers(group.getArrivedMembers() + 1);
-        groupRepo.save(group);
+        if (firstBind) {
+            group.setArrivedMembers(group.getArrivedMembers() + 1);
+            groupRepo.save(group);
+        }
 
         log.info(
                 "绑定到达文件 groupId={} fileName={} queueId={} arrivedMembers={}",

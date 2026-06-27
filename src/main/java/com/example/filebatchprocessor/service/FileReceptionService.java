@@ -153,6 +153,11 @@ public class FileReceptionService {
             }
 
             FileReceptionQueue saved = fileReceptionQueueRepository.save(queue);
+            // 数据文件到达时,若组功能启用,尝试绑定到正在等待该文件的到达组
+            // (manifest 先到、数据文件后到的常见乱序场景)。manifest 分支已在前面 return,只有数据文件走到这里。
+            if (groupEnabled && receptionGroupService != null) {
+                receptionGroupService.tryBindArrivedDataFile(saved);
+            }
             logFileProcess(
                     saved.getFileRecordId(),
                     "receiveFile",
