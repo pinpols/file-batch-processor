@@ -1,5 +1,7 @@
 package com.example.filebatchprocessor.service;
 
+import com.example.filebatchprocessor.manifest.JsonManifestParser;
+import com.example.filebatchprocessor.manifest.ParsedManifest;
 import com.example.filebatchprocessor.model.FileAssetRecord;
 import com.example.filebatchprocessor.model.FileReceptionQueue;
 import com.example.filebatchprocessor.repository.FileReceptionQueueRepository;
@@ -8,6 +10,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -19,6 +22,7 @@ import java.util.Map;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,17 +41,29 @@ public class FileReceptionService {
     private final FileAssetService fileAssetService;
     private final FileProcessLogService fileProcessLogService;
     private final FileReceptionGuardService fileReceptionGuardService;
+    private final JsonManifestParser manifestParser;
+    private final ReceptionGroupService receptionGroupService;
+    private final String manifestSuffix;
+    private final boolean groupEnabled;
 
     @Autowired
     public FileReceptionService(
             FileReceptionQueueRepository fileReceptionQueueRepository,
             FileAssetService fileAssetService,
             FileProcessLogService fileProcessLogService,
-            FileReceptionGuardService fileReceptionGuardService) {
+            FileReceptionGuardService fileReceptionGuardService,
+            JsonManifestParser manifestParser,
+            ReceptionGroupService receptionGroupService,
+            @Value("${batch.file.reception.group.manifest-suffix:.manifest.json}") String manifestSuffix,
+            @Value("${batch.file.reception.group.enabled:false}") boolean groupEnabled) {
         this.fileReceptionQueueRepository = fileReceptionQueueRepository;
         this.fileAssetService = fileAssetService;
         this.fileProcessLogService = fileProcessLogService;
         this.fileReceptionGuardService = fileReceptionGuardService;
+        this.manifestParser = manifestParser;
+        this.receptionGroupService = receptionGroupService;
+        this.manifestSuffix = manifestSuffix;
+        this.groupEnabled = groupEnabled;
     }
 
     public FileReceptionService(FileReceptionQueueRepository fileReceptionQueueRepository) {
@@ -65,11 +81,46 @@ public class FileReceptionService {
                 FileReceptionGuardService.testingDefaults());
     }
 
+    public FileReceptionService(
+            FileReceptionQueueRepository fileReceptionQueueRepository,
+            FileAssetService fileAssetService,
+            FileProcessLogService fileProcessLogService,
+            FileReceptionGuardService fileReceptionGuardService) {
+        this(
+                fileReceptionQueueRepository,
+                fileAssetService,
+                fileProcessLogService,
+                fileReceptionGuardService,
+                null,
+                null,
+                ".manifest.json",
+                false);
+    }
+
     /**
      * 接收文件：将文件注册到接收队列
      */
     public FileReceptionQueue receiveFile(String fileName, String filePath, String sourceSystem) {
         log.info("Receiving file: {} from {}", fileName, sourceSystem);
+
+        if (groupEnabled
+                && manifestParser != null
+                && receptionGroupService != null
+                && fileName != null
+                && fileName.endsWith(manifestSuffix)) {
+            try {
+                String content = Files.readString(Path.of(filePath));
+                ParsedManifest parsed = manifestParser.parse(content);
+                receptionGroupService.registerFromManifest(parsed);
+                log.info("Manifest recognized and registered as reception group: fileName={}", fileName);
+            } catch (IOException e) {
+                log.error("Failed to read manifest file: {}", fileName, e);
+                throw new RuntimeException("Failed to read manifest file: " + e.getMessage(), e);
+            }
+            // manifest 本身不当作数据文件入队
+            return null;
+        }
+
         Optional<FileReceptionQueue> existingByName = fileReceptionQueueRepository.findByFileName(fileName);
 
         try {

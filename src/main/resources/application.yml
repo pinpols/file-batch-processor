@@ -147,6 +147,11 @@ batch:
         stable-size-check-enabled: true
         stable-size-check-rounds: 2
         stable-size-check-interval-ms: 200
+      group:
+        enabled: false
+        manifest-suffix: .manifest.json
+        poll-rate-ms: 120000
+        ttl-minutes: 360
 
 file:
   alert:
