@@ -46,7 +46,35 @@ public class ExecutionDedupService {
                     batchDate,
                     rerunId,
                     bucket);
+            return false;
         }
-        return inserted == 1;
+
+        // 桶边界修复:固定时间桶 epoch/window 会让"刚好跨桶边界"的相邻请求落入不同 bucket 各自抢到。
+        // 抢到当前桶后,再查上一桶是否已有同键近期记录;有则说明是边界重复,回滚本次抢占并判重。
+        Long prevCount = jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM execution_dedup_records "
+                        + "WHERE dedup_key = ? AND batch_date = ? AND rerun_id = ? AND window_bucket = ?",
+                Long.class,
+                dedupKey,
+                batchDate,
+                safeRerunId,
+                bucket - 1);
+        if (prevCount != null && prevCount > 0) {
+            jdbcTemplate.update(
+                    "DELETE FROM execution_dedup_records "
+                            + "WHERE dedup_key = ? AND batch_date = ? AND rerun_id = ? AND window_bucket = ?",
+                    dedupKey,
+                    batchDate,
+                    safeRerunId,
+                    bucket);
+            log.info(
+                    "Duplicate rejected at bucket boundary: dedupKey={}, batchDate={}, rerunId={}, bucket={}",
+                    dedupKey,
+                    batchDate,
+                    rerunId,
+                    bucket);
+            return false;
+        }
+        return true;
     }
 }

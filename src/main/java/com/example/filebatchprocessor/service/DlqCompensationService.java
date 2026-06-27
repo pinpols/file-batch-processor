@@ -83,6 +83,7 @@ public class DlqCompensationService {
                 record.setCompensationStatus("MANUAL_REQUIRED");
                 record.setLastReplayError("Exceeded max replay count: " + maxReplayCount);
                 dlqRecordRepository.save(record);
+                processed++; // #26:转人工也是一次处理,计入 limit,避免单次调用超额处理
                 continue;
             }
             Map<String, String> params = parse(record.getParams());
@@ -130,6 +131,7 @@ public class DlqCompensationService {
                 record.setCompensationStatus("RETRY_PENDING");
                 record.setNextRetryAt(LocalDateTime.now().plusNanos(retryDelayMs * 1_000_000));
                 dlqRecordRepository.save(record);
+                processed++; // #26:失败尝试也计入 limit,避免失败记录不计数导致超额处理
                 log.error("DLQ replay failed for id={}", record.getId(), e);
             }
         }

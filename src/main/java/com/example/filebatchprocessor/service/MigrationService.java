@@ -86,8 +86,15 @@ public class MigrationService {
                 .toList();
     }
 
+    // #8:自动迁移只让 leader 跑,避免多副本并发迁移
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private SchedulerLeaderService schedulerLeaderService;
+
     @Scheduled(fixedDelayString = "${migration.check-interval-ms:3600000}")
     public void runScheduledMigration() {
+        if (schedulerLeaderService != null && !schedulerLeaderService.isLeader()) {
+            return;
+        }
         if (!enabled) {
             return;
         }

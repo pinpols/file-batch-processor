@@ -48,8 +48,15 @@ public class BatchAlertEvaluator {
         this.restClient = RestClient.builder().build();
     }
 
+    // #8:多副本下只让 leader 跑,避免重复告警(required=false → 单机/单测无此 bean 时不门控)
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private SchedulerLeaderService schedulerLeaderService;
+
     @Scheduled(fixedDelayString = "${batch.alert.evaluate-ms:60000}")
     public void evaluate() {
+        if (schedulerLeaderService != null && !schedulerLeaderService.isLeader()) {
+            return;
+        }
         if (!enabled) {
             return;
         }

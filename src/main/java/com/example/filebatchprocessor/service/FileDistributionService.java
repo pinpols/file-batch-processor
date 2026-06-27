@@ -644,16 +644,28 @@ public class FileDistributionService {
                 : fileDispatchRecordService.markAckTimeout(
                         taskId, jobInstanceId, message, ackTimeoutPayload(taskId, jobInstanceId));
 
-        task.setStatus("RETRY");
+        // #1 修复:ACK 超时必须计入 retryCount,超上限即落 FAILED 终态,杜绝目标长期不回 ACK 时的无限重发
+        task.setRetryCount(task.getRetryCount() + 1);
+        boolean exhausted = task.getRetryCount() >= task.getMaxRetries();
+        task.setStatus(exhausted ? "FAILED" : "RETRY");
         task.setCompletedTime(null);
         task.setErrorMessage(message);
         task.setUpdatedAt(LocalDateTime.now());
         fileDistributionTaskRepository.save(task);
+        if (exhausted) {
+            log.warn(
+                    "ACK timeout retries exhausted: taskId={}, retryCount={}/{} -> FAILED",
+                    task.getId(),
+                    task.getRetryCount(),
+                    task.getMaxRetries());
+        }
 
         FileAssetStateMachineService.TransitionResult transition = null;
         if (task.getFileRecordId() != null && fileAssetService != null) {
-            transition = fileAssetService.resetToProcessed(
-                    task.getFileRecordId(), ackMetadata(message, "SYSTEM", false, updatedRecord.orElse(null)));
+            transition = exhausted
+                    ? fileAssetService.markFailed(task.getFileRecordId(), message)
+                    : fileAssetService.resetToProcessed(
+                            task.getFileRecordId(), ackMetadata(message, "SYSTEM", false, updatedRecord.orElse(null)));
         }
         logFileProcess(
                 task.getFileRecordId(),
@@ -706,17 +718,31 @@ public class FileDistributionService {
                                 retryCompensationPayload(task)))
                         .getId();
 
-        task.setStatus("RETRY");
+        // #1 修复:重发同样计入 retryCount,超上限即落 FAILED 终态,避免无界重发
+        task.setRetryCount(task.getRetryCount() + 1);
+        boolean exhausted = task.getRetryCount() >= task.getMaxRetries();
+        task.setStatus(exhausted ? "FAILED" : "RETRY");
         task.setCompletedTime(null);
         task.setUpdatedAt(LocalDateTime.now());
         task.setErrorMessage(reason);
         fileDistributionTaskRepository.save(task);
-        if (fileDispatchRecordService != null) {
+        if (exhausted) {
+            log.warn(
+                    "Resend retries exhausted: taskId={}, retryCount={}/{} -> FAILED",
+                    task.getId(),
+                    task.getRetryCount(),
+                    task.getMaxRetries());
+        }
+        if (!exhausted && fileDispatchRecordService != null) {
             fileDispatchRecordService.markPendingForRetry(taskId, jobInstanceId, true);
         }
         if (task.getFileRecordId() != null && fileAssetService != null) {
-            fileAssetService.resetToProcessed(
-                    task.getFileRecordId(), retryMetadata(reason, task.getRetryCount(), true));
+            if (exhausted) {
+                fileAssetService.markFailed(task.getFileRecordId(), reason);
+            } else {
+                fileAssetService.resetToProcessed(
+                        task.getFileRecordId(), retryMetadata(reason, task.getRetryCount(), true));
+            }
         }
         logFileProcess(
                 task.getFileRecordId(),
