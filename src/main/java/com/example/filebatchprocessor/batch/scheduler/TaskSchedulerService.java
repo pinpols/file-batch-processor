@@ -550,7 +550,18 @@ public class TaskSchedulerService {
                     permit.release();
                 }
             }
-            completeRun(def, runKey);
+            // #9 修复:合并出的每个 sibling 有各自的 runKey,需逐个清理其队列行/enqueuedAt,
+            // 否则只清 def 的 runKey 会让 sibling 的 DB queue 行残留(后续被错误复用或永不出队)。
+            java.util.Set<String> completedKeys = new java.util.HashSet<>();
+            for (OrchestrationTaskDefinition mergedTask : merged) {
+                String mergedKey = taskRunKey(mergedTask);
+                if (completedKeys.add(mergedKey)) {
+                    completeRun(mergedTask, mergedKey);
+                }
+            }
+            if (completedKeys.add(runKey)) {
+                completeRun(def, runKey);
+            }
         }
     }
 
@@ -608,7 +619,13 @@ public class TaskSchedulerService {
     }
 
     private void scheduleRetry(OrchestrationTaskDefinition def, String reason) {
-        Instant when = retryPolicy.nextRetryAt(def);
+        // #25:按已发生的重试次数做指数退避
+        String rerunId = def.getParameters().getOrDefault("rerunId", "");
+        int attempt = taskExecutionStateRepository
+                .findByTaskIdAndBatchDateAndRerunId(def.getId(), resolveBatchDate(def), rerunId)
+                .map(s -> s.getAttempt() == null ? 0 : s.getAttempt())
+                .orElse(0);
+        Instant when = retryPolicy.nextRetryAt(def, attempt);
         upsertState(def, TaskExecutionStatus.READY.name(), reason, true, when);
         scheduleOneShotEnqueue(def, when, "retry");
     }

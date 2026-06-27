@@ -39,8 +39,15 @@ public class FileArchivalService {
         this.stateMachineService = stateMachineService;
     }
 
+    // #8:归档/删文件只让 leader 跑,避免多副本并发改/删同一批文件
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private SchedulerLeaderService schedulerLeaderService;
+
     @Scheduled(cron = "${file.archive.cron:0 0 2 * * *}")
     public void runArchiveJob() {
+        if (schedulerLeaderService != null && !schedulerLeaderService.isLeader()) {
+            return;
+        }
         if (!enabled) {
             return;
         }

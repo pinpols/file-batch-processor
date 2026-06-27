@@ -54,10 +54,14 @@ public class BatchConfig {
         return new MapJobRegistry();
     }
 
+    /**
+     * #27 澄清:此 launcher 实为**同步**(直接复用框架默认 JobLauncher)。这是契约要求而非缺陷——
+     * DagOrchestratorService / DlqCompensationService 等调用方在 run() 返回后立即读取 BatchStatus
+     * 与 JobExecution 结果,必须等作业跑完;改成异步会让它们读到 STARTING 而出错。名称沿用是为兼容
+     * 既有 @Qualifier("asyncJobLauncher") 注入点;切勿在此包装 TaskExecutor 改成异步。
+     */
     @Bean(name = "asyncJobLauncher")
-    @Deprecated
     public JobLauncher asyncJobLauncher(JobLauncher jobLauncher) {
-        // 我们直接使用它，如果需要异步可以通过配置 TaskExecutor 实现
         return jobLauncher;
     }
 

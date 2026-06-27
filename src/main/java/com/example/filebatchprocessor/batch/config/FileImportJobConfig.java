@@ -110,7 +110,7 @@ public class FileImportJobConfig {
         params.validateForWriter();
         // Strategy 模式:批量快路径 + 逐条降级路径,由 writer 作为 Context 选择
         ChunkImportStrategy batchStrategy =
-                new BatchChunkImportStrategy(partitionedImportService, recordTraceRepository);
+                new BatchChunkImportStrategy(partitionedImportService, recordTraceRepository, transactionManager);
         ChunkImportStrategy fallbackStrategy = new PerRecordChunkImportStrategy(
                 partitionedImportService, dlqRecordRepository, recordTraceRepository, transactionManager);
         return new FileImportRecordWriter(params.getBatchDate(), batchStrategy, fallbackStrategy, maxDedupKeys);
