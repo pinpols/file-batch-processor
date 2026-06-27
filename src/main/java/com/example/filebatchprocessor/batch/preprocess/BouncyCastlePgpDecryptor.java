@@ -63,15 +63,26 @@ public class BouncyCastlePgpDecryptor implements PgpDecryptor {
         try (InputStream clear =
                 encData.getDataStream(new JcePublicKeyDataDecryptorFactoryBuilder().setProvider("BC").build(privateKey))) {
             JcaPGPObjectFactory plainFactory = new JcaPGPObjectFactory(clear);
+            // 循环剥离嵌套包(压缩 / 签名)直到 literal data;遇签名包跳过。
+            boolean foundLiteral = false;
             Object message = plainFactory.nextObject();
-            if (message instanceof PGPCompressedData compressed) {
-                plainFactory = new JcaPGPObjectFactory(compressed.getDataStream());
+            while (message != null) {
+                if (message instanceof PGPCompressedData compressed) {
+                    plainFactory = new JcaPGPObjectFactory(compressed.getDataStream());
+                } else if (message instanceof PGPLiteralData literal) {
+                    Streams.pipeAll(literal.getInputStream(), out);
+                    foundLiteral = true;
+                    break;
+                }
+                // 其它(PGPOnePassSignatureList / PGPSignatureList 等)跳过,继续 nextObject。
                 message = plainFactory.nextObject();
             }
-            if (message instanceof PGPLiteralData literal) {
-                Streams.pipeAll(literal.getInputStream(), out);
-            } else {
-                throw new IllegalArgumentException("unexpected PGP message type: " + message.getClass());
+            if (!foundLiteral) {
+                throw new IllegalArgumentException("no PGP literal data found");
+            }
+            // 明文读完后做完整性校验(MDC),防止密文被篡改。
+            if (encData.isIntegrityProtected() && !encData.verify()) {
+                throw new IllegalStateException("PGP integrity check failed");
             }
         }
     }

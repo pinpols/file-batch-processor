@@ -5,9 +5,11 @@ import java.io.OutputStream;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 /** 解压:gzip 单流 / zip 取首个普通 entry(其余忽略)。 */
+@Slf4j
 @Component
 public class Decompressor {
 
@@ -29,6 +31,9 @@ public class Decompressor {
                     continue;
                 }
                 copyBounded(zis, out);
+                if (zis.getNextEntry() != null) {
+                    log.warn("zip 含多个 entry,仅导入首个,忽略其余");
+                }
                 return;
             }
             throw new IllegalArgumentException("zip has no file entry");
