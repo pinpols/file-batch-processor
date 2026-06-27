@@ -9,10 +9,15 @@
 server:
   # 应用 HTTP 端口
   port: 8011
+  # #23 优雅停机:SIGTERM 后等在途请求/任务收尾再退出,而非直接 kill
+  shutdown: graceful
 
 spring:
   # 默认激活 dev；生产请通过 --spring.profiles.active=prod 覆盖
   profiles.active: dev
+  # #23 优雅停机阶段超时:给在途批处理/编排 drain 收尾的时间上限
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
   application:
     name: file-batch-processor
   batch:
