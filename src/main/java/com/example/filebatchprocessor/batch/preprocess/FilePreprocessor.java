@@ -45,28 +45,36 @@ public class FilePreprocessor {
         }
 
         Path source = Paths.get(fileName);
-        Path afterDecrypt = source;
         Path decryptTemp = null;
-        if (type.encrypted()) {
-            if (pgpDecryptor == null || !StringUtils.hasText(privateKeyPath)) {
-                throw new IllegalStateException("file is encrypted but PGP decryptor/key not configured");
+        Path plainTemp = null;
+        try {
+            Path afterDecrypt = source;
+            if (type.encrypted()) {
+                if (pgpDecryptor == null || !StringUtils.hasText(privateKeyPath)) {
+                    throw new IllegalStateException("file is encrypted but PGP decryptor/key not configured");
+                }
+                decryptTemp = tempFileManager.newTempFile(".dec");
+                try (InputStream in = Files.newInputStream(source);
+                        InputStream key = Files.newInputStream(Paths.get(privateKeyPath));
+                        OutputStream out = Files.newOutputStream(decryptTemp)) {
+                    pgpDecryptor.decrypt(in, key, passphrase.toCharArray(), out);
+                }
+                afterDecrypt = decryptTemp;
             }
-            decryptTemp = tempFileManager.newTempFile(".dec");
-            try (InputStream in = Files.newInputStream(source);
-                    InputStream key = Files.newInputStream(Paths.get(privateKeyPath));
-                    OutputStream out = Files.newOutputStream(decryptTemp)) {
-                pgpDecryptor.decrypt(in, key, passphrase.toCharArray(), out);
-            }
-            afterDecrypt = decryptTemp;
-        }
 
-        Path plainTemp = tempFileManager.newTempFile(".plain");
-        try (InputStream in = Files.newInputStream(afterDecrypt);
-                OutputStream out = Files.newOutputStream(plainTemp)) {
-            decompressor.decompress(type.compression(), in, out);
+            plainTemp = tempFileManager.newTempFile(".plain");
+            try (InputStream in = Files.newInputStream(afterDecrypt);
+                    OutputStream out = Files.newOutputStream(plainTemp)) {
+                decompressor.decompress(type.compression(), in, out);
+            }
+            PreprocessResult result = new PreprocessResult(plainTemp, plainTemp);
+            plainTemp = null; // 成功:不在 catch 删
+            return result;
+        } catch (Exception e) {
+            tempFileManager.delete(plainTemp); // 失败:删部分明文
+            throw e;
         } finally {
-            tempFileManager.delete(decryptTemp);
+            tempFileManager.delete(decryptTemp); // 始终删中间 .dec
         }
-        return new PreprocessResult(plainTemp, plainTemp);
     }
 }
