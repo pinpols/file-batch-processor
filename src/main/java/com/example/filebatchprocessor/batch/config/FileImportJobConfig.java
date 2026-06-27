@@ -4,6 +4,8 @@ import com.example.filebatchprocessor.batch.listener.ParseErrorRateGateListener;
 import com.example.filebatchprocessor.batch.listener.ShardContextListener;
 import com.example.filebatchprocessor.batch.processor.FileImportRecordProcessor;
 import com.example.filebatchprocessor.batch.reader.FileImportRecordReader;
+import com.example.filebatchprocessor.batch.reader.spi.DocumentReadOptions;
+import com.example.filebatchprocessor.batch.reader.spi.DocumentRecordReaderFactory;
 import com.example.filebatchprocessor.batch.reader.spi.RecordLineParserFactory;
 import com.example.filebatchprocessor.batch.writer.FileImportRecordWriter;
 import com.example.filebatchprocessor.batch.writer.strategy.BatchChunkImportStrategy;
@@ -69,7 +71,8 @@ public class FileImportJobConfig {
     @StepScope
     public FileImportRecordReader importReader(
             @Value("#{jobParameters}") Map<String, Object> jobParameters,
-            RecordLineParserFactory recordLineParserFactory) {
+            RecordLineParserFactory recordLineParserFactory,
+            DocumentRecordReaderFactory documentReaderFactory) {
 
         ImportJobParams params = ImportJobParams.from(jobParameters);
         params.validateForReader();
@@ -88,7 +91,10 @@ public class FileImportJobConfig {
                 params.getShardTotal(),
                 params.getFileFormat(),
                 params.getFileDelimiter(),
-                recordLineParserFactory);
+                recordLineParserFactory,
+                documentReaderFactory,
+                // Task 6 才透传 sheet 参数,这里先占位
+                new DocumentReadOptions(null, null));
     }
 
     @Value("${batch.import.max-dedup-keys:1000000}")
