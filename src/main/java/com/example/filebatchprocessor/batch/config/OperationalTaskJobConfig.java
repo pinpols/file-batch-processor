@@ -6,13 +6,16 @@ import com.example.filebatchprocessor.model.FileReceptionQueue;
 import com.example.filebatchprocessor.model.ImportedRecord;
 import com.example.filebatchprocessor.model.ImportedRecordPartitioned;
 import com.example.filebatchprocessor.repository.FileDistributionTaskRepository;
+import com.example.filebatchprocessor.model.ReceptionGroup;
 import com.example.filebatchprocessor.repository.ImportedRecordPartitionedRepository;
 import com.example.filebatchprocessor.repository.ImportedRecordRepository;
+import com.example.filebatchprocessor.repository.ReceptionGroupRepository;
 import com.example.filebatchprocessor.service.FileDistributionService;
 import com.example.filebatchprocessor.service.FileExportService;
 import com.example.filebatchprocessor.service.FileReceptionService;
 import com.example.filebatchprocessor.service.JobInstanceParameters;
 import com.example.filebatchprocessor.service.PartitionedImportService;
+import com.example.filebatchprocessor.service.ReceptionGroupCompletionService;
 import com.example.filebatchprocessor.service.distribution.FileDistributorDispatcher;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -190,6 +193,37 @@ public class OperationalTaskJobConfig {
                 .incrementer(new RunIdIncrementer())
                 .listener(listener)
                 .start(fileReceptionStep)
+                .build();
+    }
+
+    @Bean
+    public Tasklet receptionGroupTasklet(
+            ReceptionGroupRepository groupRepo, ReceptionGroupCompletionService completionService) {
+        return (contribution, chunkContext) -> {
+            List<ReceptionGroup> waitingGroups = groupRepo.findByStatus("WAITING_FILES");
+            int evaluated = 0;
+            for (ReceptionGroup group : waitingGroups) {
+                completionService.evaluate(group.getId());
+                evaluated++;
+            }
+            log.info("receptionGroupJob completed: waitingGroups={}, evaluated={}", waitingGroups.size(), evaluated);
+            return RepeatStatus.FINISHED;
+        };
+    }
+
+    @Bean
+    public Step receptionGroupStep(Tasklet receptionGroupTasklet) {
+        return new StepBuilder("receptionGroupStep", jobRepository)
+                .tasklet(receptionGroupTasklet, transactionManager)
+                .build();
+    }
+
+    @Bean("receptionGroupJob")
+    public Job receptionGroupJob(Step receptionGroupStep, JobCompletionNotificationListener listener) {
+        return new JobBuilder("receptionGroupJob", jobRepository)
+                .incrementer(new RunIdIncrementer())
+                .listener(listener)
+                .start(receptionGroupStep)
                 .build();
     }
 
