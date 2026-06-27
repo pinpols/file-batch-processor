@@ -12,6 +12,8 @@ public class ImportJobParams {
     public static final String KEY_SHARD_TOTAL = "shard.total";
     public static final String KEY_FILE_FORMAT = "file.format";
     public static final String KEY_FILE_DELIMITER = "file.delimiter";
+    public static final String KEY_EXCEL_SHEET_INDEX = "excel.sheet.index";
+    public static final String KEY_EXCEL_SHEET_NAME = "excel.sheet.name";
 
     private final String inputFileName;
     private final String batchDate;
@@ -19,6 +21,8 @@ public class ImportJobParams {
     private final Integer shardTotal;
     private final String fileFormat;
     private final String fileDelimiter;
+    private final int excelSheetIndex;
+    private final String excelSheetName;
 
     private ImportJobParams(
             String inputFileName,
@@ -26,13 +30,17 @@ public class ImportJobParams {
             Integer shardIndex,
             Integer shardTotal,
             String fileFormat,
-            String fileDelimiter) {
+            String fileDelimiter,
+            int excelSheetIndex,
+            String excelSheetName) {
         this.inputFileName = inputFileName;
         this.batchDate = batchDate;
         this.shardIndex = shardIndex;
         this.shardTotal = shardTotal;
         this.fileFormat = fileFormat;
         this.fileDelimiter = fileDelimiter;
+        this.excelSheetIndex = excelSheetIndex;
+        this.excelSheetName = excelSheetName;
     }
 
     public static ImportJobParams from(JobParameters jobParameters) {
@@ -55,7 +63,10 @@ public class ImportJobParams {
         Integer shardTotal = acc.getInt(KEY_SHARD_TOTAL);
         String format = acc.getStringOrDefault(KEY_FILE_FORMAT, "CSV");
         String delimiter = acc.getStringOrDefault(KEY_FILE_DELIMITER, ",");
-        return new ImportJobParams(input, batchDate, shardIndex, shardTotal, format, delimiter);
+        int excelSheetIndex = acc.getIntOrDefault(KEY_EXCEL_SHEET_INDEX, 0);
+        String excelSheetName = acc.getString(KEY_EXCEL_SHEET_NAME);
+        return new ImportJobParams(
+                input, batchDate, shardIndex, shardTotal, format, delimiter, excelSheetIndex, excelSheetName);
     }
 
     public void validateForReader() {
@@ -92,5 +103,13 @@ public class ImportJobParams {
 
     public String getFileDelimiter() {
         return fileDelimiter;
+    }
+
+    public int getExcelSheetIndex() {
+        return excelSheetIndex;
+    }
+
+    public String getExcelSheetName() {
+        return excelSheetName;
     }
 }
