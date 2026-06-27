@@ -24,6 +24,7 @@ import org.springframework.batch.core.job.JobExecution;
 import org.springframework.batch.core.listener.JobExecutionListener;
 import org.springframework.batch.core.step.StepExecution;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 @Component
 public class JobCompletionNotificationListener implements JobExecutionListener {
@@ -71,7 +72,10 @@ public class JobCompletionNotificationListener implements JobExecutionListener {
         upsertBatchRun(jobExecution, "RUNNING");
     }
 
+    // #28:把 afterJob 内的两处持久化(completeFromBatch + upsertBatchRun)纳入同一事务,
+    // 避免中途 crash 留下 BusinessJobInstance 与 BatchRunRecord 状态不一致。
     @Override
+    @Transactional
     public void afterJob(JobExecution jobExecution) {
         String jobName = jobExecution.getJobInstance().getJobName();
         BatchStatus status = jobExecution.getStatus();

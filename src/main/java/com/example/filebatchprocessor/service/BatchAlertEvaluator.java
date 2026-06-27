@@ -45,7 +45,12 @@ public class BatchAlertEvaluator {
             BatchRunRecordRepository batchRunRecordRepository, DlqRecordRepository dlqRecordRepository) {
         this.batchRunRecordRepository = batchRunRecordRepository;
         this.dlqRecordRepository = dlqRecordRepository;
-        this.restClient = RestClient.builder().build();
+        // #31:webhook 是同步调用且跑在 @Scheduled 告警评估循环里——必须设连接/读超时,
+        // 否则对端挂起会阻塞整个告警循环。
+        var requestFactory = new org.springframework.http.client.SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(3000);
+        requestFactory.setReadTimeout(5000);
+        this.restClient = RestClient.builder().requestFactory(requestFactory).build();
     }
 
     // #8:多副本下只让 leader 跑,避免重复告警(required=false → 单机/单测无此 bean 时不门控)
