@@ -2,6 +2,10 @@ package com.example.filebatchprocessor.batch.config;
 
 import com.example.filebatchprocessor.batch.listener.ParseErrorRateGateListener;
 import com.example.filebatchprocessor.batch.listener.ShardContextListener;
+import com.example.filebatchprocessor.batch.preprocess.FilePreprocessor;
+import com.example.filebatchprocessor.batch.preprocess.ImportTempFileHolder;
+import com.example.filebatchprocessor.batch.preprocess.PreprocessResult;
+import com.example.filebatchprocessor.batch.preprocess.TempFileManager;
 import com.example.filebatchprocessor.batch.processor.FileImportRecordProcessor;
 import com.example.filebatchprocessor.batch.reader.FileImportRecordReader;
 import com.example.filebatchprocessor.batch.reader.spi.DocumentReadOptions;
@@ -25,9 +29,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.builder.JobBuilder;
+import org.springframework.batch.core.ExitStatus;
 import org.springframework.batch.core.job.parameters.RunIdIncrementer;
+import org.springframework.batch.core.listener.StepExecutionListener;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.Step;
+import org.springframework.batch.core.step.StepExecution;
 import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.core.step.tasklet.Tasklet;
 import org.springframework.batch.infrastructure.repeat.RepeatStatus;
@@ -72,14 +79,25 @@ public class FileImportJobConfig {
     public FileImportRecordReader importReader(
             @Value("#{jobParameters}") Map<String, Object> jobParameters,
             RecordLineParserFactory recordLineParserFactory,
-            DocumentRecordReaderFactory documentReaderFactory) {
+            DocumentRecordReaderFactory documentReaderFactory,
+            FilePreprocessor filePreprocessor,
+            ImportTempFileHolder tempFileHolder) {
 
         ImportJobParams params = ImportJobParams.from(jobParameters);
         params.validateForReader();
 
         Resource resource;
         if (StringUtils.hasText(params.getInputFileName())) {
-            resource = new FileSystemResource(params.getInputFileName());
+            try {
+                PreprocessResult pr = filePreprocessor.prepare(
+                        params.getInputFileName(),
+                        params.getInputFileEncrypted(),
+                        params.getInputFileCompression());
+                tempFileHolder.set(pr.tempFileOrNull());
+                resource = new FileSystemResource(pr.plaintextPath().toFile());
+            } catch (Exception e) {
+                throw new IllegalStateException("failed to preprocess input file: " + params.getInputFileName(), e);
+            }
         } else if (StringUtils.hasText(inputFile)) {
             resource = new ClassPathResource(inputFile);
         } else {
@@ -116,6 +134,25 @@ public class FileImportJobConfig {
         return new FileImportRecordWriter(params.getBatchDate(), batchStrategy, fallbackStrategy, maxDedupKeys);
     }
 
+    /**
+     * afterStep 清理预处理产生的临时明文文件(透传时 holder 为空,什么也不做)。
+     */
+    @Bean
+    public StepExecutionListener importTempCleanupListener(
+            TempFileManager tempFileManager, ImportTempFileHolder tempFileHolder) {
+        return new StepExecutionListener() {
+            @Override
+            public ExitStatus afterStep(StepExecution stepExecution) {
+                java.nio.file.Path temp = tempFileHolder.get();
+                if (temp != null) {
+                    tempFileManager.delete(temp);
+                    tempFileHolder.clear();
+                }
+                return stepExecution.getExitStatus();
+            }
+        };
+    }
+
     @Bean
     public Step importStep(
             JobRepository jobRepository,
@@ -126,6 +163,7 @@ public class FileImportJobConfig {
             JobCompletionNotificationListener listener,
             ParseErrorRateGateListener parseErrorRateGateListener,
             ShardContextListener shardContextListener,
+            StepExecutionListener importTempCleanupListener,
             @Value("${batch.retry.limit:3}") int retryLimit,
             @Value("${batch.skip.limit:100}") int skipLimit,
             @Value("${batch.import.chunk-size:200}") int chunkSize) {
@@ -136,6 +174,7 @@ public class FileImportJobConfig {
                 .writer(writer)
                 .listener(parseErrorRateGateListener)
                 .listener(shardContextListener)
+                .listener(importTempCleanupListener)
                 .faultTolerant()
                 .retry(TransientImportException.class)
                 .retryLimit(retryLimit)

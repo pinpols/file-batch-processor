@@ -6,6 +6,9 @@ import static org.mockito.Mockito.*;
 import com.example.filebatchprocessor.batch.config.FileImportJobConfig;
 import com.example.filebatchprocessor.batch.listener.ParseErrorRateGateListener;
 import com.example.filebatchprocessor.batch.listener.ShardContextListener;
+import com.example.filebatchprocessor.batch.preprocess.FilePreprocessor;
+import com.example.filebatchprocessor.batch.preprocess.ImportTempFileHolder;
+import com.example.filebatchprocessor.batch.preprocess.PreprocessResult;
 import com.example.filebatchprocessor.batch.processor.FileImportRecordProcessor;
 import com.example.filebatchprocessor.batch.reader.FileImportRecordReader;
 import com.example.filebatchprocessor.batch.writer.FileImportRecordWriter;
@@ -49,6 +52,15 @@ class FileImportJobConfigTest {
     @Mock
     private ShardContextListener shardContextListener;
 
+    @Mock
+    private FilePreprocessor filePreprocessor;
+
+    @Mock
+    private ImportTempFileHolder importTempFileHolder;
+
+    @Mock
+    private org.springframework.batch.core.listener.StepExecutionListener importTempCleanupListener;
+
     private FileImportJobConfig fileImportJobConfig;
 
     @BeforeEach
@@ -67,11 +79,16 @@ class FileImportJobConfigTest {
         jobParameters.put("fileFormat", "CSV");
         jobParameters.put("fileDelimiter", ",");
 
+        when(filePreprocessor.prepare(any(), any(), any()))
+                .thenReturn(new PreprocessResult(java.nio.file.Paths.get("test.csv"), null));
+
         // When
         FileImportRecordReader reader = fileImportJobConfig.importReader(
                 jobParameters,
                 mock(com.example.filebatchprocessor.batch.reader.spi.RecordLineParserFactory.class),
-                mock(com.example.filebatchprocessor.batch.reader.spi.DocumentRecordReaderFactory.class));
+                mock(com.example.filebatchprocessor.batch.reader.spi.DocumentRecordReaderFactory.class),
+                filePreprocessor,
+                importTempFileHolder);
 
         // Then
         assertNotNull(reader);
@@ -118,6 +135,7 @@ class FileImportJobConfigTest {
                 jobCompletionNotificationListener,
                 parseErrorRateGateListener,
                 shardContextListener,
+                importTempCleanupListener,
                 3,
                 100,
                 200);
@@ -192,7 +210,9 @@ class FileImportJobConfigTest {
             fileImportJobConfig.importReader(
                     jobParameters,
                     mock(com.example.filebatchprocessor.batch.reader.spi.RecordLineParserFactory.class),
-                    mock(com.example.filebatchprocessor.batch.reader.spi.DocumentRecordReaderFactory.class));
+                    mock(com.example.filebatchprocessor.batch.reader.spi.DocumentRecordReaderFactory.class),
+                    filePreprocessor,
+                    importTempFileHolder);
         });
     }
 }
