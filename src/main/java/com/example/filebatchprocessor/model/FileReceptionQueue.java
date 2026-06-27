@@ -67,6 +67,9 @@ public class FileReceptionQueue {
     @Column(name = "file_record_id")
     private Long fileRecordId;
 
+    @Column(name = "reception_group_id")
+    private Long receptionGroupId;
+
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
