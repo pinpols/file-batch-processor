@@ -63,14 +63,12 @@ public class MisfirePolicyService {
         try {
             Instant detectionThreshold = Instant.now().minus(misfireDetectionWindowMs, ChronoUnit.MILLIS);
 
-            // 查找可能 misfire 的任务 - 使用 nextRetryAt 字段
-            List<TaskExecutionState> potentialMisfires = taskExecutionStateRepository.findAll().stream()
-                    .filter(state -> TaskExecutionStatus.READY.name().equals(state.getStatus()))
-                    .filter(state -> state.getNextRetryAt() != null)
-                    .filter(state -> state.getNextRetryAt()
-                            .isBefore(LocalDateTime.ofInstant(detectionThreshold, java.time.ZoneId.systemDefault())))
-                    .limit(100) // 限制处理数量
-                    .toList();
+            // #16:走 (status, next_retry_at) 索引直接查 READY 且已过检测阈值的任务,
+            // 替代此前 findAll() 全表扫 + 内存过滤(任务表大时是明显瓶颈)。
+            LocalDateTime thresholdTs = LocalDateTime.ofInstant(detectionThreshold, java.time.ZoneId.systemDefault());
+            List<TaskExecutionState> potentialMisfires =
+                    taskExecutionStateRepository.findTop100ByStatusAndNextRetryAtBeforeOrderByNextRetryAtAsc(
+                            TaskExecutionStatus.READY.name(), thresholdTs);
 
             log.debug("Found {} potential misfire tasks", potentialMisfires.size());
 
