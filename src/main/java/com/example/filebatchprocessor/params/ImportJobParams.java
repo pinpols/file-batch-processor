@@ -14,6 +14,8 @@ public class ImportJobParams {
     public static final String KEY_FILE_DELIMITER = "file.delimiter";
     public static final String KEY_EXCEL_SHEET_INDEX = "excel.sheet.index";
     public static final String KEY_EXCEL_SHEET_NAME = "excel.sheet.name";
+    public static final String KEY_INPUT_FILE_ENCRYPTED = "input.file.encrypted";
+    public static final String KEY_INPUT_FILE_COMPRESSION = "input.file.compression";
 
     private final String inputFileName;
     private final String batchDate;
@@ -23,6 +25,8 @@ public class ImportJobParams {
     private final String fileDelimiter;
     private final int excelSheetIndex;
     private final String excelSheetName;
+    private final Boolean inputFileEncrypted;
+    private final String inputFileCompression;
 
     private ImportJobParams(
             String inputFileName,
@@ -32,7 +36,9 @@ public class ImportJobParams {
             String fileFormat,
             String fileDelimiter,
             int excelSheetIndex,
-            String excelSheetName) {
+            String excelSheetName,
+            Boolean inputFileEncrypted,
+            String inputFileCompression) {
         this.inputFileName = inputFileName;
         this.batchDate = batchDate;
         this.shardIndex = shardIndex;
@@ -41,6 +47,8 @@ public class ImportJobParams {
         this.fileDelimiter = fileDelimiter;
         this.excelSheetIndex = excelSheetIndex;
         this.excelSheetName = excelSheetName;
+        this.inputFileEncrypted = inputFileEncrypted;
+        this.inputFileCompression = inputFileCompression;
     }
 
     public static ImportJobParams from(JobParameters jobParameters) {
@@ -65,8 +73,21 @@ public class ImportJobParams {
         String delimiter = acc.getStringOrDefault(KEY_FILE_DELIMITER, ",");
         int excelSheetIndex = acc.getIntOrDefault(KEY_EXCEL_SHEET_INDEX, 0);
         String excelSheetName = acc.getString(KEY_EXCEL_SHEET_NAME);
+        String encryptedRaw = acc.getString(KEY_INPUT_FILE_ENCRYPTED);
+        // 缺省 null 表示"未显式指定",交给后缀判定;不要默认 false。
+        Boolean inputFileEncrypted = encryptedRaw == null ? null : Boolean.valueOf(encryptedRaw);
+        String inputFileCompression = acc.getString(KEY_INPUT_FILE_COMPRESSION);
         return new ImportJobParams(
-                input, batchDate, shardIndex, shardTotal, format, delimiter, excelSheetIndex, excelSheetName);
+                input,
+                batchDate,
+                shardIndex,
+                shardTotal,
+                format,
+                delimiter,
+                excelSheetIndex,
+                excelSheetName,
+                inputFileEncrypted,
+                inputFileCompression);
     }
 
     public void validateForReader() {
@@ -111,5 +132,13 @@ public class ImportJobParams {
 
     public String getExcelSheetName() {
         return excelSheetName;
+    }
+
+    public Boolean getInputFileEncrypted() {
+        return inputFileEncrypted;
+    }
+
+    public String getInputFileCompression() {
+        return inputFileCompression;
     }
 }

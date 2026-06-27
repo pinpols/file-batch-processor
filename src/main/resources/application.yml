@@ -82,6 +82,13 @@ batch:
     startup-bootstrap:
       # 仅兜底，主路径必须走 Flyway
       enabled: false
+  io:
+    # 导入预处理临时明文文件目录；空=系统临时目录下 fbp-import-tmp
+    temp-dir: ${BATCH_IO_TEMP_DIR:}
+  pgp:
+    # 导入 PGP 解密：私钥(secret key ring)路径 + passphrase；passphrase 走 env 不入仓
+    private-key-path: ${BATCH_PGP_PRIVATE_KEY_PATH:}
+    passphrase: ${BATCH_PGP_PASSPHRASE:}
   alert:
     # 批量告警：失败率、吞吐、DLQ 积压
     enabled: true
