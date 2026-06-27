@@ -52,6 +52,11 @@ public class SecurityConfig {
                                 "/ops/change-requests/*/reject",
                                 "/ops/change-requests/*/apply")
                         .hasRole("ADMIN")
+                        // 迁移运维端点:只读状态查询放给 VIEWER+,破坏性 POST(backfill/switch/deprecate)仅 ADMIN
+                        .requestMatchers(HttpMethod.GET, "/ops/migration/**")
+                        .hasAnyRole("VIEWER", "OPERATOR", "ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/ops/migration/**")
+                        .hasRole("ADMIN")
                         .anyRequest()
                         .authenticated())
                 .httpBasic(Customizer.withDefaults());
@@ -59,16 +64,29 @@ public class SecurityConfig {
     }
 
     @Bean
-    public UserDetailsService userDetailsService(OpsSecurityProperties properties) {
-        UserDetails viewer = user(properties.getViewer(), "VIEWER");
-        UserDetails operator = user(properties.getOperator(), "OPERATOR");
-        UserDetails admin = user(properties.getAdmin(), "ADMIN");
+    public UserDetailsService userDetailsService(
+            OpsSecurityProperties properties, org.springframework.core.env.Environment environment) {
+        boolean prod = environment.acceptsProfiles(org.springframework.core.env.Profiles.of("prod"));
+        UserDetails viewer = user(properties.getViewer(), "VIEWER", prod);
+        UserDetails operator = user(properties.getOperator(), "OPERATOR", prod);
+        UserDetails admin = user(properties.getAdmin(), "ADMIN", prod);
         return new InMemoryUserDetailsManager(viewer, operator, admin);
     }
 
-    private UserDetails user(OpsSecurityProperties.User u, String role) {
+    private UserDetails user(OpsSecurityProperties.User u, String role, boolean prod) {
+        String password = u.getPassword();
+        boolean weak = password == null || password.isBlank() || password.contains("change_me");
+        if (weak) {
+            // 生产:拒绝启动,杜绝 {noop}change_me_* 弱口令进生产;非生产:仅告警,不阻断本地/测试。
+            String msg = "ops.security 用户 [" + u.getUsername()
+                    + "] 口令为空或仍是占位值(change_me);生产请用环境变量配置强口令(支持 {bcrypt}/{noop} 前缀)";
+            if (prod) {
+                throw new IllegalStateException(msg);
+            }
+            org.slf4j.LoggerFactory.getLogger(SecurityConfig.class).warn("[弱口令] {}", msg);
+        }
         return User.withUsername(u.getUsername())
-                .password(u.getPassword())
+                .password(password)
                 .roles(role)
                 .build();
     }
