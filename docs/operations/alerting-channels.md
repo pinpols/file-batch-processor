@@ -36,6 +36,10 @@ spring.mail.password  = ${SMTP_PASSWORD}
 `EmailAlertSender` 用 `@ConditionalOnProperty(name="batch.alert.channels.email.enabled", havingValue="true")` 守门：
 **关闭时该 Bean 完全不装配**，因此无 SMTP 环境（含测试上下文）时不会有任何副作用，也不需要 `spring.mail.host`。仅当开启 email 渠道时才需配齐上述 SMTP 参数。
 
+> ⚠️ **email.enabled=true 时必须同时配置 `spring.mail.host`。** Spring Boot 的 `MailSenderAutoConfiguration` 仅在 `spring.mail.host` 非空时才创建 `JavaMailSender` bean。若开了 email 渠道但漏配 host，`EmailAlertSender` 通过 `ObjectProvider<JavaMailSender>` 解析得到 `null`，**该渠道自动禁用（`isEnabled()` 返回 false，不再让应用启动崩溃），但不会发信**，启动日志会打一条 `warn`（`email alert channel enabled but no JavaMailSender available; configure spring.mail.host`）。
+
+> ⚠️ **生产环境务必保留这组 SMTP 超时**：email 的发送超时依赖 `spring.mail.properties.mail.smtp.connectiontimeout` / `timeout` / `writetimeout`（已在 `application.yml` 配为 3s/5s/5s）。一旦缺失，SMTP 半开/挂起连接会**阻塞 `@Scheduled` 告警评估单线程**，拖垮整条告警链路。
+
 ## 兼容旧配置
 
 旧 key `batch.alert.webhook.{enabled,url}` 仍然有效：`WebhookAlertSender` 优先读 `batch.alert.channels.webhook.*`，缺省时**回落（fallback）**到旧的 `batch.alert.webhook.*`，无需改动历史配置即可平滑迁移。
