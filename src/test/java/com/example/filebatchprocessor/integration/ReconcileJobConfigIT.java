@@ -66,7 +66,7 @@ class ReconcileJobConfigIT extends PostgresContainerSupport {
                         .addLong("time", System.currentTimeMillis())
                         .addString("input.file.name", csv.toString())
                         .addString("batchDate", batchDate)
-                        .addString("target.job.name", "importJob")
+                        .addString("target.job.name", "fileImportJob")
                         .toJobParameters());
 
         assertEquals(BatchStatus.COMPLETED, execution.getStatus());

@@ -80,7 +80,7 @@ class TaskOrchestrationConfigTest {
 
         TaskDefinition definition = new TaskDefinition();
         definition.setTaskId("t1");
-        definition.setJobName("processFileJob");
+        definition.setJobName("fileImportJob");
         definition.setPriority("HIGH");
         definition.setAllowParallel(true);
 

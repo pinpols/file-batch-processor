@@ -1,5 +1,6 @@
 package com.example.filebatchprocessor.batch.config;
 
+import com.example.filebatchprocessor.batch.BatchJobNames;
 import com.example.filebatchprocessor.listener.JobCompletionNotificationListener;
 import com.example.filebatchprocessor.model.FileDistributionTask;
 import com.example.filebatchprocessor.model.FileReceptionQueue;
@@ -167,9 +168,9 @@ public class OperationalTaskJobConfig {
                 .build();
     }
 
-    @Bean("fileExportJob")
+    @Bean(BatchJobNames.FILE_EXPORT_JOB)
     public Job fileExportJob(Step fileExportStep, JobCompletionNotificationListener listener) {
-        return new JobBuilder("fileExportJob", jobRepository)
+        return new JobBuilder(BatchJobNames.FILE_EXPORT_JOB, jobRepository)
                 .incrementer(new RunIdIncrementer())
                 .listener(listener)
                 .start(fileExportStep)

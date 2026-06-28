@@ -1,5 +1,6 @@
 package com.example.filebatchprocessor.batch.writer.strategy;
 
+import com.example.filebatchprocessor.batch.BatchJobNames;
 import com.example.filebatchprocessor.exception.ErrorCodeClassifier;
 import com.example.filebatchprocessor.exception.TransientImportException;
 import com.example.filebatchprocessor.model.DlqRecord;
@@ -26,7 +27,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class PerRecordChunkImportStrategy implements ChunkImportStrategy {
 
     private static final Logger log = LoggerFactory.getLogger(PerRecordChunkImportStrategy.class);
-    private static final String JOB_NAME = "importJob";
+    private static final String JOB_NAME = BatchJobNames.FILE_IMPORT_JOB;
 
     private final PartitionedImportService partitionedImportService;
     private final DlqRecordRepository dlqRecordRepository;

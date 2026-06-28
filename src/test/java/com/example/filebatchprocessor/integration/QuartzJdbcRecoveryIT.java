@@ -104,7 +104,7 @@ class QuartzJdbcRecoveryIT extends PostgresContainerSupport {
         trigger.setCron("0 0/5 * * * ?");
         return OrchestrationTaskDefinition.builder()
                 .id(taskId)
-                .jobName("processFileJob")
+                .jobName("fileImportJob")
                 .enabled(true)
                 .trigger(trigger)
                 .build();

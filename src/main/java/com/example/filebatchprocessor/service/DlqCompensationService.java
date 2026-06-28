@@ -1,5 +1,6 @@
 package com.example.filebatchprocessor.service;
 
+import com.example.filebatchprocessor.batch.BatchJobNames;
 import com.example.filebatchprocessor.model.BusinessJobInstance;
 import com.example.filebatchprocessor.model.CompensationActionType;
 import com.example.filebatchprocessor.model.CompensationRecord;
@@ -34,7 +35,7 @@ public class DlqCompensationService {
     private final DlqRecordRepository dlqRecordRepository;
     private final PartitionedImportService partitionedImportService;
     private final JobLauncher jobLauncher;
-    private final Job processFileJob;
+    private final Job fileImportJob;
     private final BatchJobResolver batchJobResolver;
     private final TaskConfigService taskConfigService;
     private final JobInstanceService jobInstanceService;
@@ -46,7 +47,7 @@ public class DlqCompensationService {
             DlqRecordRepository dlqRecordRepository,
             PartitionedImportService partitionedImportService,
             @Qualifier("asyncJobLauncher") JobLauncher jobLauncher,
-            @Qualifier("processFileJob") Job processFileJob,
+            @Qualifier(BatchJobNames.FILE_IMPORT_JOB) Job fileImportJob,
             BatchJobResolver batchJobResolver,
             TaskConfigService taskConfigService,
             JobInstanceService jobInstanceService,
@@ -56,7 +57,7 @@ public class DlqCompensationService {
         this.dlqRecordRepository = dlqRecordRepository;
         this.partitionedImportService = partitionedImportService;
         this.jobLauncher = jobLauncher;
-        this.processFileJob = processFileJob;
+        this.fileImportJob = fileImportJob;
         this.batchJobResolver = batchJobResolver;
         this.taskConfigService = taskConfigService;
         this.jobInstanceService = jobInstanceService;
@@ -285,7 +286,7 @@ public class DlqCompensationService {
             }
         }
 
-        return processFileJob;
+        return fileImportJob;
     }
 
     private void mergeTaskParameters(JobParametersBuilder builder, String taskId) {

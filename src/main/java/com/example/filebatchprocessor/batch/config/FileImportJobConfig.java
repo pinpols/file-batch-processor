@@ -1,5 +1,6 @@
 package com.example.filebatchprocessor.batch.config;
 
+import com.example.filebatchprocessor.batch.BatchJobNames;
 import com.example.filebatchprocessor.batch.listener.ParseErrorRateGateListener;
 import com.example.filebatchprocessor.batch.listener.ShardContextListener;
 import com.example.filebatchprocessor.batch.preprocess.FilePreprocessor;
@@ -266,9 +267,9 @@ public class FileImportJobConfig {
                 .build();
     }
 
-    @Bean(name = {"processFileJob", "fileImportJob"})
+    @Bean(BatchJobNames.FILE_IMPORT_JOB)
     public Job fileImportJob(JobCompletionNotificationListener listener, @Qualifier("importStep") Step importStep) {
-        return new JobBuilder("importJob", jobRepository)
+        return new JobBuilder(BatchJobNames.FILE_IMPORT_JOB, jobRepository)
                 .incrementer(new RunIdIncrementer())
                 .listener(listener)
                 .start(importStep)
@@ -294,9 +295,9 @@ public class FileImportJobConfig {
                 .build();
     }
 
-    @Bean("dlqReplayJob")
+    @Bean(BatchJobNames.DLQ_REPLAY_JOB)
     public Job dlqReplayJob(Step dlqReplayStep, JobCompletionNotificationListener listener) {
-        return new JobBuilder("dlqReplayJob", jobRepository)
+        return new JobBuilder(BatchJobNames.DLQ_REPLAY_JOB, jobRepository)
                 .listener(listener)
                 .start(dlqReplayStep)
                 .build();

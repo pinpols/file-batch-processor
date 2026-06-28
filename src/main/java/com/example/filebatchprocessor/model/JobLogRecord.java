@@ -20,7 +20,7 @@ public class JobLogRecord {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    /** 作业名称，如 processFileJob / dataExportJob */
+    /** 作业名称，如 fileImportJob / dataExportJob */
     private String jobName;
 
     /** 任务调度传入的原始参数 */

@@ -40,7 +40,7 @@ class DlqCompensationServiceIT extends PostgresContainerSupport {
     @Test
     void shouldReplayRecordWriterDlq() {
         DlqRecord record = new DlqRecord();
-        record.setJobName("importJob");
+        record.setJobName("fileImportJob");
         record.setParams(
                 "businessKey=Alice:2026-03-01&name=Alice&description=test&batchDate=2026-03-01&source=record-writer");
         record.setErrorMessage("manual");
@@ -61,7 +61,7 @@ class DlqCompensationServiceIT extends PostgresContainerSupport {
     @Test
     void shouldMarkManualRequiredWhenReplayExceedsMaxCount() {
         DlqRecord record = new DlqRecord();
-        record.setJobName("importJob");
+        record.setJobName("fileImportJob");
         record.setParams("source=record-writer&businessKey=Bad:2026-03-01&batchDate=2026-03-01");
         record.setErrorMessage("manual");
         record.setHandled(false);

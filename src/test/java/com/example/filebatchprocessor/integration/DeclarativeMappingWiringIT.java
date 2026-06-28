@@ -47,8 +47,8 @@ class DeclarativeMappingWiringIT extends PostgresContainerSupport {
     private JobLauncher jobLauncher;
 
     @Autowired
-    @Qualifier("processFileJob")
-    private Job processFileJob;
+    @Qualifier("fileImportJob")
+    private Job fileImportJob;
 
     @Autowired
     private ImportedRecordPartitionedRepository partitionedRepository;
@@ -76,7 +76,7 @@ class DeclarativeMappingWiringIT extends PostgresContainerSupport {
         if (feedId != null) {
             builder.addString("feedId", feedId);
         }
-        return jobLauncher.run(processFileJob, builder.toJobParameters());
+        return jobLauncher.run(fileImportJob, builder.toJobParameters());
     }
 
     /** business_key 去掉结尾 {@code ":"+batchDate}(对照口径)。 */

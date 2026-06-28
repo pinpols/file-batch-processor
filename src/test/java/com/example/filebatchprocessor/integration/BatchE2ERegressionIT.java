@@ -34,8 +34,8 @@ class BatchE2ERegressionIT extends PostgresContainerSupport {
     private JobLauncher jobLauncher;
 
     @Autowired
-    @Qualifier("processFileJob")
-    private Job processFileJob;
+    @Qualifier("fileImportJob")
+    private Job fileImportJob;
 
     @Autowired
     @Qualifier("dataExportJob")
@@ -64,7 +64,7 @@ class BatchE2ERegressionIT extends PostgresContainerSupport {
                 StandardCharsets.UTF_8);
 
         JobExecution firstImport = jobLauncher.run(
-                processFileJob,
+                fileImportJob,
                 new JobParametersBuilder()
                         .addLong("time", System.currentTimeMillis())
                         .addString("input.file.name", csv.toString())
@@ -76,7 +76,7 @@ class BatchE2ERegressionIT extends PostgresContainerSupport {
         assertEquals(2L, partitionedRepository.countByBatchDate(batchDate));
 
         JobExecution secondImport = jobLauncher.run(
-                processFileJob,
+                fileImportJob,
                 new JobParametersBuilder()
                         .addLong("time", System.currentTimeMillis() + 1)
                         .addString("input.file.name", csv.toString())
@@ -89,7 +89,7 @@ class BatchE2ERegressionIT extends PostgresContainerSupport {
         assertEquals(2L, partitionedRepository.countByBatchDate(batchDate), "duplicate import should be idempotent");
 
         DlqRecord dlq = new DlqRecord();
-        dlq.setJobName("importJob");
+        dlq.setJobName("fileImportJob");
         dlq.setParams("businessKey=CHARLIE:" + batchDate + "&name=CHARLIE&description=replayed&batchDate=" + batchDate
                 + "&source=record-writer");
         dlq.setErrorMessage("synthetic replay case");

@@ -65,13 +65,13 @@ class BatchMetricsPublisherTest {
                 .thenReturn(4L);
 
         BatchRunRecord runRecord = new BatchRunRecord();
-        runRecord.setJobName("importJob");
+        runRecord.setJobName("fileImportJob");
         runRecord.setDurationMs(2500L);
         runRecord.setThroughputRps(6.5);
         when(batchRunRecordRepository.findTop200ByOrderByCreatedAtDesc()).thenReturn(List.of(runRecord));
 
         TaskDefinition taskDefinition = new TaskDefinition();
-        taskDefinition.setJobName("importJob");
+        taskDefinition.setJobName("fileImportJob");
         taskDefinition.setSlaMaxDurationMs(2000L);
         taskDefinition.setEnabled(true);
         when(taskDefinitionRepository.findByEnabledTrue()).thenReturn(List.of(taskDefinition));
@@ -107,10 +107,10 @@ class BatchMetricsPublisherTest {
                 meterRegistry.find("batch_avg_throughput_rps").gauge().value(),
                 0.0005,
                 "平均吞吐应等于唯一一条记录的 6.5 rps");
-        // importJob 实际耗时 2500ms > SLA 2000ms → 恰好 1 次 SLA 违约
+        // fileImportJob 实际耗时 2500ms > SLA 2000ms → 恰好 1 次 SLA 违约
         assertEquals(
                 1.0,
                 meterRegistry.find("batch_sla_duration_breach_count").gauge().value(),
-                "importJob 2500ms 超过 SLA 2000ms,应计 1 次违约");
+                "fileImportJob 2500ms 超过 SLA 2000ms,应计 1 次违约");
     }
 }

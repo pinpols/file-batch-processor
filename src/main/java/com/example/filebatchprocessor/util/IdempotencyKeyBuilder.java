@@ -1,5 +1,6 @@
 package com.example.filebatchprocessor.util;
 
+import com.example.filebatchprocessor.batch.BatchJobNames;
 import com.example.filebatchprocessor.scheduler.OrchestrationTaskDefinition;
 
 /**
@@ -21,7 +22,12 @@ public final class IdempotencyKeyBuilder {
     public static String forImportRequest(
             String inputFile, String batchDate, String rerunId, int shardIndex, int shardTotal) {
         return String.join(
-                "|", "processFileJob", safe(inputFile), safe(batchDate), safe(rerunId), shardIndex + "/" + shardTotal);
+                "|",
+                BatchJobNames.FILE_IMPORT_JOB,
+                safe(inputFile),
+                safe(batchDate),
+                safe(rerunId),
+                shardIndex + "/" + shardTotal);
     }
 
     private static String safe(String value) {

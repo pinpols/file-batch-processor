@@ -1,5 +1,6 @@
 package com.example.filebatchprocessor.params;
 
+import com.example.filebatchprocessor.batch.BatchJobNames;
 import java.util.Map;
 import org.springframework.batch.core.job.parameters.JobParameters;
 
@@ -36,7 +37,7 @@ public class ReconcileJobParams {
         if (batch == null || batch.isBlank()) {
             batch = acc.getString(KEY_BATCH_DATE_ALT);
         }
-        String jobName = acc.getStringOrDefault(KEY_TARGET_JOB_NAME, "importJob");
+        String jobName = acc.getStringOrDefault(KEY_TARGET_JOB_NAME, BatchJobNames.FILE_IMPORT_JOB);
         return new ReconcileJobParams(input, batch, jobName);
     }
 

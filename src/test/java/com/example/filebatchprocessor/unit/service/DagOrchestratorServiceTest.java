@@ -142,14 +142,14 @@ class DagOrchestratorServiceTest {
 
         TaskDefinition taskDefinition = new TaskDefinition();
         taskDefinition.setTaskId("task-1");
-        taskDefinition.setJobName("importJob");
+        taskDefinition.setJobName("fileImportJob");
         taskDefinition.setMaxAttempts(3);
         when(taskDefinitionRepository.findByTaskIdIn(List.of("task-1"))).thenReturn(List.of(taskDefinition));
         when(taskParameterRepository.findByTaskIdIn(List.of("task-1"))).thenReturn(List.of());
         when(taskDependencyRepository.findByTaskIdIn(List.of("task-1"))).thenReturn(List.of());
-        when(jobsProvider.getIfAvailable()).thenReturn(Map.of("importJob", job));
+        when(jobsProvider.getIfAvailable()).thenReturn(Map.of("fileImportJob", job));
 
-        JobExecution execution = new JobExecution(10L, new JobInstance(11L, "importJob"), new JobParameters());
+        JobExecution execution = new JobExecution(10L, new JobInstance(11L, "fileImportJob"), new JobParameters());
         execution.setStatus(BatchStatus.COMPLETED);
         StepExecution stepExecution = new StepExecution("s1", execution);
         execution.addStepExecutions(List.of(stepExecution));

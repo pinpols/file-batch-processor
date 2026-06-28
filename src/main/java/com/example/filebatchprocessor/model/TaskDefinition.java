@@ -26,7 +26,7 @@ public class TaskDefinition {
     private String taskId;
 
     /**
-     * 任务名称（如 processFileJob、partitionedImportJob）
+     * 任务名称（如 fileImportJob、partitionedImportJob）
      */
     @Column(name = "job_name", nullable = false, length = 100)
     private String jobName;

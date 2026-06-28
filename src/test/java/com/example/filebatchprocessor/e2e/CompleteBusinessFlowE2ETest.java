@@ -86,7 +86,7 @@ class CompleteBusinessFlowE2ETest extends PostgresContainerSupport {
         assertEquals(3, importedRecords.size());
 
         List<RecordTrace> traces = recordTraceRepository.findAll();
-        assertTrue(traces.stream().anyMatch(t -> "importJob".equals(t.getJobName())));
+        assertTrue(traces.stream().anyMatch(t -> "fileImportJob".equals(t.getJobName())));
     }
 
     @Test

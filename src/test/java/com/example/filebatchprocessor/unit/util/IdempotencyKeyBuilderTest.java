@@ -12,13 +12,20 @@ class IdempotencyKeyBuilderTest {
     void shouldBuildStableTaskKey() {
         OrchestrationTaskDefinition task = OrchestrationTaskDefinition.builder()
                 .id("process-file-main")
-                .jobName("processFileJob")
+                .jobName("fileImportJob")
                 .dedupKey("biz-key")
                 .shardIndex(0)
                 .shardTotal(2)
                 .build();
 
         String key = IdempotencyKeyBuilder.forTask(task, "2026-03-04", "r1");
-        assertEquals("processFileJob|biz-key|2026-03-04|r1|0/2", key);
+        assertEquals("fileImportJob|biz-key|2026-03-04|r1|0/2", key);
+    }
+
+    @Test
+    void shouldBuildImportRequestKeyWithFileImportJobName() {
+        String key = IdempotencyKeyBuilder.forImportRequest("input.csv", "2026-03-04", "r1", 0, 2);
+
+        assertEquals("fileImportJob|input.csv|2026-03-04|r1|0/2", key);
     }
 }

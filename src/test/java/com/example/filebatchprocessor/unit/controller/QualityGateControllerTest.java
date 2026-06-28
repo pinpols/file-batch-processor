@@ -29,12 +29,12 @@ class QualityGateControllerTest {
     void shouldReturnByJob() {
         QualityGateResult r = new QualityGateResult();
         r.setId(2L);
-        r.setJobName("importJob");
-        when(repository.findTop200ByJobNameOrderByCreatedAtDesc("importJob")).thenReturn(List.of(r));
+        r.setJobName("fileImportJob");
+        when(repository.findTop200ByJobNameOrderByCreatedAtDesc("fileImportJob")).thenReturn(List.of(r));
 
         QualityGateController controller = new QualityGateController(repository);
-        List<QualityGateResult> out = controller.byJob("importJob");
+        List<QualityGateResult> out = controller.byJob("fileImportJob");
         assertEquals(1, out.size());
-        assertEquals("importJob", out.get(0).getJobName());
+        assertEquals("fileImportJob", out.get(0).getJobName());
     }
 }

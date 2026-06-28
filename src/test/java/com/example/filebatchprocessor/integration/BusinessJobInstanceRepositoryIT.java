@@ -31,7 +31,7 @@ class BusinessJobInstanceRepositoryIT extends PostgresContainerSupport {
         BusinessJobInstance instance = new BusinessJobInstance();
         instance.setJobInstanceNo("JI-20260315-TEST001");
         instance.setTaskId("task-001");
-        instance.setJobName("importJob");
+        instance.setJobName("fileImportJob");
         instance.setTriggerSource("SCHEDULER");
         instance.setStatus("TRIGGERED");
 

@@ -1,5 +1,6 @@
 package com.example.filebatchprocessor.batch.writer.strategy;
 
+import com.example.filebatchprocessor.batch.BatchJobNames;
 import com.example.filebatchprocessor.model.FileRecord;
 import com.example.filebatchprocessor.model.ImportedRecordPartitioned;
 import com.example.filebatchprocessor.model.RecordTrace;
@@ -22,7 +23,7 @@ import org.slf4j.LoggerFactory;
 public class BatchChunkImportStrategy implements ChunkImportStrategy {
 
     private static final Logger log = LoggerFactory.getLogger(BatchChunkImportStrategy.class);
-    private static final String JOB_NAME = "importJob";
+    private static final String JOB_NAME = BatchJobNames.FILE_IMPORT_JOB;
 
     private final PartitionedImportService partitionedImportService;
     private final RecordTraceRepository recordTraceRepository;

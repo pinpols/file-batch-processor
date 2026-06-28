@@ -81,7 +81,7 @@ class QuartzMisfireAlertIT extends PostgresContainerSupport {
         assertTrue(misfireCount >= 1.0, "quartz misfire metric should be incremented");
 
         DlqRecord dlq = new DlqRecord();
-        dlq.setJobName("processFileJob");
+        dlq.setJobName("fileImportJob");
         dlq.setParams("taskId=t1");
         dlq.setErrorMessage("synthetic");
         dlq.setHandled(false);
@@ -92,7 +92,7 @@ class QuartzMisfireAlertIT extends PostgresContainerSupport {
 
         BatchRunRecord run = new BatchRunRecord();
         run.setJobExecutionId(9001L);
-        run.setJobName("processFileJob");
+        run.setJobName("fileImportJob");
         run.setStatus("FAILED");
         run.setThroughputRps(1.0);
         run.setCreatedAt(LocalDateTime.now());
