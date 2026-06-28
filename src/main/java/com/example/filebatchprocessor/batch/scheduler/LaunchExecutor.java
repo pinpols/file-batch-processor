@@ -87,6 +87,7 @@ public class LaunchExecutor {
 
         int successShards = 0;
         int failedShards = 0;
+        Throwable lastFailureCause = null;
         for (Integer shardIndex : shardIndexes) {
             String executionId = def.getId() + "-" + batchDate
                     + (rerunId.isEmpty() ? "" : "-" + rerunId)
@@ -136,6 +137,7 @@ public class LaunchExecutor {
                     successShards++;
                 }
             } catch (Exception e) {
+                lastFailureCause = e;
                 log.warn(
                         "Launch failed: taskId={} jobName={} shardIndex={} reason={}",
                         def.getId(),
@@ -161,9 +163,9 @@ public class LaunchExecutor {
             return LaunchResult.success();
         }
         if (successShards > 0) {
-            return LaunchResult.partial("Partial success, failed shards=" + failedShards);
+            return LaunchResult.partial("Partial success, failed shards=" + failedShards, lastFailureCause);
         }
-        return LaunchResult.failed("All shards failed");
+        return LaunchResult.failed("All shards failed", lastFailureCause);
     }
 
     private int resolveShardTotal(OrchestrationTaskDefinition def, int queueSize) {
@@ -265,6 +267,9 @@ public class LaunchExecutor {
         private final boolean shouldReschedule;
         private final String reason;
 
+        /** catch 点捕获的原始异常,透传到调度决策点用于分类;无异常时为 null。 */
+        private final Throwable failureCause;
+
         static LaunchResult success() {
             return LaunchResult.builder()
                     .success(true)
@@ -275,11 +280,16 @@ public class LaunchExecutor {
         }
 
         static LaunchResult partial(String reason) {
+            return partial(reason, null);
+        }
+
+        static LaunchResult partial(String reason, Throwable failureCause) {
             return LaunchResult.builder()
                     .success(true)
                     .partial(true)
                     .shouldReschedule(false)
                     .reason(reason)
+                    .failureCause(failureCause)
                     .build();
         }
 
@@ -293,11 +303,16 @@ public class LaunchExecutor {
         }
 
         static LaunchResult failed(String reason) {
+            return failed(reason, null);
+        }
+
+        static LaunchResult failed(String reason, Throwable failureCause) {
             return LaunchResult.builder()
                     .success(false)
                     .partial(false)
                     .shouldReschedule(false)
                     .reason(reason)
+                    .failureCause(failureCause)
                     .build();
         }
     }
