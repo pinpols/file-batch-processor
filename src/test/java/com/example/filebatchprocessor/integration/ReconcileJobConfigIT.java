@@ -18,7 +18,7 @@ import org.springframework.batch.core.BatchStatus;
 import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.JobExecution;
 import org.springframework.batch.core.job.parameters.JobParametersBuilder;
-import org.springframework.batch.core.launch.JobLauncher;
+import org.springframework.batch.core.launch.JobOperator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -29,8 +29,7 @@ import org.springframework.test.context.ActiveProfiles;
 class ReconcileJobConfigIT extends PostgresContainerSupport {
 
     @Autowired
-    @Qualifier("asyncJobLauncher")
-    private JobLauncher jobLauncher;
+    private JobOperator jobOperator;
 
     @Autowired
     @Qualifier("reconcileImportJob")
@@ -60,7 +59,7 @@ class ReconcileJobConfigIT extends PostgresContainerSupport {
         Path csv = Files.createTempFile("reconcile", ".csv");
         Files.writeString(csv, "id,name,description\n" + "1,Alice,x\n" + "2,Bob,y\n", StandardCharsets.UTF_8);
 
-        JobExecution execution = jobLauncher.run(
+        JobExecution execution = jobOperator.start(
                 reconcileImportJob,
                 new JobParametersBuilder()
                         .addLong("time", System.currentTimeMillis())
@@ -107,7 +106,7 @@ class ReconcileJobConfigIT extends PostgresContainerSupport {
         Path csv = Files.createTempFile("reconcile-match", ".csv");
         Files.writeString(csv, "id,name,description\n" + "2,bob,second\n" + "1,alice,first\n", StandardCharsets.UTF_8);
 
-        JobExecution execution = jobLauncher.run(
+        JobExecution execution = jobOperator.start(
                 reconcileImportJob,
                 new JobParametersBuilder()
                         .addLong("time", System.currentTimeMillis())

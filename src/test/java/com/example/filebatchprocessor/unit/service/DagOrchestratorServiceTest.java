@@ -37,7 +37,7 @@ import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.JobExecution;
 import org.springframework.batch.core.job.JobInstance;
 import org.springframework.batch.core.job.parameters.JobParameters;
-import org.springframework.batch.core.launch.JobLauncher;
+import org.springframework.batch.core.launch.JobOperator;
 import org.springframework.batch.core.step.StepExecution;
 import org.springframework.beans.factory.ObjectProvider;
 
@@ -69,7 +69,7 @@ class DagOrchestratorServiceTest {
     private TaskExecutionStateService taskExecutionStateService;
 
     @Mock
-    private JobLauncher jobLauncher;
+    private JobOperator jobOperator;
 
     @Mock
     private ObjectProvider<Map<String, Job>> jobsProvider;
@@ -90,7 +90,7 @@ class DagOrchestratorServiceTest {
                 taskParameterRepository,
                 taskDependencyRepository,
                 taskExecutionStateService,
-                jobLauncher,
+                jobOperator,
                 jobsProvider);
     }
 
@@ -151,9 +151,9 @@ class DagOrchestratorServiceTest {
 
         JobExecution execution = new JobExecution(10L, new JobInstance(11L, "fileImportJob"), new JobParameters());
         execution.setStatus(BatchStatus.COMPLETED);
-        StepExecution stepExecution = new StepExecution("s1", execution);
+        StepExecution stepExecution = new StepExecution(12L, "s1", execution);
         execution.addStepExecutions(List.of(stepExecution));
-        when(jobLauncher.run(any(Job.class), any())).thenReturn(execution);
+        when(jobOperator.start(any(Job.class), any())).thenReturn(execution);
 
         when(dagRunRepository.save(any(DagRun.class))).thenAnswer(invocation -> {
             DagRun run = invocation.getArgument(0);

@@ -23,7 +23,7 @@ import org.springframework.batch.core.job.JobExecution;
 import org.springframework.batch.core.job.JobInstance;
 import org.springframework.batch.core.job.parameters.JobParameters;
 import org.springframework.batch.core.launch.JobOperator;
-import org.springframework.batch.core.repository.explore.JobExplorer;
+import org.springframework.batch.core.repository.JobRepository;
 
 class RetryCompensationServiceTest {
 
@@ -33,20 +33,20 @@ class RetryCompensationServiceTest {
         BusinessJobInstanceRepository businessJobInstanceRepository = mock(BusinessJobInstanceRepository.class);
         JobExecutionLogService jobExecutionLogService = mock(JobExecutionLogService.class);
         JobOperator jobOperator = mock(JobOperator.class);
-        JobExplorer jobExplorer = mock(JobExplorer.class);
+        JobRepository jobRepository = mock(JobRepository.class);
         RetryCompensationService service = new RetryCompensationService(
                 compensationRecordRepository,
                 businessJobInstanceRepository,
                 jobExecutionLogService,
                 jobOperator,
-                jobExplorer,
+                jobRepository,
                 new ObjectMapper());
 
         JobInstance springJobInstance = new JobInstance(1L, "fileImportJob");
         JobExecution failedExecution = new JobExecution(100L, springJobInstance, new JobParameters());
         failedExecution.setStatus(BatchStatus.FAILED);
         failedExecution.setCreateTime(LocalDateTime.now());
-        when(jobExplorer.getJobExecution(100L)).thenReturn(failedExecution);
+        when(jobRepository.getJobExecution(100L)).thenReturn(failedExecution);
 
         BusinessJobInstance businessJobInstance = new BusinessJobInstance();
         businessJobInstance.setId(88L);
@@ -75,7 +75,8 @@ class RetryCompensationServiceTest {
             return record;
         });
         when(compensationRecordRepository.findById(501L)).thenReturn(Optional.of(persistedRecord));
-        when(jobOperator.restart(100L)).thenReturn(101L);
+        JobExecution restartedExecution = new JobExecution(101L, springJobInstance, new JobParameters());
+        when(jobOperator.restart(failedExecution)).thenReturn(restartedExecution);
 
         Long restartedExecutionId = service.restartExecution(100L, "operator", "manual retry");
 

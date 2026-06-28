@@ -77,6 +77,7 @@ class FileImportRecordWriterTest {
     }
 
     @Test
+    @SuppressWarnings({"unchecked", "rawtypes"})
     void 批内重复键只持久化一次() throws Exception {
         when(batchStrategy.persist(anyList(), any(ImportContext.class))).thenReturn(1);
 
@@ -84,7 +85,7 @@ class FileImportRecordWriterTest {
         writer.write(Chunk.of(record("dup")));
         writer.write(Chunk.of(record("dup")));
 
-        ArgumentCaptor<List> captor = ArgumentCaptor.forClass(List.class);
+        ArgumentCaptor<List<FileRecord>> captor = ArgumentCaptor.forClass((Class) List.class);
         // 第一次持久化 1 条,第二次因去重无新记录,batchStrategy 不应再被调用
         verify(batchStrategy, times(1)).persist(captor.capture(), any(ImportContext.class));
         assertThat(captor.getValue()).hasSize(1);

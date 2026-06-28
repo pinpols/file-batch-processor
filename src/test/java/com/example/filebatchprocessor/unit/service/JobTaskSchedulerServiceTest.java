@@ -19,24 +19,24 @@ import org.springframework.batch.core.BatchStatus;
 import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.JobExecution;
 import org.springframework.batch.core.job.parameters.JobParameters;
-import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.batch.core.launch.JobOperator;
+import org.springframework.batch.core.repository.JobRepository;
 
 class JobTaskSchedulerServiceTest {
 
     @Test
     void shouldTriggerJobWithTaskDefinitionAndMergedParameters() throws Exception {
-        JobLauncher jobLauncher = mock(JobLauncher.class);
         BatchJobResolver batchJobResolver = mock(BatchJobResolver.class);
         JobOperator jobOperator = mock(JobOperator.class);
+        JobRepository jobRepository = mock(JobRepository.class);
         TaskConfigService taskConfigService = mock(TaskConfigService.class);
         JobInstanceService jobInstanceService = mock(JobInstanceService.class);
         RetryCompensationService retryCompensationService = mock(RetryCompensationService.class);
 
         JobTaskSchedulerService service = new JobTaskSchedulerService(
-                jobLauncher,
-                batchJobResolver,
                 jobOperator,
+                batchJobResolver,
+                jobRepository,
                 taskConfigService,
                 jobInstanceService,
                 retryCompensationService);
@@ -59,7 +59,7 @@ class JobTaskSchedulerServiceTest {
         JobExecution execution = mock(JobExecution.class);
         when(execution.getId()).thenReturn(1001L);
         when(execution.getStatus()).thenReturn(BatchStatus.COMPLETED);
-        when(jobLauncher.run(eq(job), any(JobParameters.class))).thenReturn(execution);
+        when(jobOperator.start(eq(job), any(JobParameters.class))).thenReturn(execution);
 
         Map<String, Object> requestParams = new HashMap<>();
         requestParams.put("source", "manual");
@@ -71,20 +71,20 @@ class JobTaskSchedulerServiceTest {
         assertTrue(result.contains("jobName=fileImportJob"));
         assertTrue(result.contains("executionId=1001"));
 
-        verify(jobLauncher).run(eq(job), any(JobParameters.class));
+        verify(jobOperator).start(eq(job), any(JobParameters.class));
     }
 
     @Test
     void shouldFallbackToTaskIdWhenTaskDefinitionMissing() throws Exception {
-        JobLauncher jobLauncher = mock(JobLauncher.class);
         BatchJobResolver batchJobResolver = mock(BatchJobResolver.class);
         JobOperator jobOperator = mock(JobOperator.class);
+        JobRepository jobRepository = mock(JobRepository.class);
         TaskConfigService taskConfigService = mock(TaskConfigService.class);
         JobInstanceService jobInstanceService = mock(JobInstanceService.class);
         JobTaskSchedulerService service = new JobTaskSchedulerService(
-                jobLauncher,
-                batchJobResolver,
                 jobOperator,
+                batchJobResolver,
+                jobRepository,
                 taskConfigService,
                 jobInstanceService,
                 mock(RetryCompensationService.class));
@@ -102,7 +102,7 @@ class JobTaskSchedulerServiceTest {
         JobExecution execution = mock(JobExecution.class);
         when(execution.getId()).thenReturn(2002L);
         when(execution.getStatus()).thenReturn(BatchStatus.STARTING);
-        when(jobLauncher.run(eq(job), any(JobParameters.class))).thenReturn(execution);
+        when(jobOperator.start(eq(job), any(JobParameters.class))).thenReturn(execution);
 
         String result = service.triggerJob("dataExportJob", Map.of("batchDate", "2026-03-14"), "tester");
 
@@ -112,9 +112,9 @@ class JobTaskSchedulerServiceTest {
     @Test
     void shouldReturnValidationErrorForInvalidTaskId() {
         JobTaskSchedulerService service = new JobTaskSchedulerService(
-                mock(JobLauncher.class),
-                mock(BatchJobResolver.class),
                 mock(JobOperator.class),
+                mock(BatchJobResolver.class),
+                mock(JobRepository.class),
                 mock(TaskConfigService.class),
                 mock(JobInstanceService.class),
                 mock(RetryCompensationService.class));
@@ -125,15 +125,15 @@ class JobTaskSchedulerServiceTest {
 
     @Test
     void shouldRetryAndStopExecution() throws Exception {
-        JobLauncher jobLauncher = mock(JobLauncher.class);
         BatchJobResolver batchJobResolver = mock(BatchJobResolver.class);
         JobOperator jobOperator = mock(JobOperator.class);
+        JobRepository jobRepository = mock(JobRepository.class);
         TaskConfigService taskConfigService = mock(TaskConfigService.class);
         RetryCompensationService retryCompensationService = mock(RetryCompensationService.class);
         JobTaskSchedulerService service = new JobTaskSchedulerService(
-                jobLauncher,
-                batchJobResolver,
                 jobOperator,
+                batchJobResolver,
+                jobRepository,
                 taskConfigService,
                 mock(JobInstanceService.class),
                 retryCompensationService);
@@ -143,23 +143,25 @@ class JobTaskSchedulerServiceTest {
         String retryResult = service.retryJobExecution(88L, "operator");
         assertTrue(retryResult.contains("restartedExecutionId=99"));
 
+        JobExecution execution = mock(JobExecution.class);
+        when(jobRepository.getJobExecution(88L)).thenReturn(execution);
         service.stopJobExecution(88L, "operator");
-        verify(jobOperator).stop(88L);
+        verify(jobOperator).stop(execution);
     }
 
     @Test
     void shouldIgnoreInvalidStopExecutionRequest() throws Exception {
         JobOperator jobOperator = mock(JobOperator.class);
         JobTaskSchedulerService service = new JobTaskSchedulerService(
-                mock(JobLauncher.class),
-                mock(BatchJobResolver.class),
                 jobOperator,
+                mock(BatchJobResolver.class),
+                mock(JobRepository.class),
                 mock(TaskConfigService.class),
                 mock(JobInstanceService.class),
                 mock(RetryCompensationService.class));
 
         service.stopJobExecution(null, "operator");
         service.stopJobExecution(0L, "operator");
-        verify(jobOperator, never()).stop(any(Long.class));
+        verify(jobOperator, never()).stop(any(JobExecution.class));
     }
 }

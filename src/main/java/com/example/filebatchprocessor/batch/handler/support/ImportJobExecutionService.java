@@ -11,8 +11,7 @@ import org.springframework.batch.core.BatchStatus;
 import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.JobExecution;
 import org.springframework.batch.core.job.parameters.JobParameters;
-import org.springframework.batch.core.launch.JobLauncher;
-import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.batch.core.launch.JobOperator;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Component;
 
@@ -20,12 +19,11 @@ import org.springframework.stereotype.Component;
 @Component
 public class ImportJobExecutionService {
 
-    private final JobLauncher jobLauncher;
+    private final JobOperator jobOperator;
     private final ThreadPoolTaskExecutor batchTaskExecutor;
 
-    public ImportJobExecutionService(
-            @Qualifier("asyncJobLauncher") JobLauncher jobLauncher, ThreadPoolTaskExecutor batchTaskExecutor) {
-        this.jobLauncher = jobLauncher;
+    public ImportJobExecutionService(JobOperator jobOperator, ThreadPoolTaskExecutor batchTaskExecutor) {
+        this.jobOperator = jobOperator;
         this.batchTaskExecutor = batchTaskExecutor;
     }
 
@@ -66,13 +64,13 @@ public class ImportJobExecutionService {
 
     private BatchStatus runWithTimeout(Job job, JobParameters params, long timeoutMs) throws Exception {
         if (timeoutMs <= 0) {
-            JobExecution execution = jobLauncher.run(job, params);
+            JobExecution execution = jobOperator.start(job, params);
             return execution.getStatus();
         }
         CompletableFuture<JobExecution> future = CompletableFuture.supplyAsync(
                 () -> {
                     try {
-                        return jobLauncher.run(job, params);
+                        return jobOperator.start(job, params);
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     }

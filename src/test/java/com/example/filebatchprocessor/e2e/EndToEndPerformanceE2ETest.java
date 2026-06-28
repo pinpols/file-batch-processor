@@ -19,7 +19,7 @@ import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.JobExecution;
 import org.springframework.batch.core.job.parameters.JobParameters;
 import org.springframework.batch.core.job.parameters.JobParametersBuilder;
-import org.springframework.batch.core.launch.JobLauncher;
+import org.springframework.batch.core.launch.JobOperator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -33,8 +33,7 @@ import org.springframework.test.context.ActiveProfiles;
 class EndToEndPerformanceE2ETest extends PostgresContainerSupport {
 
     @Autowired
-    @Qualifier("asyncJobLauncher")
-    private JobLauncher jobLauncher;
+    private JobOperator jobOperator;
 
     @Autowired
     @Qualifier("fileImportJob")
@@ -78,7 +77,7 @@ class EndToEndPerformanceE2ETest extends PostgresContainerSupport {
                 .addString("batchDate", batchDate)
                 .toJobParameters();
 
-        JobExecution execution = jobLauncher.run(fileImportJob, params);
+        JobExecution execution = jobOperator.start(fileImportJob, params);
         long duration = System.currentTimeMillis() - start;
 
         assertEquals(COMPLETED, execution.getStatus());

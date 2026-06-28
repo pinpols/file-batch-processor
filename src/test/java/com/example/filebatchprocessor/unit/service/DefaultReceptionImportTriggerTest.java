@@ -25,7 +25,7 @@ import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.JobExecution;
 import org.springframework.batch.core.job.JobInstance;
 import org.springframework.batch.core.job.parameters.JobParameters;
-import org.springframework.batch.core.launch.JobLauncher;
+import org.springframework.batch.core.launch.JobOperator;
 
 @ExtendWith(MockitoExtension.class)
 class DefaultReceptionImportTriggerTest {
@@ -40,7 +40,7 @@ class DefaultReceptionImportTriggerTest {
     private ReceptionGroupRepository groupRepository;
 
     @Mock
-    private JobLauncher jobLauncher;
+    private JobOperator jobOperator;
 
     @Mock
     private Job fileImportJob;
@@ -58,13 +58,13 @@ class DefaultReceptionImportTriggerTest {
 
         when(queueRepository.findById(42L)).thenReturn(Optional.of(queue));
         when(groupRepository.findById(7L)).thenReturn(Optional.of(group));
-        when(jobLauncher.run(any(Job.class), any(JobParameters.class))).thenReturn(execution);
+        when(jobOperator.start(any(Job.class), any(JobParameters.class))).thenReturn(execution);
 
         DefaultReceptionImportTrigger trigger = trigger();
         trigger.triggerImport(42L);
 
         ArgumentCaptor<JobParameters> paramsCaptor = ArgumentCaptor.forClass(JobParameters.class);
-        verify(jobLauncher).run(any(Job.class), paramsCaptor.capture());
+        verify(jobOperator).start(any(Job.class), paramsCaptor.capture());
         JobParameters params = paramsCaptor.getValue();
         assertThat(params.getString(ImportJobParams.KEY_INPUT_FILE_NAME)).isEqualTo("C:/inbox/daily.xlsx");
         assertThat(params.getString(ImportJobParams.KEY_BATCH_DATE)).isEqualTo("2026-03-14");
@@ -83,13 +83,13 @@ class DefaultReceptionImportTriggerTest {
 
         trigger().triggerImport(42L);
 
-        verify(jobLauncher, never()).run(any(), any());
+        verify(jobOperator, never()).start(any(Job.class), any(JobParameters.class));
         verify(fileReceptionService, never()).markAsProcessing(any());
     }
 
     private DefaultReceptionImportTrigger trigger() {
         return new DefaultReceptionImportTrigger(
-                queueRepository, fileReceptionService, groupRepository, jobLauncher, fileImportJob);
+                queueRepository, fileReceptionService, groupRepository, jobOperator, fileImportJob);
     }
 
     private FileReceptionQueue queue(Long id, String fileName, String filePath, String status) {

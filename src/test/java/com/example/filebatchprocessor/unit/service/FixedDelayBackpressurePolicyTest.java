@@ -23,7 +23,7 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.quartz.Scheduler;
 import org.quartz.Trigger;
-import org.springframework.batch.core.launch.JobLauncher;
+import org.springframework.batch.core.launch.JobOperator;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
@@ -38,7 +38,7 @@ class FixedDelayBackpressurePolicyTest {
                 .thenAnswer(invocation -> ((Trigger) invocation.getArgument(0)).getStartTime());
 
         TaskSchedulerService service = new TaskSchedulerService(
-                mock(JobLauncher.class),
+                mock(JobOperator.class),
                 mock(BatchJobResolver.class),
                 mock(TaskGraphManager.class),
                 mock(LocalCacheService.class),

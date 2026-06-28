@@ -105,8 +105,9 @@ class DataExportJobConfigTest {
         Map<String, Object> jobParameters = new HashMap<>();
         jobParameters.put(
                 "export.sql",
-                "WITH recent AS (SELECT id, business_key, name, description, batch_date FROM imported_records) "
-                        + "SELECT id, business_key, name, description, batch_date FROM recent");
+                "WITH recent AS (SELECT id, business_key, name, description, batch_date FROM"
+                        + " imported_records) SELECT id, business_key, name, description, batch_date FROM"
+                        + " recent");
         jobParameters.put("output.file.name", "test.csv");
 
         assertNotNull(dataExportJobConfig.exportReader(jobParameters, 500));
@@ -117,8 +118,8 @@ class DataExportJobConfigTest {
         Map<String, Object> jobParameters = new HashMap<>();
         jobParameters.put(
                 "export.sql",
-                "WITH recent AS (SELECT id, username FROM app_users) "
-                        + "SELECT id, username, username AS name, username AS description, username AS batch_date FROM recent");
+                "WITH recent AS (SELECT id, username FROM app_users) SELECT id, username, username AS name,"
+                        + " username AS description, username AS batch_date FROM recent");
         jobParameters.put("output.file.name", "test.csv");
 
         assertThrows(IllegalArgumentException.class, () -> dataExportJobConfig.exportReader(jobParameters, 500));
@@ -152,6 +153,7 @@ class DataExportJobConfigTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
     void shouldCreateExportTraceWriter() {
         // Given
         FlatFileItemWriter<ExportRecord> delegateWriter = mock(FlatFileItemWriter.class);
@@ -165,6 +167,7 @@ class DataExportJobConfigTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
     void shouldCreateExportStep() {
         // Given
         JdbcCursorItemReader<ExportRecord> reader = mock(JdbcCursorItemReader.class);

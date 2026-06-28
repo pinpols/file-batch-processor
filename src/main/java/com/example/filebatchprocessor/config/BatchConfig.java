@@ -6,7 +6,6 @@ import java.sql.Statement;
 import javax.sql.DataSource;
 import org.springframework.batch.core.configuration.JobRegistry;
 import org.springframework.batch.core.configuration.support.MapJobRegistry;
-import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
@@ -19,14 +18,8 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.util.StreamUtils;
 
-/**
- * Spring Batch 配置
- *
- * 注意：JobLauncher 在 Spring Batch 6.0 中已弃用，建议迁移到 JobOperator
- * 当前使用 JobLauncher 作为过渡方案，未来版本需要迁移
- */
+/** Spring Batch 配置 */
 @Configuration
-@SuppressWarnings("deprecation")
 public class BatchConfig {
 
     @Value("${batch.executor.core-pool-size:10}")
@@ -55,17 +48,6 @@ public class BatchConfig {
     @Bean
     public JobRegistry jobRegistry() {
         return new MapJobRegistry();
-    }
-
-    /**
-     * #27 澄清:此 launcher 实为**同步**(直接复用框架默认 JobLauncher)。这是契约要求而非缺陷——
-     * DagOrchestratorService / DlqCompensationService 等调用方在 run() 返回后立即读取 BatchStatus
-     * 与 JobExecution 结果,必须等作业跑完;改成异步会让它们读到 STARTING 而出错。名称沿用是为兼容
-     * 既有 @Qualifier("asyncJobLauncher") 注入点;切勿在此包装 TaskExecutor 改成异步。
-     */
-    @Bean(name = "asyncJobLauncher")
-    public JobLauncher asyncJobLauncher(JobLauncher jobLauncher) {
-        return jobLauncher;
     }
 
     @Bean

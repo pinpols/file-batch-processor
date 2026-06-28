@@ -3,8 +3,8 @@
 
 ## 1. 测试分层
 - Unit Test：纯业务逻辑、工具类、策略类（快速、无外部依赖）。
-- Integration Test：Spring 上下文 + 数据库（Testcontainers），验证组件协作。
-- E2E Regression：导入 -> 去重 -> DLQ -> 重放 -> 导出链路。
+- Integration Test：Spring 上下文 + Testcontainers PostgreSQL，验证组件协作。
+- E2E Regression：Testcontainers PostgreSQL 上的导入 -> 去重 -> DLQ -> 重放 -> 导出链路。
 
 ## 2. 覆盖目标
 - 单测覆盖核心规则与异常分支。
@@ -17,17 +17,16 @@
 - 端到端回归：`./mvnw -q -Pe2e-test test`
 - 全量测试：`./mvnw -q -Pfull-test test`
 - 仅数据一致性：`./mvnw -q -Pdata-consistency-only test`
-- Docker 相关集成测试开关：`ENABLE_DOCKER_TESTS=true`
 - CI 合并门禁：
   1. `compile`
   2. `fast-test`（`*Test`，排除 `*IT/*ITest/*E2E`）
-  3. `integration-test`（有 Docker 时执行）
+  3. `integration-test`（需要 Docker，可启动 Testcontainers）
   4. `e2e-test`（夜间/发布前）
   5. 安全扫描
 
 ## 4. 稳定性要求
 - 用例必须可重复执行，不依赖外部不稳定环境。
-- 集成测试若依赖 Docker，需支持不可用时自动跳过。
+- 集成测试和 E2E 统一使用 Testcontainers PostgreSQL；Docker 不可用时应失败并修复环境，不回落本地数据库。
 - 临时文件、测试数据必须自动清理。
 
 ## 5. 失败处理

@@ -14,10 +14,9 @@ import org.springframework.batch.core.BatchStatus;
 import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.JobExecution;
 import org.springframework.batch.core.job.parameters.JobParametersBuilder;
-import org.springframework.batch.core.launch.JobLauncher;
+import org.springframework.batch.core.launch.JobOperator;
 import org.springframework.batch.core.step.StepExecution;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,7 +34,7 @@ public class DagOrchestratorService {
     private final TaskParameterRepository taskParameterRepository;
     private final TaskDependencyRepository taskDependencyRepository;
     private final TaskExecutionStateService taskExecutionStateService;
-    private final JobLauncher jobLauncher;
+    private final JobOperator jobOperator;
     private final ObjectProvider<Map<String, Job>> jobsProvider;
 
     public DagOrchestratorService(
@@ -47,7 +46,7 @@ public class DagOrchestratorService {
             TaskParameterRepository taskParameterRepository,
             TaskDependencyRepository taskDependencyRepository,
             TaskExecutionStateService taskExecutionStateService,
-            @Qualifier("asyncJobLauncher") JobLauncher jobLauncher,
+            JobOperator jobOperator,
             ObjectProvider<Map<String, Job>> jobsProvider) {
         this.dagDefinitionRepository = dagDefinitionRepository;
         this.dagNodeRepository = dagNodeRepository;
@@ -57,7 +56,7 @@ public class DagOrchestratorService {
         this.taskParameterRepository = taskParameterRepository;
         this.taskDependencyRepository = taskDependencyRepository;
         this.taskExecutionStateService = taskExecutionStateService;
-        this.jobLauncher = jobLauncher;
+        this.jobOperator = jobOperator;
         this.jobsProvider = jobsProvider;
     }
 
@@ -243,7 +242,7 @@ public class DagOrchestratorService {
                 false,
                 null);
         try {
-            JobExecution execution = jobLauncher.run(job, builder.toJobParameters());
+            JobExecution execution = jobOperator.start(job, builder.toJobParameters());
             BatchStatus status = execution.getStatus();
             TaskExecutionStatus normalized = convertBatchStatus(status, execution.getStepExecutions());
             taskExecutionStateService.upsert(

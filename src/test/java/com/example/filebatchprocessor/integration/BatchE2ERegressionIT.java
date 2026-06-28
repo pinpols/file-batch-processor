@@ -19,7 +19,7 @@ import org.springframework.batch.core.BatchStatus;
 import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.JobExecution;
 import org.springframework.batch.core.job.parameters.JobParametersBuilder;
-import org.springframework.batch.core.launch.JobLauncher;
+import org.springframework.batch.core.launch.JobOperator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -30,8 +30,7 @@ import org.springframework.test.context.ActiveProfiles;
 class BatchE2ERegressionIT extends PostgresContainerSupport {
 
     @Autowired
-    @Qualifier("asyncJobLauncher")
-    private JobLauncher jobLauncher;
+    private JobOperator jobOperator;
 
     @Autowired
     @Qualifier("fileImportJob")
@@ -63,7 +62,7 @@ class BatchE2ERegressionIT extends PostgresContainerSupport {
                 "id,name,description\n" + "1,alice,first\n" + "2,alice,duplicate name\n" + "3,bob,second\n",
                 StandardCharsets.UTF_8);
 
-        JobExecution firstImport = jobLauncher.run(
+        JobExecution firstImport = jobOperator.start(
                 fileImportJob,
                 new JobParametersBuilder()
                         .addLong("time", System.currentTimeMillis())
@@ -75,7 +74,7 @@ class BatchE2ERegressionIT extends PostgresContainerSupport {
         assertEquals(BatchStatus.COMPLETED, firstImport.getStatus());
         assertEquals(2L, partitionedRepository.countByBatchDate(batchDate));
 
-        JobExecution secondImport = jobLauncher.run(
+        JobExecution secondImport = jobOperator.start(
                 fileImportJob,
                 new JobParametersBuilder()
                         .addLong("time", System.currentTimeMillis() + 1)
@@ -90,7 +89,10 @@ class BatchE2ERegressionIT extends PostgresContainerSupport {
 
         DlqRecord dlq = new DlqRecord();
         dlq.setJobName("fileImportJob");
-        dlq.setParams("businessKey=CHARLIE:" + batchDate + "&name=CHARLIE&description=replayed&batchDate=" + batchDate
+        dlq.setParams("businessKey=CHARLIE:"
+                + batchDate
+                + "&name=CHARLIE&description=replayed&batchDate="
+                + batchDate
                 + "&source=record-writer");
         dlq.setErrorMessage("synthetic replay case");
         dlq.setHandled(false);
@@ -121,14 +123,16 @@ class BatchE2ERegressionIT extends PostgresContainerSupport {
         importedRecordRepository.saveAll(plainRows);
 
         Path output = Files.createTempFile("batch-e2e-export", ".csv");
-        JobExecution exportExecution = jobLauncher.run(
+        JobExecution exportExecution = jobOperator.start(
                 dataExportJob,
                 new JobParametersBuilder()
                         .addLong("time", System.currentTimeMillis() + 2)
                         .addString(
                                 "export.sql",
-                                "select id, business_key, name, description, batch_date from imported_records where batch_date='"
-                                        + batchDate + "'")
+                                "select id, business_key, name, description, batch_date from imported_records"
+                                        + " where batch_date='"
+                                        + batchDate
+                                        + "'")
                         .addString("output.file.name", output.toString())
                         .toJobParameters());
 

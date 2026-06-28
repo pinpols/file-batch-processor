@@ -14,9 +14,7 @@ public interface SchedulerLeaderLockRepository extends JpaRepository<SchedulerLe
 
     @Modifying
     @Transactional
-    @Query(
-            value =
-                    """
+    @Query(value = """
             INSERT INTO scheduler_leader_lock(lock_name, owner_id, expires_at, updated_at)
             VALUES (:lockName, :ownerId, :expiresAt, CURRENT_TIMESTAMP)
             ON CONFLICT (lock_name) DO UPDATE
@@ -25,8 +23,7 @@ public interface SchedulerLeaderLockRepository extends JpaRepository<SchedulerLe
                 updated_at = CURRENT_TIMESTAMP
             WHERE scheduler_leader_lock.expires_at < CURRENT_TIMESTAMP
                OR scheduler_leader_lock.owner_id = :ownerId
-            """,
-            nativeQuery = true)
+            """, nativeQuery = true)
     int tryAcquireOrRenew(
             @Param("lockName") String lockName,
             @Param("ownerId") String ownerId,

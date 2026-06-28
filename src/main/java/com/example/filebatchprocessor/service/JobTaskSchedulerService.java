@@ -7,43 +7,38 @@ import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.JobExecution;
 import org.springframework.batch.core.job.parameters.JobParameters;
 import org.springframework.batch.core.job.parameters.JobParametersBuilder;
-import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.batch.core.launch.JobOperator;
-import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.stereotype.Service;
 
-/**
- * 任务调度服务
- */
+/** 任务调度服务 */
 @Service("jobTaskSchedulerService")
 @Slf4j
 public class JobTaskSchedulerService {
 
-    private final JobLauncher jobLauncher;
-    private final BatchJobResolver batchJobResolver;
     private final JobOperator jobOperator;
+    private final BatchJobResolver batchJobResolver;
+    private final JobRepository jobRepository;
     private final TaskConfigService taskConfigService;
     private final JobInstanceService jobInstanceService;
     private final RetryCompensationService retryCompensationService;
 
     public JobTaskSchedulerService(
-            @Qualifier("asyncJobLauncher") JobLauncher jobLauncher,
-            BatchJobResolver batchJobResolver,
             JobOperator jobOperator,
+            BatchJobResolver batchJobResolver,
+            JobRepository jobRepository,
             TaskConfigService taskConfigService,
             JobInstanceService jobInstanceService,
             RetryCompensationService retryCompensationService) {
-        this.jobLauncher = jobLauncher;
-        this.batchJobResolver = batchJobResolver;
         this.jobOperator = jobOperator;
+        this.batchJobResolver = batchJobResolver;
+        this.jobRepository = jobRepository;
         this.taskConfigService = taskConfigService;
         this.jobInstanceService = jobInstanceService;
         this.retryCompensationService = retryCompensationService;
     }
 
-    /**
-     * 触发任务执行
-     */
+    /** 触发任务执行 */
     public String triggerJob(String taskId, Map<String, Object> parameters, String triggeredBy) {
         Long businessJobInstanceId = null;
         try {
@@ -55,7 +50,9 @@ public class JobTaskSchedulerService {
             Job job = batchJobResolver
                     .resolve(jobName)
                     .map(BatchJobResolver.ResolvedJob::job)
-                    .orElseThrow(() -> new IllegalArgumentException("No job found for name " + jobName + ", available="
+                    .orElseThrow(() -> new IllegalArgumentException("No job found for name "
+                            + jobName
+                            + ", available="
                             + batchJobResolver.describeAvailableJobs()));
             Map<String, Object> mergedParameters = mergeParameters(taskId, parameters);
             String batchDate = stringValue(mergedParameters.get("batchDate"));
@@ -77,9 +74,15 @@ public class JobTaskSchedulerService {
             businessJobInstanceId = businessInstance.getId();
             JobParameters jobParameters = buildJobParameters(
                     mergedParameters, businessInstance.getId(), businessInstance.getJobInstanceNo(), triggeredBy);
-            JobExecution execution = jobLauncher.run(job, jobParameters);
-            return "Job triggered: taskId=" + taskId + ", jobName=" + jobName + ", executionId=" + execution.getId()
-                    + ", status=" + execution.getStatus();
+            JobExecution execution = jobOperator.start(job, jobParameters);
+            return "Job triggered: taskId="
+                    + taskId
+                    + ", jobName="
+                    + jobName
+                    + ", executionId="
+                    + execution.getId()
+                    + ", status="
+                    + execution.getStatus();
         } catch (Exception e) {
             log.error("Failed to trigger job: {}", taskId, e);
             jobInstanceService.markLaunchFailed(businessJobInstanceId, e.getMessage());
@@ -87,9 +90,7 @@ public class JobTaskSchedulerService {
         }
     }
 
-    /**
-     * 重试任务执行
-     */
+    /** 重试任务执行 */
     public String retryJobExecution(Long executionId, String triggeredBy) {
         try {
             if (executionId == null || executionId <= 0) {
@@ -105,9 +106,7 @@ public class JobTaskSchedulerService {
         }
     }
 
-    /**
-     * 停止任务执行
-     */
+    /** 停止任务执行 */
     public void stopJobExecution(Long executionId, String triggeredBy) {
         try {
             if (executionId == null || executionId <= 0) {
@@ -115,10 +114,18 @@ public class JobTaskSchedulerService {
                 return;
             }
             log.info("Stopping job execution: {} by: {}", executionId, triggeredBy);
-            jobOperator.stop(executionId);
+            jobOperator.stop(requireJobExecution(executionId));
         } catch (Exception e) {
             log.error("Failed to stop job execution: {}", executionId, e);
         }
+    }
+
+    private JobExecution requireJobExecution(Long executionId) {
+        JobExecution execution = jobRepository.getJobExecution(executionId);
+        if (execution == null) {
+            throw new IllegalArgumentException("Execution not found: " + executionId);
+        }
+        return execution;
     }
 
     private String resolveJobName(String taskId) {

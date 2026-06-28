@@ -13,13 +13,11 @@ import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.JobExecution;
 import org.springframework.batch.core.job.parameters.JobParameters;
 import org.springframework.batch.core.job.parameters.JobParametersBuilder;
-import org.springframework.batch.core.launch.JobLauncher;
+import org.springframework.batch.core.launch.JobOperator;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
-/**
- * 清单对账通过后,复用单体内现有 fileImportJob 触发入库。
- */
+/** 清单对账通过后,复用单体内现有 fileImportJob 触发入库。 */
 @Slf4j
 @Component
 public class DefaultReceptionImportTrigger implements ReceptionImportTrigger {
@@ -27,19 +25,19 @@ public class DefaultReceptionImportTrigger implements ReceptionImportTrigger {
     private final FileReceptionQueueRepository queueRepository;
     private final FileReceptionService fileReceptionService;
     private final ReceptionGroupRepository groupRepository;
-    private final JobLauncher jobLauncher;
+    private final JobOperator jobOperator;
     private final Job fileImportJob;
 
     public DefaultReceptionImportTrigger(
             FileReceptionQueueRepository queueRepository,
             FileReceptionService fileReceptionService,
             ReceptionGroupRepository groupRepository,
-            @Qualifier("asyncJobLauncher") JobLauncher jobLauncher,
+            JobOperator jobOperator,
             @Qualifier(BatchJobNames.FILE_IMPORT_JOB) Job fileImportJob) {
         this.queueRepository = queueRepository;
         this.fileReceptionService = fileReceptionService;
         this.groupRepository = groupRepository;
-        this.jobLauncher = jobLauncher;
+        this.jobOperator = jobOperator;
         this.fileImportJob = fileImportJob;
     }
 
@@ -60,7 +58,7 @@ public class DefaultReceptionImportTrigger implements ReceptionImportTrigger {
         fileReceptionService.markAsProcessing(queueId);
         JobExecution execution;
         try {
-            execution = jobLauncher.run(fileImportJob, jobParameters(queue));
+            execution = jobOperator.start(fileImportJob, jobParameters(queue));
         } catch (Exception e) {
             fileReceptionService.markAsFailed(queueId, e.getMessage());
             throw new IllegalStateException("failed to trigger reception import: queueId=" + queueId, e);
