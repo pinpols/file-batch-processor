@@ -1,0 +1,31 @@
+# gitleaks 配置:沿用内置规则 + 项目级 allowlist。
+# 目的是拦"真密钥误提交",不是误报示例/占位符/测试 fixture。
+title = "file-batch-processor gitleaks config"
+
+[extend]
+# 继承 gitleaks 内置规则集(AWS/GCP/私钥/通用高熵串等)
+useDefault = true
+
+[allowlist]
+description = "示例/占位符/测试 fixture 不算泄漏"
+
+# 允许的路径(示例配置、占位符密钥、测试数据、文档)
+paths = [
+  '''\.env\.example$''',
+  '''\.env\.prod$''',
+  '''(^|/)application(-\w+)?\.ya?ml$''',
+  '''(^|/)src/test/''',
+  '''(^|/)docs/''',
+  '''(^|/)\.gitleaks\.toml$''',
+]
+
+# 允许的占位符/示例值(这些是仓库里有意保留的占位符,不是真密钥)
+regexes = [
+  '''\{noop\}change_me_\w+''',
+  '''replace_with_strong_\w+''',
+  '''your_secure_password_here''',
+  '''change_me''',
+  '''changeme''',
+  '''placeholder''',
+  '''example\.com''',
+]
