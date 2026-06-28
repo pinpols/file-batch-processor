@@ -99,4 +99,4 @@ VALUES ('import-excel', 'excel.sheet.name', 'Sheet1', 'STRING', 'sheet 名称，
 ## 多告警渠道 / 声明式映射
 
 - 告警渠道(webhook/email/IM)配置见 [alerting-channels](../operations/alerting-channels.md)。
-- 声明式字段映射(地基版，尚未接入导入链路)见 [declarative-mapping](../operations/declarative-mapping.md)。
+- 声明式字段映射**已接入(feedId 路由)**：job 参数带 `feedId` 即走 feed 路径,不带则默认导入路径不变,见 [declarative-mapping](../operations/declarative-mapping.md)。
