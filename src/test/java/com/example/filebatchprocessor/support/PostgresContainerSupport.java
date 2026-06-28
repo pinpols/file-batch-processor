@@ -56,7 +56,7 @@ public abstract class PostgresContainerSupport {
 
     private static DatabaseConfig initializeDatabaseConfig() {
         if (hasSetting("TEST_POSTGRES_URL", "test.postgres.url")) {
-            return createLocalConfig(null);
+            return createLocalConfig();
         }
         try {
             if (!POSTGRES.isRunning()) {
@@ -71,25 +71,24 @@ public abstract class PostgresContainerSupport {
             log.info("Using Testcontainers PostgreSQL for integration tests: schema={}", config.schema());
             return config;
         } catch (Throwable dockerFailure) {
-            log.warn("Falling back to local PostgreSQL for integration tests: {}", dockerFailure.getMessage());
-            return createLocalConfig(dockerFailure);
+            throw new IllegalStateException(
+                    "Failed to start Testcontainers PostgreSQL for integration tests. "
+                            + "Start Docker, or explicitly set TEST_POSTGRES_URL / -Dtest.postgres.url "
+                            + "to use a local PostgreSQL test database.",
+                    dockerFailure);
         }
     }
 
-    private static DatabaseConfig createLocalConfig(Throwable dockerFailure) {
-        String jdbcUrl =
-                readSetting("TEST_POSTGRES_URL", "test.postgres.url", "jdbc:postgresql://localhost:5432/postgres");
+    private static DatabaseConfig createLocalConfig() {
+        String jdbcUrl = readRequiredSetting("TEST_POSTGRES_URL", "test.postgres.url");
         String username = readSetting("TEST_POSTGRES_USERNAME", "test.postgres.username", "postgres");
         String password = readSetting("TEST_POSTGRES_PASSWORD", "test.postgres.password", "postgres");
         String driverClassName = "org.postgresql.Driver";
         try {
             DatabaseConfig config = createSchemaScopedConfig(jdbcUrl, username, password, driverClassName, "local");
-            log.info("Using local PostgreSQL fallback for integration tests: schema={}", config.schema());
+            log.info("Using explicitly configured local PostgreSQL for integration tests: schema={}", config.schema());
             return config;
         } catch (RuntimeException localFailure) {
-            if (dockerFailure != null) {
-                localFailure.addSuppressed(dockerFailure);
-            }
             throw localFailure;
         }
     }
@@ -101,6 +100,15 @@ public abstract class PostgresContainerSupport {
         }
         String systemValue = System.getProperty(systemPropertyKey);
         return systemValue != null && !systemValue.isBlank();
+    }
+
+    private static String readRequiredSetting(String envKey, String systemPropertyKey) {
+        String value = readSetting(envKey, systemPropertyKey, null);
+        if (value == null || value.isBlank()) {
+            throw new IllegalStateException("Missing required test database setting: " + envKey + " or -D"
+                    + systemPropertyKey);
+        }
+        return value;
     }
 
     private static DatabaseConfig createSchemaScopedConfig(
