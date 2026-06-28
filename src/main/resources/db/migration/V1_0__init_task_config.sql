@@ -219,9 +219,9 @@ INSERT INTO task_definition (task_id, job_name, description, priority, allow_par
 VALUES ('batch-restart-job', 'batchRestartJob', '批量失败任务恢复入口', 'HIGH', FALSE, FALSE)
 ON CONFLICT (task_id) DO NOTHING;
 
--- 10. 文件导入主链路任务（processFileJob/importJob）
+-- 10. 文件导入主链路任务（fileImportJob）
 INSERT INTO task_definition (task_id, job_name, description, priority, allow_parallel, enabled)
-VALUES ('process-file-main', 'processFileJob', '文件导入主链路任务：上游文件导入分区表', 'HIGH', TRUE, TRUE)
+VALUES ('process-file-main', 'fileImportJob', '文件导入主链路任务：上游文件导入分区表', 'HIGH', TRUE, TRUE)
 ON CONFLICT (task_id) DO NOTHING;
 
 INSERT INTO task_trigger (task_id, trigger_type, fixed_rate_ms, enabled)

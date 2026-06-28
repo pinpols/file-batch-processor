@@ -33,13 +33,18 @@ public class JsonManifestParser implements ManifestParser {
                 if (fileName == null || fileName.isBlank()) {
                     throw new IllegalArgumentException("manifest file missing fileName");
                 }
-                Long count = f.hasNonNull("expectedRecordCount") ? f.get("expectedRecordCount").asLong() : null;
+                Long count = f.hasNonNull("expectedRecordCount")
+                        ? f.get("expectedRecordCount").asLong()
+                        : null;
                 String checksum = text(f, "checksum");
-                String algo = f.hasNonNull("checksumAlgorithm") ? f.get("checksumAlgorithm").asText() : "MD5";
+                String algo = f.hasNonNull("checksumAlgorithm")
+                        ? f.get("checksumAlgorithm").asText()
+                        : "MD5";
                 if (!"MD5".equalsIgnoreCase(algo)) {
                     throw new IllegalArgumentException("only MD5 checksum supported, got: " + algo);
                 }
-                boolean required = !f.hasNonNull("required") || f.get("required").asBoolean();
+                boolean required =
+                        !f.hasNonNull("required") || f.get("required").asBoolean();
                 files.add(new ParsedManifest.ExpectedFile(fileName, count, checksum, "MD5", required));
             }
             return new ParsedManifest(manifestId, text(root, "sourceSystem"), text(root, "bizDate"), files);

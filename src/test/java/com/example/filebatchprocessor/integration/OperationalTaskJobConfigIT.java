@@ -120,8 +120,8 @@ class OperationalTaskJobConfigIT {
         PartitionedImportService partitionedImportService =
                 new PartitionedImportService(importedRecordPartitionedRepository, jdbcTemplate);
         FileExportService fileExportService = new FileExportService();
-        FileDistributorDispatcher fileDistributorDispatcher = new FileDistributorDispatcher(List.of(
-                new HttpFileDistributor(
+        FileDistributorDispatcher fileDistributorDispatcher =
+                new FileDistributorDispatcher(List.of(new HttpFileDistributor(
                         fileDistributionService,
                         new com.example.filebatchprocessor.service.distribution.DistributionTargetValidator(""))));
 

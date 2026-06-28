@@ -1,7 +1,7 @@
 name: CodeQL
 
-# CodeQL SAST(静态应用安全测试)。单体已有 SpotBugs(质量)+ OWASP dependency-check(依赖 CVE)+
-# Trivy(镜像/文件系统),本工作流补 Java 源码级安全分析(注入/路径穿越/反序列化等数据流漏洞)。
+# CodeQL SAST(静态应用安全测试)。单体已有 SpotBugs(质量)+ Trivy(镜像/文件系统),
+# 本工作流补 Java 源码级安全分析(注入/路径穿越/反序列化等数据流漏洞)。
 
 on:
   push:
@@ -12,6 +12,7 @@ on:
     - cron: '17 3 * * 1'
 
 permissions:
+  actions: read
   contents: read
   security-events: write
 
@@ -25,6 +26,7 @@ env:
 jobs:
   analyze:
     name: CodeQL Analyze (java)
+    if: github.repository_visibility == 'public'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:

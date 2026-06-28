@@ -19,9 +19,8 @@ public class HttpFileDistributor implements FileDistributor {
 
     private final FileDistributionService fileDistributionService;
     private final DistributionTargetValidator targetValidator;
-    private final HttpClient httpClient = HttpClient.newBuilder()
-            .followRedirects(HttpClient.Redirect.NEVER)
-            .build();
+    private final HttpClient httpClient =
+            HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER).build();
 
     public HttpFileDistributor(
             FileDistributionService fileDistributionService, DistributionTargetValidator targetValidator) {

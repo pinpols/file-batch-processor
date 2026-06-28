@@ -35,7 +35,7 @@ class LaunchExecutorTest {
     @Test
     void shouldFailWhenJobMissing() {
         when(jobResolver.resolve("missingJob")).thenReturn(Optional.empty());
-        when(jobResolver.describeAvailableJobs()).thenReturn("[jobA]");
+        when(jobResolver.describeAvailableJobs()).thenReturn("[" + "jobA,".repeat(80) + "]");
         LaunchExecutor launchExecutor =
                 new LaunchExecutor(jobLauncher, jobResolver, jobInstanceService, new Semaphore(1), 1, 1000);
 
@@ -44,6 +44,8 @@ class LaunchExecutorTest {
         LaunchExecutor.LaunchResult result = launchExecutor.launch(def, "2026-03-01", 0);
         assertFalse(result.isSuccess());
         assertFalse(result.isShouldReschedule());
+        assertEquals("No job found for name missingJob", result.getReason());
+        assertTrue(result.getReason().length() <= 255);
     }
 
     @Test

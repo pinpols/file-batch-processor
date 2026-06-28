@@ -15,7 +15,8 @@ class JsonManifestParserTest {
 
     @Test
     void parsesValidManifest() {
-        String json = """
+        String json =
+                """
             {"manifestId":"M1","sourceSystem":"S","bizDate":"2026-06-27",
              "files":[
                {"fileName":"a.csv","expectedRecordCount":10,"checksum":"abc","required":true},
@@ -31,13 +32,13 @@ class JsonManifestParserTest {
 
     @Test
     void rejectsMissingManifestId() {
-        assertThrows(IllegalArgumentException.class,
-                () -> parser.parse("{\"files\":[{\"fileName\":\"a.csv\"}]}"));
+        assertThrows(IllegalArgumentException.class, () -> parser.parse("{\"files\":[{\"fileName\":\"a.csv\"}]}"));
     }
 
     @Test
     void rejectsNonMd5ChecksumAlgorithm() {
-        String json = "{\"manifestId\":\"M\",\"files\":[{\"fileName\":\"a\",\"checksum\":\"x\",\"checksumAlgorithm\":\"SHA-256\"}]}";
+        String json =
+                "{\"manifestId\":\"M\",\"files\":[{\"fileName\":\"a\",\"checksum\":\"x\",\"checksumAlgorithm\":\"SHA-256\"}]}";
         assertThrows(IllegalArgumentException.class, () -> parser.parse(json));
     }
 }

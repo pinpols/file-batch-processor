@@ -44,7 +44,7 @@ class OpsTaskAdminServiceTest {
     void shouldListTasksWithTrigger() {
         TaskDefinition def = new TaskDefinition();
         def.setTaskId("task-1");
-        def.setJobName("importJob");
+        def.setJobName("fileImportJob");
         def.setPriority("HIGH");
         def.setEnabled(true);
         def.setAllowParallel(true);

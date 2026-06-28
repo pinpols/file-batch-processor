@@ -14,10 +14,10 @@ class BatchRecoveryServiceTest {
     void shouldRestartLatestFailedExecution() throws Exception {
         RetryCompensationService retryCompensationService = mock(RetryCompensationService.class);
         BatchRecoveryService service = new BatchRecoveryService(retryCompensationService);
-        when(retryCompensationService.restartLatestFailed("importJob", "SYSTEM", "Legacy recovery request"))
+        when(retryCompensationService.restartLatestFailed("fileImportJob", "SYSTEM", "Legacy recovery request"))
                 .thenReturn(101L);
 
-        Long restarted = service.restartLatestFailed("importJob");
+        Long restarted = service.restartLatestFailed("fileImportJob");
         assertEquals(101L, restarted);
     }
 }

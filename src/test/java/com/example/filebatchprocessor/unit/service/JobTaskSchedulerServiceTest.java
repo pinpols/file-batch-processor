@@ -43,7 +43,7 @@ class JobTaskSchedulerServiceTest {
 
         TaskDefinition def = new TaskDefinition();
         def.setTaskId("task-import");
-        def.setJobName("processFileJob");
+        def.setJobName("fileImportJob");
         when(taskConfigService.getTaskDefinition("task-import")).thenReturn(def);
         when(taskConfigService.getTaskParametersAsMap("task-import"))
                 .thenReturn(new HashMap<>(Map.of("batchDate", "2026-03-14", "source", "db-default")));
@@ -53,8 +53,8 @@ class JobTaskSchedulerServiceTest {
         when(jobInstanceService.createTriggeredInstance(any())).thenReturn(businessJobInstance);
 
         Job job = mock(Job.class);
-        when(batchJobResolver.resolve("processFileJob"))
-                .thenReturn(Optional.of(new BatchJobResolver.ResolvedJob("processFileJob", "importJob", job)));
+        when(batchJobResolver.resolve("fileImportJob"))
+                .thenReturn(Optional.of(new BatchJobResolver.ResolvedJob("fileImportJob", "fileImportJob", job)));
 
         JobExecution execution = mock(JobExecution.class);
         when(execution.getId()).thenReturn(1001L);
@@ -68,7 +68,7 @@ class JobTaskSchedulerServiceTest {
         String result = service.triggerJob("task-import", requestParams, "tester");
 
         assertTrue(result.contains("taskId=task-import"));
-        assertTrue(result.contains("jobName=processFileJob"));
+        assertTrue(result.contains("jobName=fileImportJob"));
         assertTrue(result.contains("executionId=1001"));
 
         verify(jobLauncher).run(eq(job), any(JobParameters.class));

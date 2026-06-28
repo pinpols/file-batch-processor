@@ -13,8 +13,7 @@ import org.springframework.stereotype.Component;
 public class MappingEngine {
 
     /** 映射规则(实体 FieldMapping → 本 record 的转换在接线时做,引擎本身不依赖实体)。 */
-    public record MappingRule(
-            String sourceColumn, String targetField, TransformOp op, String arg, boolean required) {}
+    public record MappingRule(String sourceColumn, String targetField, TransformOp op, String arg, boolean required) {}
 
     public Map<String, Object> apply(List<MappingRule> rules, Map<String, Object> sourceRow) {
         Map<String, Object> out = new LinkedHashMap<>();

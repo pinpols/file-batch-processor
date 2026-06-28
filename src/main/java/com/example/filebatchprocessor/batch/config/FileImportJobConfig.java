@@ -1,5 +1,6 @@
 package com.example.filebatchprocessor.batch.config;
 
+import com.example.filebatchprocessor.batch.BatchJobNames;
 import com.example.filebatchprocessor.batch.listener.ParseErrorRateGateListener;
 import com.example.filebatchprocessor.batch.listener.ShardContextListener;
 import com.example.filebatchprocessor.batch.preprocess.FilePreprocessor;
@@ -34,10 +35,10 @@ import com.example.filebatchprocessor.service.PartitionedImportService;
 import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.batch.core.ExitStatus;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.builder.JobBuilder;
-import org.springframework.batch.core.ExitStatus;
 import org.springframework.batch.core.job.parameters.RunIdIncrementer;
 import org.springframework.batch.core.listener.StepExecutionListener;
 import org.springframework.batch.core.repository.JobRepository;
@@ -124,8 +125,7 @@ public class FileImportJobConfig {
                     .orElseThrow(() -> new IllegalArgumentException("unknown or disabled feedId: " + feedId));
             String fmt = feed.getFormat() == null ? "CSV" : feed.getFormat().toUpperCase();
             if (!"CSV".equals(fmt)) {
-                throw new IllegalArgumentException(
-                        "feed 模式当前仅支持 CSV: feedId=" + feedId + " format=" + fmt);
+                throw new IllegalArgumentException("feed 模式当前仅支持 CSV: feedId=" + feedId + " format=" + fmt);
             }
             String feedDelimiter = StringUtils.hasText(feed.getDelimiter()) ? feed.getDelimiter() : ",";
             // feed 模式:用 9 参构造器,feedHeaderColumns 传空 list(自动探测文件首行表头)
@@ -266,9 +266,9 @@ public class FileImportJobConfig {
                 .build();
     }
 
-    @Bean(name = {"processFileJob", "fileImportJob"})
+    @Bean(BatchJobNames.FILE_IMPORT_JOB)
     public Job fileImportJob(JobCompletionNotificationListener listener, @Qualifier("importStep") Step importStep) {
-        return new JobBuilder("importJob", jobRepository)
+        return new JobBuilder(BatchJobNames.FILE_IMPORT_JOB, jobRepository)
                 .incrementer(new RunIdIncrementer())
                 .listener(listener)
                 .start(importStep)
@@ -294,9 +294,9 @@ public class FileImportJobConfig {
                 .build();
     }
 
-    @Bean("dlqReplayJob")
+    @Bean(BatchJobNames.DLQ_REPLAY_JOB)
     public Job dlqReplayJob(Step dlqReplayStep, JobCompletionNotificationListener listener) {
-        return new JobBuilder("dlqReplayJob", jobRepository)
+        return new JobBuilder(BatchJobNames.DLQ_REPLAY_JOB, jobRepository)
                 .listener(listener)
                 .start(dlqReplayStep)
                 .build();

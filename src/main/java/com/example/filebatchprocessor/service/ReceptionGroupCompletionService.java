@@ -48,8 +48,7 @@ public class ReceptionGroupCompletionService {
         List<ReceptionGroupMember> requiredMembers =
                 members.stream().filter(ReceptionGroupMember::isRequired).toList();
 
-        boolean allRequiredArrived =
-                requiredMembers.stream().allMatch(m -> m.getActualQueueId() != null);
+        boolean allRequiredArrived = requiredMembers.stream().allMatch(m -> m.getActualQueueId() != null);
 
         if (!allRequiredArrived) {
             if (group.getDeadline() != null && LocalDateTime.now().isAfter(group.getDeadline())) {
@@ -111,9 +110,7 @@ public class ReceptionGroupCompletionService {
                     group.getSourceSystem(),
                     group.getBizDate(),
                     null,
-                    Map.of(
-                            "manifestId", group.getManifestId(),
-                            "mismatches", allMismatches));
+                    Map.of("manifestId", group.getManifestId(), "mismatches", allMismatches));
         }
     }
 }

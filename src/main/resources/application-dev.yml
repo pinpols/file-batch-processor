@@ -36,7 +36,7 @@ orchestration:
   # 开发环境任务配置 - 提高调度频率便于测试 (每1分钟执行)
 #  tasks:
 #    - id: process-file-main
-#      jobName: processFileJob
+#      jobName: fileImportJob
 #      priority: HIGH
 #      allowParallel: true
 #      trigger:

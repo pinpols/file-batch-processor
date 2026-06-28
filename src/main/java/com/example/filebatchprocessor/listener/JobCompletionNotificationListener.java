@@ -1,5 +1,6 @@
 package com.example.filebatchprocessor.listener;
 
+import com.example.filebatchprocessor.batch.BatchJobNames;
 import com.example.filebatchprocessor.model.BatchRunRecord;
 import com.example.filebatchprocessor.model.QualityGateResult;
 import com.example.filebatchprocessor.repository.BatchRunRecordRepository;
@@ -99,8 +100,7 @@ public class JobCompletionNotificationListener implements JobExecutionListener {
             // 可选硬闸门：opt-in (quality.enforce=true) 时，任一质量门 FAIL 即把作业判为 FAILED，
             // 复用既有失败/补偿/告警路径；默认 false 保持原「软降级 PARTIAL」行为不变。
             if (gateFailed && isQualityEnforced(jobExecution)) {
-                log.error(
-                        "Job [{}] failed quality gate enforcement (quality.enforce=true) -> marking FAILED", jobName);
+                log.error("Job [{}] failed quality gate enforcement (quality.enforce=true) -> marking FAILED", jobName);
                 jobExecution.setStatus(BatchStatus.FAILED);
                 jobExecution.setExitStatus(
                         ExitStatus.FAILED.and(new ExitStatus("QUALITY_GATE_FAILED", "quality gate failed")));
@@ -197,7 +197,7 @@ public class JobCompletionNotificationListener implements JobExecutionListener {
     /** @return true 当且仅当该质量门被评估且结果为 FAIL（用于可选硬闸门判定）。 */
     private boolean evaluatePostImportQuality(JobExecution jobExecution) {
         String jobName = jobExecution.getJobInstance().getJobName();
-        if (!"importJob".equals(jobName)) {
+        if (!BatchJobNames.FILE_IMPORT_JOB.equals(jobName)) {
             return false;
         }
         String batchDate = null;
@@ -237,7 +237,7 @@ public class JobCompletionNotificationListener implements JobExecutionListener {
     /** @return true 当且仅当重复率门被评估且结果为 FAIL。 */
     private boolean evaluateDuplicateRate(JobExecution jobExecution) {
         String jobName = jobExecution.getJobInstance().getJobName();
-        if (!"importJob".equals(jobName)) {
+        if (!BatchJobNames.FILE_IMPORT_JOB.equals(jobName)) {
             return false;
         }
         String batchDate = null;
@@ -290,7 +290,7 @@ public class JobCompletionNotificationListener implements JobExecutionListener {
     /** @return true 当且仅当导出行数门被评估且结果为 FAIL。 */
     private boolean evaluatePostExportQuality(JobExecution jobExecution) {
         String jobName = jobExecution.getJobInstance().getJobName();
-        if (!"dataExportJob".equals(jobName) && !"fileExportJob".equals(jobName)) {
+        if (!BatchJobNames.DATA_EXPORT_JOB.equals(jobName) && !BatchJobNames.FILE_EXPORT_JOB.equals(jobName)) {
             return false;
         }
         long writeCount = jobExecution.getStepExecutions().stream()
@@ -477,7 +477,7 @@ public class JobCompletionNotificationListener implements JobExecutionListener {
 
     private void registerGeneratedExportFile(JobExecution jobExecution) {
         String jobName = jobExecution.getJobInstance().getJobName();
-        if (!"dataExportJob".equals(jobName)) {
+        if (!BatchJobNames.DATA_EXPORT_JOB.equals(jobName)) {
             return;
         }
 

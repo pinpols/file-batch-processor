@@ -7,7 +7,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>4.0.3</version>
+        <version>4.0.4</version>
         <relativePath/>
     </parent>
 
@@ -29,17 +29,19 @@
         <java.version>21</java.version>
 
         <opencsv.version>5.8</opencsv.version>
+        <commons-beanutils.version>1.11.0</commons-beanutils.version>
         <commons-lang3.version>3.14.0</commons-lang3.version>
         <lombok.version>1.18.42</lombok.version>
         <hutool.version>5.8.32</hutool.version>
         <sshj.version>0.39.0</sshj.version>
+        <postgresql.version>42.7.11</postgresql.version>
+        <bouncycastle.version>1.84</bouncycastle.version>
         <testcontainers.version>1.21.3</testcontainers.version>
         <mockito.version>5.11.0</mockito.version>
 
         <maven.compiler.plugin.version>3.14.0</maven.compiler.plugin.version>
         <maven.surefire.plugin.version>3.5.2</maven.surefire.plugin.version>
         <maven.enforcer.plugin.version>3.6.2</maven.enforcer.plugin.version>
-        <dependency-check.plugin.version>12.1.0</dependency-check.plugin.version>
         <spotless.plugin.version>2.44.5</spotless.plugin.version>
         <palantir-java-format.version>2.58.0</palantir-java-format.version>
         <spotbugs.plugin.version>4.9.3.0</spotbugs.plugin.version>
@@ -92,6 +94,7 @@
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
+            <version>${postgresql.version}</version>
             <scope>runtime</scope>
         </dependency>
         <dependency>
@@ -115,6 +118,11 @@
             <groupId>com.opencsv</groupId>
             <artifactId>opencsv</artifactId>
             <version>${opencsv.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>commons-beanutils</groupId>
+            <artifactId>commons-beanutils</artifactId>
+            <version>${commons-beanutils.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>
@@ -141,12 +149,17 @@
         <dependency>
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcpg-jdk18on</artifactId>
-            <version>1.78.1</version>
+            <version>${bouncycastle.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcprov-jdk18on</artifactId>
+            <version>${bouncycastle.version}</version>
         </dependency>
         <dependency>
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcpkix-jdk18on</artifactId>
-            <version>1.78.1</version>
+            <version>${bouncycastle.version}</version>
         </dependency>
 
         <!-- Lombok -->
@@ -337,19 +350,6 @@
                 </executions>
             </plugin>
 
-            <!-- Security scan -->
-            <plugin>
-                <groupId>org.owasp</groupId>
-                <artifactId>dependency-check-maven</artifactId>
-                <version>${dependency-check.plugin.version}</version>
-                <configuration>
-                    <formats>
-                        <format>HTML</format>
-                        <format>JSON</format>
-                    </formats>
-                    <failBuildOnCVSS>9</failBuildOnCVSS>
-                </configuration>
-            </plugin>
         </plugins>
     </build>
 

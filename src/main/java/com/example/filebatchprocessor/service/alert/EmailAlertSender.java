@@ -21,7 +21,7 @@ import org.springframework.stereotype.Component;
 @ConditionalOnProperty(name = "batch.alert.channels.email.enabled", havingValue = "true")
 public class EmailAlertSender implements AlertSender {
 
-    private final JavaMailSender mailSender;
+    private final ObjectProvider<JavaMailSender> mailSenderProvider;
     private final String from;
     private final String[] to;
 
@@ -29,13 +29,9 @@ public class EmailAlertSender implements AlertSender {
             ObjectProvider<JavaMailSender> mailSenderProvider,
             @Value("${batch.alert.channels.email.from:alert@example.com}") String from,
             @Value("${batch.alert.channels.email.to:}") String to) {
-        this.mailSender = mailSenderProvider.getIfAvailable();
+        this.mailSenderProvider = mailSenderProvider;
         this.from = from;
         this.to = (to == null || to.isBlank()) ? new String[0] : to.split("\\s*,\\s*");
-        if (this.mailSender == null) {
-            log.warn(
-                    "email alert channel enabled but no JavaMailSender available; configure spring.mail.host");
-        }
     }
 
     @Override
@@ -45,16 +41,33 @@ public class EmailAlertSender implements AlertSender {
 
     @Override
     public boolean isEnabled() {
-        return mailSender != null && to.length > 0;
+        return resolveMailSender() != null && to.length > 0;
     }
 
     @Override
     public void send(AlertEvent event) {
+        JavaMailSender mailSender = resolveMailSender();
+        if (mailSender == null) {
+            log.warn("email alert channel enabled but no JavaMailSender available; configure spring.mail.host");
+            return;
+        }
         SimpleMailMessage msg = new SimpleMailMessage();
         msg.setFrom(from);
         msg.setTo(to);
         msg.setSubject("[" + event.severity() + "] " + event.alertCode());
         msg.setText(event.message() + "\n\ndata: " + event.data());
         mailSender.send(msg);
+    }
+
+    private JavaMailSender resolveMailSender() {
+        if (mailSenderProvider == null) {
+            return null;
+        }
+        try {
+            return mailSenderProvider.getIfAvailable();
+        } catch (RuntimeException ex) {
+            log.warn("email alert channel disabled because JavaMailSender resolution failed", ex);
+            return null;
+        }
     }
 }

@@ -169,7 +169,8 @@ public class FileAlertService {
         FileAlertLog saved = alertLogRepository.save(alert);
         try {
             AlertSeverity sev = AlertSeverity.valueOf(severity.trim().toUpperCase());
-            AlertSeverity floor = AlertSeverity.valueOf(fileExternalizeMinSeverity.trim().toUpperCase());
+            AlertSeverity floor =
+                    AlertSeverity.valueOf(fileExternalizeMinSeverity.trim().toUpperCase());
             if (sev.ordinal() >= floor.ordinal()) {
                 alertDispatcher.dispatch(AlertEvent.of(alertCode, sev, title, payload == null ? Map.of() : payload));
             }

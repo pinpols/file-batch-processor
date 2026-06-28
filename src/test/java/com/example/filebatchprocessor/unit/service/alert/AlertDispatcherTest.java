@@ -40,8 +40,8 @@ class AlertDispatcherTest {
     void dispatchesToEnabledSkipsDisabled() {
         AtomicInteger a = new AtomicInteger();
         AtomicInteger b = new AtomicInteger();
-        AlertDispatcher d = new AlertDispatcher(
-                List.of(sender("a", true, a, false), sender("b", false, b, false)), "WARNING");
+        AlertDispatcher d =
+                new AlertDispatcher(List.of(sender("a", true, a, false), sender("b", false, b, false)), "WARNING");
         d.dispatch(critical());
         assertEquals(1, a.get());
         assertEquals(0, b.get());
@@ -51,8 +51,8 @@ class AlertDispatcherTest {
     void oneSenderThrowsOthersStillRun() {
         AtomicInteger a = new AtomicInteger();
         AtomicInteger b = new AtomicInteger();
-        AlertDispatcher d = new AlertDispatcher(
-                List.of(sender("a", true, a, true), sender("b", true, b, false)), "WARNING");
+        AlertDispatcher d =
+                new AlertDispatcher(List.of(sender("a", true, a, true), sender("b", true, b, false)), "WARNING");
         d.dispatch(critical());
         assertEquals(1, a.get());
         assertEquals(1, b.get());

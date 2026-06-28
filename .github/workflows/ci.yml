@@ -123,39 +123,6 @@ jobs:
             **/target/surefire-reports/**
           if-no-files-found: ignore
 
-  dependency-check:
-    name: OWASP Dependency Check
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    needs: build-and-unit-test
-    if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup JDK
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: ${{ env.JAVA_VERSION }}
-          cache: maven
-
-      - name: Grant execute permission for mvnw
-        run: chmod +x ./mvnw
-
-      - name: Run OWASP Dependency Check
-        run: ./mvnw -B -ntp -DskipTests org.owasp:dependency-check-maven:check
-
-      - name: Upload dependency check reports
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: dependency-check-report
-          path: |
-            **/target/dependency-check-report.*
-          if-no-files-found: ignore
-
   trivy-fs-scan:
     name: Trivy Filesystem Scan
     runs-on: ubuntu-latest
@@ -168,7 +135,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Trivy
-        uses: aquasecurity/setup-trivy@v0.2.5
+        uses: aquasecurity/setup-trivy@v0.3.1
         with:
           version: v0.69.3
 

@@ -64,8 +64,7 @@ public class GlobalApiExceptionHandler {
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<ApiError> handleIllegalState(IllegalStateException ex) {
         log.warn("illegal state (conflict): {}", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(new ApiError("CONFLICT", ex.getMessage()));
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(new ApiError("CONFLICT", ex.getMessage()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -74,17 +73,16 @@ public class GlobalApiExceptionHandler {
                 .map(fe -> fe.getField() + ": " + fe.getDefaultMessage())
                 .collect(Collectors.joining("; "));
         log.warn("method argument not valid: {}", message);
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(new ApiError("INVALID_ARGUMENT", message));
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ApiError("INVALID_ARGUMENT", message));
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ApiError> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
-        String requiredType = ex.getRequiredType() == null ? "?" : ex.getRequiredType().getSimpleName();
+        String requiredType =
+                ex.getRequiredType() == null ? "?" : ex.getRequiredType().getSimpleName();
         String message = "parameter '" + ex.getName() + "' should be of type " + requiredType;
         log.warn("argument type mismatch: {}", message);
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(new ApiError("INVALID_ARGUMENT", message));
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ApiError("INVALID_ARGUMENT", message));
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
@@ -104,24 +102,21 @@ public class GlobalApiExceptionHandler {
     @ExceptionHandler(OptimisticLockingFailureException.class)
     public ResponseEntity<ApiError> handleOptimisticLock(OptimisticLockingFailureException ex) {
         log.warn("optimistic locking failure: {}", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(new ApiError("CONFLICT", ex.getMessage()));
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(new ApiError("CONFLICT", ex.getMessage()));
     }
 
     // 更具体:必须先于 DataIntegrityViolationException 声明(DuplicateKeyException 是其子类)。
     @ExceptionHandler(DuplicateKeyException.class)
     public ResponseEntity<ApiError> handleDuplicateKey(DuplicateKeyException ex) {
         log.warn("duplicate key: {}", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(new ApiError("CONFLICT", ex.getMessage()));
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(new ApiError("CONFLICT", ex.getMessage()));
     }
 
     // 更泛:不回显底层 SQL 细节,避免泄漏 schema。
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiError> handleDataIntegrity(DataIntegrityViolationException ex) {
         log.warn("data integrity violation: {}", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(new ApiError("CONFLICT", "data integrity violation"));
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(new ApiError("CONFLICT", "data integrity violation"));
     }
 
     // 兜底:不回显原始 message(脱敏),但记录全栈。

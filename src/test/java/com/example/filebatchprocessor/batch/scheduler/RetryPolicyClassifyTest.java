@@ -16,9 +16,7 @@ class RetryPolicyClassifyTest {
 
     @Test
     void optimisticLockingIsRetryable() {
-        assertEquals(
-                FailureClass.RETRYABLE,
-                retryPolicy.classify(new OptimisticLockingFailureException("x")));
+        assertEquals(FailureClass.RETRYABLE, retryPolicy.classify(new OptimisticLockingFailureException("x")));
     }
 
     @Test
@@ -43,8 +41,7 @@ class RetryPolicyClassifyTest {
 
     @Test
     void sqlState40IsRetryable() {
-        assertEquals(
-                FailureClass.RETRYABLE, retryPolicy.classify(new SQLException("deadlock", "40P01")));
+        assertEquals(FailureClass.RETRYABLE, retryPolicy.classify(new SQLException("deadlock", "40P01")));
     }
 
     @Test

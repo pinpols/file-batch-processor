@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.example.filebatchprocessor.manifest.ParsedManifest;
 import com.example.filebatchprocessor.manifest.ParsedManifest.ExpectedFile;
-import com.example.filebatchprocessor.model.FileAlertLog;
 import com.example.filebatchprocessor.model.FileReceptionQueue;
 import com.example.filebatchprocessor.model.ReceptionGroup;
 import com.example.filebatchprocessor.model.ReceptionGroupMember;
@@ -101,11 +100,8 @@ class ManifestDrivenIntakeIT extends PostgresContainerSupport {
         String manifestId = "M-h1-" + tag;
 
         // 1) manifest 先到:建组,登记一个 required 成员(期望 2 条,checksum 留空)
-        ParsedManifest manifest = new ParsedManifest(
-                manifestId,
-                "S",
-                "2026-06-27",
-                List.of(new ExpectedFile(fa, 2L, null, "MD5", true)));
+        ParsedManifest manifest =
+                new ParsedManifest(manifestId, "S", "2026-06-27", List.of(new ExpectedFile(fa, 2L, null, "MD5", true)));
         ReceptionGroup group = receptionGroupService.registerFromManifest(manifest);
 
         // 此时数据文件尚未到达,成员未绑定
@@ -146,9 +142,7 @@ class ManifestDrivenIntakeIT extends PostgresContainerSupport {
                 manifestId,
                 "S",
                 "2026-06-27",
-                List.of(
-                        new ExpectedFile(fa, 2L, null, "MD5", true),
-                        new ExpectedFile(fb, 1L, null, "MD5", true)));
+                List.of(new ExpectedFile(fa, 2L, null, "MD5", true), new ExpectedFile(fb, 1L, null, "MD5", true)));
         ReceptionGroup group = receptionGroupService.registerFromManifest(manifest);
 
         FileReceptionQueue a = stageArrivedFile(dir, fa, 2);
@@ -166,8 +160,7 @@ class ManifestDrivenIntakeIT extends PostgresContainerSupport {
         assertTrue(members.stream().allMatch(m -> "PASS".equals(m.getReconcileStatus())), "两成员均应 PASS");
 
         assertEquals(incompleteBefore, countAlerts("GROUP_INCOMPLETE"), "成功路径不应产生 GROUP_INCOMPLETE");
-        assertEquals(
-                reconcileFailBefore, countAlerts("GROUP_RECONCILE_FAIL"), "成功路径不应产生 GROUP_RECONCILE_FAIL");
+        assertEquals(reconcileFailBefore, countAlerts("GROUP_RECONCILE_FAIL"), "成功路径不应产生 GROUP_RECONCILE_FAIL");
     }
 
     @Test
@@ -182,9 +175,7 @@ class ManifestDrivenIntakeIT extends PostgresContainerSupport {
                 manifestId,
                 "S",
                 "2026-06-27",
-                List.of(
-                        new ExpectedFile(fa, 2L, null, "MD5", true),
-                        new ExpectedFile(fb, 1L, null, "MD5", true)));
+                List.of(new ExpectedFile(fa, 2L, null, "MD5", true), new ExpectedFile(fb, 1L, null, "MD5", true)));
         ReceptionGroup group = receptionGroupService.registerFromManifest(manifest);
 
         // 只绑定 a.csv,b.csv 缺失
@@ -200,8 +191,7 @@ class ManifestDrivenIntakeIT extends PostgresContainerSupport {
 
         ReceptionGroup reloaded = groupRepo.findById(group.getId()).orElseThrow();
         assertEquals("EXPIRED", reloaded.getStatus());
-        assertEquals(
-                incompleteBefore + 1, countAlerts("GROUP_INCOMPLETE"), "缺文件超时应产生 GROUP_INCOMPLETE");
+        assertEquals(incompleteBefore + 1, countAlerts("GROUP_INCOMPLETE"), "缺文件超时应产生 GROUP_INCOMPLETE");
     }
 
     @Test
@@ -211,11 +201,8 @@ class ManifestDrivenIntakeIT extends PostgresContainerSupport {
         String manifestId = "M-count-" + tag;
         long reconcileFailBefore = countAlerts("GROUP_RECONCILE_FAIL");
 
-        ParsedManifest manifest = new ParsedManifest(
-                manifestId,
-                "S",
-                "2026-06-27",
-                List.of(new ExpectedFile(fa, 5L, null, "MD5", true)));
+        ParsedManifest manifest =
+                new ParsedManifest(manifestId, "S", "2026-06-27", List.of(new ExpectedFile(fa, 5L, null, "MD5", true)));
         ReceptionGroup group = receptionGroupService.registerFromManifest(manifest);
 
         // 期望 5 行,真文件只有 2 行 -> 条数不符
@@ -232,9 +219,6 @@ class ManifestDrivenIntakeIT extends PostgresContainerSupport {
         assertEquals("FAIL", member.getReconcileStatus());
         assertEquals(2L, member.getActualRecordCount());
 
-        assertEquals(
-                reconcileFailBefore + 1,
-                countAlerts("GROUP_RECONCILE_FAIL"),
-                "条数不符应产生 GROUP_RECONCILE_FAIL");
+        assertEquals(reconcileFailBefore + 1, countAlerts("GROUP_RECONCILE_FAIL"), "条数不符应产生 GROUP_RECONCILE_FAIL");
     }
 }

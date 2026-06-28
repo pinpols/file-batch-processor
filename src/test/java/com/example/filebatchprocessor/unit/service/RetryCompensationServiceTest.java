@@ -42,7 +42,7 @@ class RetryCompensationServiceTest {
                 jobExplorer,
                 new ObjectMapper());
 
-        JobInstance springJobInstance = new JobInstance(1L, "importJob");
+        JobInstance springJobInstance = new JobInstance(1L, "fileImportJob");
         JobExecution failedExecution = new JobExecution(100L, springJobInstance, new JobParameters());
         failedExecution.setStatus(BatchStatus.FAILED);
         failedExecution.setCreateTime(LocalDateTime.now());

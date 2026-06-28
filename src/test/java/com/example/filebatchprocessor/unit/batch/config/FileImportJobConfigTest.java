@@ -161,7 +161,7 @@ class FileImportJobConfigTest {
 
         // Then
         assertNotNull(job);
-        assertEquals("importJob", job.getName());
+        assertEquals("fileImportJob", job.getName());
     }
 
     @Test

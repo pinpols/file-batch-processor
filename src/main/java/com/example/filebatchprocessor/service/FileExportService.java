@@ -2,6 +2,7 @@ package com.example.filebatchprocessor.service;
 
 import cn.hutool.poi.excel.ExcelUtil;
 import cn.hutool.poi.excel.ExcelWriter;
+import com.example.filebatchprocessor.batch.BatchJobNames;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.opencsv.CSVWriter;
@@ -292,7 +293,7 @@ public class FileExportService {
                     "PROCESSED",
                     "SUCCESS",
                     null,
-                    "fileExportJob",
+                    BatchJobNames.FILE_EXPORT_JOB,
                     0,
                     null,
                     null,

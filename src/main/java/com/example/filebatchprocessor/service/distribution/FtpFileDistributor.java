@@ -98,8 +98,7 @@ public class FtpFileDistributor implements FileDistributor {
             fileDistributionService.markAsSuccess(task.getId(), jobInstanceId, false, null, null);
         } catch (Exception e) {
             log.error("FTP distribution failed for taskId={}", task.getId(), e);
-            fileDistributionService.markAsFailed(
-                    task.getId(), "FTP transfer failed: " + e.getMessage(), jobInstanceId);
+            fileDistributionService.markAsFailed(task.getId(), "FTP transfer failed: " + e.getMessage(), jobInstanceId);
         } finally {
             if (ftp != null) {
                 try {

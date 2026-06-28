@@ -84,7 +84,7 @@ class DlqReplayIdempotencyIT extends PostgresContainerSupport {
 
     private DlqRecord createPending(String payload) {
         DlqRecord record = new DlqRecord();
-        record.setJobName("importJob");
+        record.setJobName("fileImportJob");
         record.setParams(payload);
         record.setErrorMessage("synthetic replay test");
         record.setRetryable(true);

@@ -1,5 +1,6 @@
 package com.example.filebatchprocessor.batch.config;
 
+import com.example.filebatchprocessor.batch.BatchJobNames;
 import com.example.filebatchprocessor.batch.processor.ExportRecordProcessor;
 import com.example.filebatchprocessor.batch.writer.ExportRecordTraceWriter;
 import com.example.filebatchprocessor.listener.JobCompletionNotificationListener;
@@ -152,7 +153,7 @@ public class DataExportJobConfig {
     @StepScope
     public ExportRecordTraceWriter exportTraceWriter(
             FlatFileItemWriter<ExportRecord> exportWriter, RecordTraceRepository recordTraceRepository) {
-        return new ExportRecordTraceWriter(exportWriter, recordTraceRepository, "dataExportJob");
+        return new ExportRecordTraceWriter(exportWriter, recordTraceRepository, BatchJobNames.DATA_EXPORT_JOB);
     }
 
     @Bean
@@ -171,7 +172,7 @@ public class DataExportJobConfig {
 
     @Bean
     public Job dataExportJob(JobCompletionNotificationListener listener, @Qualifier("exportStep") Step exportStep) {
-        return new JobBuilder("dataExportJob", jobRepository)
+        return new JobBuilder(BatchJobNames.DATA_EXPORT_JOB, jobRepository)
                 .incrementer(new RunIdIncrementer())
                 .listener(listener)
                 .start(exportStep)

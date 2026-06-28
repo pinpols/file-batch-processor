@@ -45,7 +45,7 @@ class JobInstanceServiceTest {
 
         BusinessJobInstance created = service.createTriggeredInstance(new JobInstanceService.CreateRequest(
                 "task-import",
-                "processFileJob",
+                "fileImportJob",
                 "MANUAL",
                 "tester",
                 "2026-03-15",
@@ -59,7 +59,7 @@ class JobInstanceServiceTest {
 
         assertEquals(700L, created.getId());
         assertEquals("task-import", created.getTaskId());
-        assertEquals("processFileJob", created.getJobName());
+        assertEquals("fileImportJob", created.getJobName());
         assertEquals("MANUAL", created.getTriggerSource());
         assertEquals("tester", created.getOperatorName());
         assertEquals(BusinessJobInstanceStatus.TRIGGERED.name(), created.getStatus());

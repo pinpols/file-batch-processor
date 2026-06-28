@@ -14,9 +14,7 @@ class FileImportRecordReaderFeedModeTest {
 
     private FileImportRecordReader feedReader(String csv, List<String> feedHeaderColumns) {
         return new FileImportRecordReader(
-                new ByteArrayResource(csv.getBytes()),
-                0, 1, "CSV", ",", null,
-                null, null, feedHeaderColumns);
+                new ByteArrayResource(csv.getBytes()), 0, 1, "CSV", ",", null, null, null, feedHeaderColumns);
     }
 
     @Test
@@ -59,8 +57,7 @@ class FileImportRecordReaderFeedModeTest {
     @Test
     void defaultModeUnaffected() throws Exception {
         String csv = "id,name,description\n1,alice,hi\n";
-        FileImportRecordReader r = new FileImportRecordReader(
-                new ByteArrayResource(csv.getBytes()), 0, 1, "CSV", ",");
+        FileImportRecordReader r = new FileImportRecordReader(new ByteArrayResource(csv.getBytes()), 0, 1, "CSV", ",");
         r.open(new ExecutionContext());
 
         FileRecord rec = r.read();

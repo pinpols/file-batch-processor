@@ -65,8 +65,12 @@ public class LaunchExecutor {
         BatchJobResolver.ResolvedJob resolvedJob =
                 jobResolver.resolve(def.getJobName()).orElse(null);
         if (resolvedJob == null) {
-            return LaunchResult.failed(
-                    "No job found for name " + def.getJobName() + ", available=" + jobResolver.describeAvailableJobs());
+            log.warn(
+                    "No job found for taskId={} jobName={} available={}",
+                    def.getId(),
+                    def.getJobName(),
+                    jobResolver.describeAvailableJobs());
+            return LaunchResult.failed("No job found for name " + def.getJobName());
         }
         Job job = resolvedJob.job();
         Semaphore jobLaunchLock = jobLaunchLocks.computeIfAbsent(def.getJobName(), _k -> new Semaphore(1));

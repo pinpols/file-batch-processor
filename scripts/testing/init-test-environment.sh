@@ -71,8 +71,8 @@ DELETE FROM batch_run_records WHERE batch_date >= '2026-03-01';
 DELETE FROM task_execution_state WHERE batch_date >= '2026-03-01';
 DELETE FROM imported_records_partition WHERE batch_date >= '2026-03-01';
 DELETE FROM imported_records WHERE batch_date >= '2026-03-01';
-DELETE FROM task_trigger WHERE task_id IN ('processFileJob', 'dataExportJob', 'reconcileJob');
-DELETE FROM task_definition WHERE task_id IN ('processFileJob', 'dataExportJob', 'reconcileJob');
+DELETE FROM task_trigger WHERE task_id IN ('fileImportJob', 'dataExportJob', 'reconcileJob');
+DELETE FROM task_definition WHERE task_id IN ('fileImportJob', 'dataExportJob', 'reconcileJob');
 EOF
     
     log_success "数据清理完成"
@@ -141,7 +141,7 @@ generate_report() {
 - **记录追踪**: 完整的导入导出链路
 
 ### 增强数据
-- **任务定义**: processFileJob、dataExportJob、reconcileJob
+- **任务定义**: fileImportJob、dataExportJob、reconcileJob
 - **触发器配置**: CRON、FIXED_DELAY、ONE_TIME 类型
 - **批次运行记录**: 成功、运行中、失败状态
 - **质量门禁**: 解析错误率、导出成功率、对账匹配率
@@ -186,7 +186,7 @@ generate_report() {
 # 触发文件导入
 curl -X POST "http://localhost:8011/api/files/upload" \\
   -F "file=@${SCRIPT_DIR}/large_dataset_financial.csv" \\
-  -F "taskName=processFileJob"
+  -F "taskName=fileImportJob"
 
 # 触发数据导出
 curl -X POST "http://localhost:8011/api/tasks/trigger" \\

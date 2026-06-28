@@ -30,8 +30,7 @@ public final class PathSafety {
 
         if (StringUtils.hasText(baseDir)) {
             Path base = Paths.get(baseDir).toAbsolutePath().normalize();
-            Path resolved = (candidatePath.isAbsolute() ? candidatePath : base.resolve(candidatePath))
-                    .normalize();
+            Path resolved = (candidatePath.isAbsolute() ? candidatePath : base.resolve(candidatePath)).normalize();
             if (!resolved.startsWith(base)) {
                 throw new IllegalArgumentException(
                         "path escapes allowed base dir: " + candidate + " (base=" + baseDir + ")");

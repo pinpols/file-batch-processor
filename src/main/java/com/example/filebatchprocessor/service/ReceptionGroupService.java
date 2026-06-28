@@ -102,8 +102,7 @@ public class ReceptionGroupService {
      */
     @Transactional
     public void tryBindArrivedDataFile(FileReceptionQueue row) {
-        List<ReceptionGroupMember> members =
-                memberRepo.findByExpectedFileNameAndActualQueueIdIsNull(row.getFileName());
+        List<ReceptionGroupMember> members = memberRepo.findByExpectedFileNameAndActualQueueIdIsNull(row.getFileName());
         for (ReceptionGroupMember member : members) {
             Optional<ReceptionGroup> groupOpt = groupRepo.findById(member.getGroupId());
             if (groupOpt.isPresent() && "WAITING_FILES".equals(groupOpt.get().getStatus())) {
@@ -121,8 +120,7 @@ public class ReceptionGroupService {
         Optional<ReceptionGroupMember> memberOpt =
                 memberRepo.findByGroupIdAndExpectedFileName(groupId, row.getFileName());
         if (memberOpt.isEmpty()) {
-            log.debug(
-                    "无匹配预期成员,跳过绑定 groupId={} fileName={}", groupId, row.getFileName());
+            log.debug("无匹配预期成员,跳过绑定 groupId={} fileName={}", groupId, row.getFileName());
             return;
         }
 
@@ -137,12 +135,7 @@ public class ReceptionGroupService {
         queueRepo.save(row);
 
         ReceptionGroup group =
-                groupRepo
-                        .findById(groupId)
-                        .orElseThrow(
-                                () ->
-                                        new IllegalStateException(
-                                                "到达组不存在 groupId=" + groupId));
+                groupRepo.findById(groupId).orElseThrow(() -> new IllegalStateException("到达组不存在 groupId=" + groupId));
         if (firstBind) {
             group.setArrivedMembers(group.getArrivedMembers() + 1);
             groupRepo.save(group);

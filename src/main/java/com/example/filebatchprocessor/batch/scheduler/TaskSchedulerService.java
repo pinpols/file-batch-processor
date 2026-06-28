@@ -776,15 +776,14 @@ public class TaskSchedulerService {
     private FixedDelayBackoffState loadFixedDelayState(String taskId) {
         FixedDelayBackoffState state = new FixedDelayBackoffState();
         try {
-            jdbcTemplate
-                    .query(
-                            "SELECT failure_streak, last_scheduled_at FROM scheduler_fixed_delay_state WHERE task_id = ?",
-                            rs -> {
-                                state.failureStreak = Math.max(0, Math.min(rs.getInt("failure_streak"), 10));
-                                java.sql.Timestamp ts = rs.getTimestamp("last_scheduled_at");
-                                state.lastScheduledAt = ts == null ? null : ts.toInstant();
-                            },
-                            taskId);
+            jdbcTemplate.query(
+                    "SELECT failure_streak, last_scheduled_at FROM scheduler_fixed_delay_state WHERE task_id = ?",
+                    rs -> {
+                        state.failureStreak = Math.max(0, Math.min(rs.getInt("failure_streak"), 10));
+                        java.sql.Timestamp ts = rs.getTimestamp("last_scheduled_at");
+                        state.lastScheduledAt = ts == null ? null : ts.toInstant();
+                    },
+                    taskId);
         } catch (Exception e) {
             log.warn("Failed to load fixed-delay backoff state for task={}, starting fresh", taskId, e);
         }

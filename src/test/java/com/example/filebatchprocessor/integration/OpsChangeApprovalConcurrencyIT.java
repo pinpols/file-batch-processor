@@ -48,7 +48,7 @@ class OpsChangeApprovalConcurrencyIT extends PostgresContainerSupport {
     void shouldHandleConcurrentApproveRequestsAndKeepFinalStateConsistent() throws Exception {
         TaskDefinition task = new TaskDefinition();
         task.setTaskId("ops-approve-concurrent-task");
-        task.setJobName("processFileJob");
+        task.setJobName("fileImportJob");
         task.setEnabled(true);
         task.setAllowParallel(true);
         task.setPriority("NORMAL");

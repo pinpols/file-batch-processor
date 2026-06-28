@@ -1,7 +1,7 @@
 name: Security Scan
 
-# 密钥扫描门禁:防口令/私钥/token 误提交进仓。与 CodeQL(源码 SAST)、OWASP dependency-check
-# (依赖 CVE)、Trivy(文件系统/镜像)互补,合起来构成单体的 CI 安全门禁基线。
+# 密钥扫描门禁:防口令/私钥/token 误提交进仓。与 CodeQL(源码 SAST)、Trivy(文件系统/镜像)
+# 互补,合起来构成单体的 CI 安全门禁基线。
 
 on:
   push:
@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 concurrency:
   group: security-scan-${{ github.workflow }}-${{ github.ref }}
@@ -30,3 +31,4 @@ jobs:
         uses: gitleaks/gitleaks-action@v2
         env:
           GITLEAKS_CONFIG: .gitleaks.toml
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
