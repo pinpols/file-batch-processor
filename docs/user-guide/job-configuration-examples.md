@@ -79,3 +79,24 @@ VALUES ('import-excel', 'excel.sheet.name', 'Sheet1', 'STRING', 'sheet 名称，
 - **重启恢复**：文档格式跳过前 N 条 record（N 为已处理记录数）继续。
 
 因此同一份逻辑数据切换 `file.format` 时，分片结果与 checksum 不可跨格式直接比对。
+
+## 加密 / 压缩 / 清单驱动
+
+- **加密(PGP)+ 压缩(.gz/.zip)文件导入**：`input.file.encrypted`（true/false，缺省按 `.pgp/.gpg` 后缀判定）、`input.file.compression`（gz/zip/none，缺省按后缀）；私钥 `batch.pgp.private-key-path` + `BATCH_PGP_PASSPHRASE`(env)。详见 [encrypted-compressed-intake](../operations/encrypted-compressed-intake.md)。
+- **清单(manifest)驱动入库**：`.manifest.json` 控制文件列出期望文件 + 条数/MD5，等组到齐对账通过才放行(`batch.file.reception.group.enabled`，默认关)。详见 [manifest-driven-intake](../operations/manifest-driven-intake.md)。
+
+## 安全相关配置(导入/导出/分发)
+
+| 项 | 配置 | 说明 |
+|---|---|---|
+| 导出 SQL 白名单 | `export.sql` 参数 | 仅接受单条只读 SELECT；禁 DML/DDL/分号/注释/危险函数(`pg_read_file`/`dblink` 等) |
+| 路径穿越防护 | `batch.io.input-base-dir` / `output-base-dir` | 配置后导入/导出文件限定在基目录内；留空也拒绝 `..` 逃逸 |
+| SFTP 主机密钥 | `sftp.known-hosts-path` | 默认 fail-closed(加载 known_hosts，缺失即拒连)；`sftp.insecure-skip-host-key-check=true` 仅 dev |
+| 分发 SSRF | `distribution.allowed-hosts` | HTTP/FTP 目标白名单;`distribution.block-internal-targets=true` 额外拦内网 |
+| 质量门硬闸门 | `quality.enforce`(job 参数)/`quality.enforce-default` | true 时质量门 FAIL 即把作业判 FAILED(默认软降级 PARTIAL) |
+| 运维端点鉴权 | `ops.security.*`(viewer/operator/admin) | 破坏性端点限 ADMIN;生产弱口令 fail-fast |
+
+## 多告警渠道 / 声明式映射
+
+- 告警渠道(webhook/email/IM)配置见 [alerting-channels](../operations/alerting-channels.md)。
+- 声明式字段映射(地基版，尚未接入导入链路)见 [declarative-mapping](../operations/declarative-mapping.md)。

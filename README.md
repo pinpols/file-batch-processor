@@ -20,6 +20,14 @@
 - 可靠性：可配重试/退避/最大时长/超时；失败落 `dlq_records`。
 - 幂等：Writer 利用唯一索引 + 批量日保证重复导入不污染数据。
 
+### 新增能力
+- **多格式导入**：CSV/定长之外支持 JSON（顶层数组，Jackson streaming）、Excel `.xlsx`（首行表头列名映射）。文档格式按 record 序号分片。详见 [job 配置范例](docs/user-guide/job-configuration-examples.md)。
+- **加密/压缩文件导入**：上游文件可 PGP 加密 + `.gz`/`.zip` 压缩送达；导入前解密+解压到临时明文文件再解析（PGP 完整性校验、zip-slip 防护、step 结束清理临时文件）。详见 [encrypted-compressed-intake](docs/operations/encrypted-compressed-intake.md)。
+- **清单(manifest)驱动入库**：上游送 `.manifest.json` 控制文件列出期望文件 + 条数/MD5；等一组到齐且对账通过才放行（灰度默认关）。详见 [manifest-driven-intake](docs/operations/manifest-driven-intake.md)。
+- **多告警渠道**：`AlertSender` SPI（webhook/email/IM 飞书）+ `AlertDispatcher` 失败隔离 + severity 门槛。详见 [alerting-channels](docs/operations/alerting-channels.md)。
+- **声明式映射(地基)**：`feed_definition`/`field_mapping` 配置 + `MappingEngine`（6 算子)+ `attributes JSONB`；**尚未接入导入链路**（business_key 多字段化为后续增量）。详见 [declarative-mapping](docs/operations/declarative-mapping.md)。
+- **安全/可靠性加固**：export.sql 只读白名单、SSRF/路径穿越防护、SFTP 主机密钥校验、运维端点角色限制、弱口令 fail-fast；ACK 无限重发修复、熔断状态持久化、多副本 leader 门控、FIXED_DELAY 退避持久化、质量门 opt-in 硬闸门。
+
 ### 配置示例（application.yml）
 - 导入示例（已内置）：`process-file-cron`、`process-file-fixed`、一次性 backfill。  
   - 参数：`input.file.name`、`batchDate`、`runMode`、`rerunId` 等。
@@ -44,9 +52,15 @@ input=/data/input.csv&batchDate=2025-01-01&runMode=backfill&rerunId=bf-20250101&
    - 指标：`/actuator/metrics`
    - Prometheus：`/actuator/prometheus`
 
+### 文档索引
+- 作业配置范例（导入/导出/多格式）：[docs/user-guide/job-configuration-examples.md](docs/user-guide/job-configuration-examples.md)
+- 任务配置表结构：[docs/architecture/task-configuration-schema.md](docs/architecture/task-configuration-schema.md)
+- 运维专题：[加密压缩导入](docs/operations/encrypted-compressed-intake.md) · [清单驱动入库](docs/operations/manifest-driven-intake.md) · [多告警渠道](docs/operations/alerting-channels.md) · [声明式映射](docs/operations/declarative-mapping.md) · [熔断 runbook](docs/operations/circuit-breaker-runbook.md) · [质量门 runbook](docs/operations/quality-gate-runbook.md) · [安全基线](docs/operations/security-baseline.md)
+- 设计稿/实现计划:`docs/superpowers/specs/` 与 `docs/superpowers/plans/`
+
 ### 测试执行（分层）
-- 单元测试：`mvn test -Punit-test`（150+ tests）
-- 集成测试：`mvn test -Pintegration-test`（需要 PostgreSQL test 数据库）
+- 单元测试：`mvn test -Punit-test`（200+ tests）
+- 集成测试：`mvn test -Pintegration-test`（需要 PostgreSQL test 数据库，Testcontainers 自动起容器或回落 localhost:5432）
 - E2E 测试：`mvn test -Pe2e-test`（需要 PostgreSQL test 数据库）
 
 ### 数据库准备
