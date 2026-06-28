@@ -25,10 +25,11 @@ public class SchedulerLeaderService {
     // 本地租约到期时刻:续约成功时刷新为 now+ttl;遇瞬时异常时据此决定是否仍保持领导权
     private volatile java.time.Instant leaseExpiresAt = java.time.Instant.MIN;
 
-    @Value("${orchestration.scheduler.leader-lock-name:" + DEFAULT_LOCK_NAME + "}")
+    @Value("${orchestration.scheduler.leader.lock-name:${orchestration.scheduler.leader-lock-name:" + DEFAULT_LOCK_NAME
+            + "}}")
     private String lockName;
 
-    @Value("${orchestration.scheduler.leader-ttl-seconds:30}")
+    @Value("${orchestration.scheduler.leader.ttl-seconds:${orchestration.scheduler.leader-ttl-seconds:30}}")
     private long ttlSeconds;
 
     @Value("${orchestration.scheduler.force-leader:false}")

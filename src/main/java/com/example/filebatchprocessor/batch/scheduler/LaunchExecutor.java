@@ -44,7 +44,7 @@ public class LaunchExecutor {
     private final Semaphore launchPermits;
     private final Map<String, Semaphore> jobLaunchLocks = new ConcurrentHashMap<>();
     private final int defaultDynamicShardMax;
-    private final long defaultTimeoutMs;
+    private final long defaultLaunchWarnThresholdMs;
 
     public LaunchExecutor(
             JobLauncher jobLauncher,
@@ -52,13 +52,13 @@ public class LaunchExecutor {
             JobInstanceService jobInstanceService,
             Semaphore launchPermits,
             int defaultDynamicShardMax,
-            long defaultTimeoutMs) {
+            long defaultLaunchWarnThresholdMs) {
         this.jobLauncher = jobLauncher;
         this.jobResolver = jobResolver;
         this.jobInstanceService = jobInstanceService;
         this.launchPermits = launchPermits;
         this.defaultDynamicShardMax = Math.max(1, defaultDynamicShardMax);
-        this.defaultTimeoutMs = Math.max(1000, defaultTimeoutMs);
+        this.defaultLaunchWarnThresholdMs = Math.max(1000, defaultLaunchWarnThresholdMs);
     }
 
     public LaunchResult launch(OrchestrationTaskDefinition def, String batchDate, int queueSize) {
@@ -77,7 +77,7 @@ public class LaunchExecutor {
 
         Map<String, String> taskParameters = snapshotTaskParameters(def);
         String rerunId = taskParameters.getOrDefault("rerunId", "");
-        long timeoutMs = resolveTimeoutMs(def);
+        long launchWarnThresholdMs = resolveLaunchWarnThresholdMs(def);
         int shardTotal = resolveShardTotal(def, queueSize);
 
         List<Integer> shardIndexes = new ArrayList<>();
@@ -134,7 +134,7 @@ public class LaunchExecutor {
                         shardTotal,
                         businessInstance.getId(),
                         businessInstance.getJobInstanceNo());
-                JobExecution execution = runWithTimeout(job, parameters, timeoutMs);
+                JobExecution execution = runAndWarnIfSlow(job, parameters, launchWarnThresholdMs);
                 if (execution != null && execution.getStatus() == BatchStatus.FAILED) {
                     failedShards++;
                 } else {
@@ -188,24 +188,25 @@ public class LaunchExecutor {
         return Math.min(dynamicMax, loadBased);
     }
 
-    private long resolveTimeoutMs(OrchestrationTaskDefinition def) {
+    private long resolveLaunchWarnThresholdMs(OrchestrationTaskDefinition def) {
         if (def.getTimeoutMs() != null && def.getTimeoutMs() > 0) {
             return def.getTimeoutMs();
         }
-        return defaultTimeoutMs;
+        return defaultLaunchWarnThresholdMs;
     }
 
-    private JobExecution runWithTimeout(Job job, JobParameters parameters, long timeoutMs) throws Exception {
+    private JobExecution runAndWarnIfSlow(Job job, JobParameters parameters, long launchWarnThresholdMs)
+            throws Exception {
         long startedAtMs = System.currentTimeMillis();
         JobExecution execution = jobLauncher.run(job, parameters);
-        if (timeoutMs > 0) {
+        if (launchWarnThresholdMs > 0) {
             long elapsedMs = System.currentTimeMillis() - startedAtMs;
-            if (elapsedMs > timeoutMs) {
+            if (elapsedMs > launchWarnThresholdMs) {
                 log.warn(
-                        "Job launcher call exceeded timeout: jobName={} elapsedMs={} timeoutMs={}",
+                        "Job launcher call exceeded slow-launch warning threshold: jobName={} elapsedMs={} thresholdMs={}",
                         job.getName(),
                         elapsedMs,
-                        timeoutMs);
+                        launchWarnThresholdMs);
             }
         }
         return execution;

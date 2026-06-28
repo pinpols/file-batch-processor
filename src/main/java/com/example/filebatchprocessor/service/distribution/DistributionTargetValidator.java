@@ -19,7 +19,7 @@ import org.springframework.util.StringUtils;
  * <ul>
  *   <li>配置 {@code distribution.allowed-hosts} 后:目标 host 必须命中白名单(精确或后缀匹配),否则拒绝——这是主控制;
  *   <li>{@code distribution.block-internal-targets=true} 时额外拦截环回 / 链路本地(含 169.254.169.254 云元数据)/
- *       私网 / 站点本地地址。默认 false,因为向内网主机分发文件是合法主用途;在不可信网络环境再开启。
+ *       私网 / 站点本地地址。默认 true;若单体部署确需内网分发,应显式配置白名单或关闭该开关。
  * </ul>
  */
 @Slf4j
@@ -32,7 +32,7 @@ public class DistributionTargetValidator {
     @org.springframework.beans.factory.annotation.Autowired
     public DistributionTargetValidator(
             @Value("${distribution.allowed-hosts:}") String allowedHostsCsv,
-            @Value("${distribution.block-internal-targets:false}") boolean blockInternal) {
+            @Value("${distribution.block-internal-targets:true}") boolean blockInternal) {
         this.allowedHosts = StringUtils.hasText(allowedHostsCsv)
                 ? Arrays.stream(allowedHostsCsv.split(","))
                         .map(String::trim)
@@ -43,9 +43,9 @@ public class DistributionTargetValidator {
         this.blockInternal = blockInternal;
     }
 
-    /** 便捷构造:仅白名单、不拦内网(测试/内网部署默认)。 */
+    /** 便捷构造:仅白名单,默认拦截内网/元数据地址。 */
     public DistributionTargetValidator(String allowedHostsCsv) {
-        this(allowedHostsCsv, false);
+        this(allowedHostsCsv, true);
     }
 
     /** 校验 URL/地址,不通过则抛 BusinessException(INVALID_ARGUMENT)。 */

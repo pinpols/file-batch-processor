@@ -1,6 +1,7 @@
 package com.example.filebatchprocessor.unit.service;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 import com.example.filebatchprocessor.model.FileAlertLog;
@@ -10,6 +11,7 @@ import com.example.filebatchprocessor.repository.FileDispatchRecordRepository;
 import com.example.filebatchprocessor.service.FileAlertService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -64,6 +66,35 @@ class FileAlertServiceTest {
                 Map.of("key", "value"));
 
         verify(alertLogRepository).save(any(FileAlertLog.class));
+    }
+
+    @Test
+    void shouldDeduplicateUnresolvedAlertAndEscalateSeverity() {
+        FileAlertLog existing = new FileAlertLog();
+        existing.setId(10L);
+        existing.setAlertCode("FILE_TIMEOUT");
+        existing.setFileRecordId(1L);
+        existing.setTargetSystem("TARGET");
+        existing.setSeverity("WARNING");
+        when(alertLogRepository.findFirstByAlertCodeAndFileRecordIdAndTargetSystemAndResolvedFalseOrderByCreatedAtDesc(
+                        eq("FILE_TIMEOUT"), eq(1L), eq("TARGET")))
+                .thenReturn(Optional.of(existing));
+        when(alertLogRepository.save(any(FileAlertLog.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        fileAlertService.createAlert(
+                "FILE_TIMEOUT",
+                "FILE_UNPROCESSED",
+                "CRITICAL",
+                "Still timed out",
+                1L,
+                "SOURCE",
+                "2026-01-01",
+                "TARGET",
+                Map.of("key", "value"));
+
+        verify(alertLogRepository).save(existing);
+        org.junit.jupiter.api.Assertions.assertEquals("CRITICAL", existing.getSeverity());
+        org.junit.jupiter.api.Assertions.assertEquals("Still timed out", existing.getTitle());
     }
 
     @Test

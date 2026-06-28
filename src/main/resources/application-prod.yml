@@ -4,6 +4,10 @@ spring:
     username: ${SPRING_DATASOURCE_USERNAME:filebatch}
     password: ${SPRING_DATASOURCE_PASSWORD:}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: ${SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE:30}
+      minimum-idle: ${SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE:5}
+      connection-timeout: ${SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT_MS:30000}
   quartz:
     job-store-type: jdbc
     jdbc:
@@ -67,3 +71,6 @@ logging:
 
 orchestration:
   config-source: ${ORCHESTRATION_CONFIG_SOURCE:db}
+
+quality:
+  enforce-default: ${QUALITY_ENFORCE_DEFAULT:true}

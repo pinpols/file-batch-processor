@@ -9,8 +9,11 @@ import com.example.filebatchprocessor.params.ExportJobParams;
 import com.example.filebatchprocessor.repository.RecordTraceRepository;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Pattern;
 import javax.sql.DataSource;
 import org.springframework.batch.core.configuration.annotation.StepScope;
@@ -39,6 +42,7 @@ public class DataExportJobConfig {
 
     private static final String DEFAULT_EXPORT_SQL =
             "select id, business_key, name, description, batch_date from imported_records";
+    private static final String DEFAULT_ALLOWED_TABLES = "imported_records,imported_records_partition";
 
     private final JobRepository jobRepository;
     private final PlatformTransactionManager transactionManager;
@@ -46,6 +50,9 @@ public class DataExportJobConfig {
 
     @Value("${batch.io.output-base-dir:}")
     private String outputBaseDir;
+
+    @Value("${batch.export.allowed-tables:" + DEFAULT_ALLOWED_TABLES + "}")
+    private String allowedTablesCsv = DEFAULT_ALLOWED_TABLES;
 
     @Autowired
     public DataExportJobConfig(
@@ -103,13 +110,60 @@ public class DataExportJobConfig {
         // 禁止注释(常用于绕过 token 检测:-- 与 /* */)
         boolean noComment = !lower.contains("--") && !normalized.contains("/*");
 
-        if (startsWithSelect && singleStatement && noForbiddenKeyword && noForbiddenFunction && noComment) {
+        if (startsWithSelect
+                && singleStatement
+                && noForbiddenKeyword
+                && noForbiddenFunction
+                && noComment
+                && tablesAllowed(normalized)) {
             return normalized;
         }
 
         throw new IllegalArgumentException(
                 "Unsupported export.sql: only a single read-only SELECT (no DML/DDL, no system functions, "
-                        + "no comments/semicolons) is allowed");
+                        + "no comments/semicolons, and only allow-listed tables) is allowed");
+    }
+
+    private boolean tablesAllowed(String sql) {
+        Set<String> allowed = Arrays.stream(allowedTablesCsv.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .map(s -> s.toLowerCase(Locale.ROOT))
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+        if (allowed.isEmpty()) {
+            return false;
+        }
+
+        Set<String> cteAliases = extractCteAliases(sql);
+        java.util.regex.Matcher matcher = Pattern.compile(
+                        "\\b(?:from|join)\\s+([a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)?)\\b",
+                        Pattern.CASE_INSENSITIVE)
+                .matcher(sql);
+        boolean sawTable = false;
+        while (matcher.find()) {
+            sawTable = true;
+            String table = matcher.group(1).toLowerCase(Locale.ROOT);
+            int dot = table.lastIndexOf('.');
+            String simple = dot >= 0 ? table.substring(dot + 1) : table;
+            if (cteAliases.contains(simple)) {
+                continue;
+            }
+            if (!allowed.contains(simple) && !allowed.contains(table)) {
+                return false;
+            }
+        }
+        return sawTable;
+    }
+
+    private Set<String> extractCteAliases(String sql) {
+        Set<String> aliases = new LinkedHashSet<>();
+        java.util.regex.Matcher matcher = Pattern.compile(
+                        "(?:\\bwith|,)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s+as\\s*\\(", Pattern.CASE_INSENSITIVE)
+                .matcher(sql);
+        while (matcher.find()) {
+            aliases.add(matcher.group(1).toLowerCase(Locale.ROOT));
+        }
+        return aliases;
     }
 
     private static ExportRecord mapRow(ResultSet rs, int rowNum) throws SQLException {

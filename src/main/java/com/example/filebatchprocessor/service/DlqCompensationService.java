@@ -166,7 +166,7 @@ public class DlqCompensationService {
         Job replayJob = resolveReplayJob(record, taskId);
         String effectiveTaskId = (taskId == null || taskId.isBlank()) ? replayJob.getName() : taskId;
         Long relatedFileId = jobInstanceService.resolveRelatedFileId(params);
-        String runKey = "dlq-" + record.getId() + "-" + System.nanoTime();
+        String runKey = stableReplayRunKey(record, effectiveTaskId);
         BusinessJobInstance businessInstance =
                 jobInstanceService.createTriggeredInstance(new JobInstanceService.CreateRequest(
                         effectiveTaskId,
@@ -327,6 +327,18 @@ public class DlqCompensationService {
 
     private String blankToNull(String value) {
         return value == null || value.isBlank() ? null : value;
+    }
+
+    private String stableReplayRunKey(DlqRecord record, String effectiveTaskId) {
+        long replayCount = record.getReplayCount() == null ? 0L : record.getReplayCount();
+        return "dlq-" + record.getId() + "-replay-" + replayCount + "-" + sanitizeRunKeyPart(effectiveTaskId);
+    }
+
+    private String sanitizeRunKeyPart(String value) {
+        if (value == null || value.isBlank()) {
+            return "unknown";
+        }
+        return value.replaceAll("[^a-zA-Z0-9._-]", "_");
     }
 
     private record ReplayOutcome(Long targetJobInstanceId, Long springExecutionId, Map<String, Object> resultPayload) {}

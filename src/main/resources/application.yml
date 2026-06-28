@@ -55,6 +55,10 @@ spring:
     username: ${SPRING_DATASOURCE_USERNAME:postgres}
     password: ${SPRING_DATASOURCE_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: ${SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE:30}
+      minimum-idle: ${SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE:5}
+      connection-timeout: ${SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT_MS:30000}
   jpa:
     hibernate:
       ddl-auto: validate
@@ -204,7 +208,9 @@ orchestration:
       max-backoff-ms: 300000
     # 默认调度治理参数（任务级未配置时生效）
     default-max-queue-wait-ms: 300000
-    default-timeout-ms: 1800000
+    # 同步 JobLauncher 无法可靠硬中断任务；该值仅用于慢启动/慢执行告警阈值。
+    # 兼容旧配置名 default-timeout-ms，但推荐使用此语义更准确的新名称。
+    default-warn-threshold-ms: 1800000
     default-dynamic-shard-max: 1
     default-dependency-timeout-ms: 600000
     default-rerun-window-ms: 86400000
@@ -263,11 +269,11 @@ orchestration:
     failure-rate-threshold: 0.5
     cooldown-duration-ms: 300000
 
-# 质量门禁强制阻断的全局默认值（opt-in 硬闸门）。
-# false=保持「软降级 PARTIAL」原行为；true=任一质量门 FAIL 即把作业判为 FAILED。
+# 质量门禁强制阻断的全局默认值（fail-closed 硬闸门）。
+# true=任一质量门 FAIL 即把作业判为 FAILED；需兼容旧软降级时可按作业显式 quality.enforce=false。
 # 也可按作业用 job 参数 quality.enforce=true/false 覆盖（参数优先级高于此默认）。
 quality:
-  enforce-default: ${QUALITY_ENFORCE_DEFAULT:false}
+  enforce-default: ${QUALITY_ENFORCE_DEFAULT:true}
 
 # SFTP 默认配置（开发/测试）
 sftp:
@@ -285,9 +291,14 @@ sftp:
 distribution:
   # HTTP/FTP 目标 host 白名单(逗号分隔,留空=不限制白名单)。这是 SSRF 的主控制:生产建议显式配置。
   allowed-hosts: ${DISTRIBUTION_ALLOWED_HOSTS:}
-  # 是否额外拦截内网/环回/链路本地/云元数据地址。默认 false(向内网分发文件是合法主用途);
-  # 在不可信网络环境可设 true 加固 SSRF。
-  block-internal-targets: ${DISTRIBUTION_BLOCK_INTERNAL_TARGETS:false}
+  # 是否额外拦截内网/环回/链路本地/云元数据地址。默认 true;确需内网分发时显式配置白名单或关闭。
+  block-internal-targets: ${DISTRIBUTION_BLOCK_INTERNAL_TARGETS:true}
+  http:
+    connect-timeout-ms: ${DISTRIBUTION_HTTP_CONNECT_TIMEOUT_MS:5000}
+    request-timeout-ms: ${DISTRIBUTION_HTTP_REQUEST_TIMEOUT_MS:30000}
+  ftp:
+    connect-timeout-ms: ${DISTRIBUTION_FTP_CONNECT_TIMEOUT_MS:5000}
+    socket-timeout-ms: ${DISTRIBUTION_FTP_SOCKET_TIMEOUT_MS:30000}
 
 ops:
   security:

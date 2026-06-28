@@ -29,19 +29,19 @@ public class FileAlertService {
     private final AlertDispatcher alertDispatcher;
 
     @Value("${file.alert.enabled:true}")
-    private boolean enabled;
+    private boolean enabled = true;
 
     @Value("${file.alert.externalize-min-severity:CRITICAL}")
-    private String fileExternalizeMinSeverity;
+    private String fileExternalizeMinSeverity = "CRITICAL";
 
     @Value("${file.alert.timeout.minutes:120}")
-    private long timeoutMinutes;
+    private long timeoutMinutes = 120;
 
     @Value("${file.alert.unprocessed.threshold:100}")
-    private long unprocessedThreshold;
+    private long unprocessedThreshold = 100;
 
     @Value("${file.alert.dispatch-ack-timeout.minutes:60}")
-    private long dispatchAckTimeoutMinutes;
+    private long dispatchAckTimeoutMinutes = 60;
 
     public FileAlertService(
             FileAlertLogRepository alertLogRepository,
@@ -150,10 +150,13 @@ public class FileAlertService {
             String bizDate,
             String targetSystem,
             Map<String, Object> payload) {
-        FileAlertLog alert = new FileAlertLog();
+        FileAlertLog alert = alertLogRepository
+                .findFirstByAlertCodeAndFileRecordIdAndTargetSystemAndResolvedFalseOrderByCreatedAtDesc(
+                        alertCode, fileRecordId, targetSystem)
+                .orElseGet(FileAlertLog::new);
         alert.setAlertCode(alertCode);
         alert.setAlertType(alertType);
-        alert.setSeverity(severity);
+        alert.setSeverity(escalateSeverity(alert.getSeverity(), severity));
         alert.setTitle(title);
         alert.setFileRecordId(fileRecordId);
         alert.setSourceSystem(sourceSystem);
@@ -168,7 +171,7 @@ public class FileAlertService {
 
         FileAlertLog saved = alertLogRepository.save(alert);
         try {
-            AlertSeverity sev = AlertSeverity.valueOf(severity.trim().toUpperCase());
+            AlertSeverity sev = AlertSeverity.valueOf(saved.getSeverity().trim().toUpperCase());
             AlertSeverity floor =
                     AlertSeverity.valueOf(fileExternalizeMinSeverity.trim().toUpperCase());
             if (sev.ordinal() >= floor.ordinal()) {
@@ -178,6 +181,19 @@ public class FileAlertService {
             log.error("file alert externalize failed: code={}", alertCode, e);
         }
         return saved;
+    }
+
+    private String escalateSeverity(String existing, String incoming) {
+        if (existing == null || existing.isBlank()) {
+            return incoming;
+        }
+        try {
+            AlertSeverity current = AlertSeverity.valueOf(existing.trim().toUpperCase());
+            AlertSeverity next = AlertSeverity.valueOf(incoming.trim().toUpperCase());
+            return next.ordinal() > current.ordinal() ? incoming : existing;
+        } catch (Exception e) {
+            return incoming;
+        }
     }
 
     public void acknowledgeAlert(Long alertId, String operator) {

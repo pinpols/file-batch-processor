@@ -45,6 +45,8 @@ public interface FileReceptionQueueRepository extends JpaRepository<FileReceptio
      */
     List<FileReceptionQueue> findBySourceSystem(String sourceSystem);
 
+    List<FileReceptionQueue> findByFileRecordId(Long fileRecordId);
+
     /**
      * 统计指定时间范围内接收的文件数
      */
@@ -54,4 +56,6 @@ public interface FileReceptionQueueRepository extends JpaRepository<FileReceptio
      * 按状态统计
      */
     long countByStatus(String status);
+
+    long countByFileRecordIdAndStatusIn(Long fileRecordId, List<String> statuses);
 }

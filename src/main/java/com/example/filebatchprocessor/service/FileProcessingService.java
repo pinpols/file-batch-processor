@@ -11,6 +11,7 @@ import java.security.MessageDigest;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,16 +33,22 @@ public class FileProcessingService {
 
     @Transactional
     public FileData saveFile(MultipartFile file) throws IOException {
-        // Create upload directory if it doesn't exist
-        Path uploadPath = Paths.get(uploadDirectory);
-        if (!Files.exists(uploadPath)) {
-            Files.createDirectories(uploadPath);
+        Path uploadPath = Paths.get(uploadDirectory).toAbsolutePath().normalize();
+        Files.createDirectories(uploadPath);
+        if (!Files.isDirectory(uploadPath)) {
+            throw new IOException("Upload path is not a directory");
         }
 
-        // Save file to filesystem
-        String originalFilename = file.getOriginalFilename();
-        Path filePath = uploadPath.resolve(originalFilename);
-        file.transferTo(filePath);
+        String originalFilename = safeOriginalFilename(file.getOriginalFilename());
+        Path filePath = uploadPath
+                .resolve(UUID.randomUUID() + safeExtension(originalFilename))
+                .normalize();
+        if (!filePath.startsWith(uploadPath)) {
+            throw new IOException("Resolved upload path escapes upload directory");
+        }
+        try (var input = file.getInputStream()) {
+            Files.copy(input, filePath);
+        }
 
         // Save file metadata to database
         FileData fileData = new FileData();
@@ -51,6 +58,28 @@ public class FileProcessingService {
         fileData.setProcessTime(LocalDateTime.now());
 
         return fileDataRepository.save(fileData);
+    }
+
+    private String safeOriginalFilename(String originalFilename) throws IOException {
+        if (originalFilename == null || originalFilename.isBlank()) {
+            throw new IOException("Original filename is required");
+        }
+        String name = originalFilename.trim();
+        if (name.contains("/") || name.contains("\\") || name.contains("..")) {
+            throw new IOException("Original filename must not contain path segments");
+        }
+        if (!name.matches("[A-Za-z0-9._-]+")) {
+            throw new IOException("Original filename contains unsupported characters");
+        }
+        return name;
+    }
+
+    private String safeExtension(String originalFilename) {
+        int dot = originalFilename.lastIndexOf('.');
+        if (dot < 0 || dot == originalFilename.length() - 1) {
+            return "";
+        }
+        return originalFilename.substring(dot);
     }
 
     @Transactional

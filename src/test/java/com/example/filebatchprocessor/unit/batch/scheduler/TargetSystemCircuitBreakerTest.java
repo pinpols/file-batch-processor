@@ -64,6 +64,21 @@ class TargetSystemCircuitBreakerTest {
         shared.setWindowSize(4L);
         shared.setFailureRateThreshold(0.5);
         when(repository.findByTargetSystem("flaky")).thenReturn(Optional.of(shared));
+        when(repository.incrementFailureAndOpenIfThreshold(
+                        eq("flaky"),
+                        any(LocalDateTime.class),
+                        eq(4L),
+                        eq(0.5),
+                        anyLong(),
+                        eq(2L),
+                        any(LocalDateTime.class)))
+                .thenAnswer(invocation -> {
+                    shared.setWindowFailureCount(shared.getWindowFailureCount() + 1);
+                    if (shared.getWindowFailureCount() >= 2) {
+                        shared.setStatus("OPEN");
+                    }
+                    return 1;
+                });
 
         TargetSystemCircuitBreaker breaker = new TargetSystemCircuitBreaker(repository, properties, batchMetrics);
         // Record 3 failures out of 4 -> 0.75 > 0.5
@@ -73,6 +88,41 @@ class TargetSystemCircuitBreakerTest {
         breaker.recordResult("flaky", true);
 
         verify(batchMetrics, atLeastOnce()).counter("circuit_open_total", "target", "flaky");
+    }
+
+    @Test
+    void shouldUseAtomicFailureIncrementToAvoidLostUpdates() {
+        properties.setWindowSize(4L);
+        properties.setFailureRateThreshold(0.5);
+        TargetSystemCircuitState state = new TargetSystemCircuitState();
+        state.setTargetSystem("flaky");
+        state.setStatus("CLOSED");
+        state.setWindowSize(4L);
+        state.setFailureRateThreshold(0.5);
+        when(repository.findByTargetSystem("flaky")).thenReturn(Optional.of(state));
+        when(repository.incrementFailureAndOpenIfThreshold(
+                        eq("flaky"),
+                        any(LocalDateTime.class),
+                        eq(4L),
+                        eq(0.5),
+                        anyLong(),
+                        eq(2L),
+                        any(LocalDateTime.class)))
+                .thenReturn(1);
+
+        TargetSystemCircuitBreaker breaker = new TargetSystemCircuitBreaker(repository, properties, batchMetrics);
+        breaker.recordResult("flaky", false);
+
+        verify(repository)
+                .incrementFailureAndOpenIfThreshold(
+                        eq("flaky"),
+                        any(LocalDateTime.class),
+                        eq(4L),
+                        eq(0.5),
+                        anyLong(),
+                        eq(2L),
+                        any(LocalDateTime.class));
+        verify(repository, never()).save(any(TargetSystemCircuitState.class));
     }
 
     @Test

@@ -42,4 +42,6 @@ public interface FileDispatchRecordRepository extends JpaRepository<FileDispatch
     long countByAckStatus(String ackStatus);
 
     long countByDispatchStatusInAndAckRequired(List<String> statuses, boolean ackRequired);
+
+    long countByFileRecordIdAndDispatchStatusIn(Long fileRecordId, List<String> statuses);
 }

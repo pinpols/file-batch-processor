@@ -4,7 +4,10 @@ import com.example.filebatchprocessor.model.FileAssetRecord;
 import com.example.filebatchprocessor.model.FileAssetStatus;
 import com.example.filebatchprocessor.model.FileRetentionPolicy;
 import com.example.filebatchprocessor.repository.FileAssetRecordRepository;
+import com.example.filebatchprocessor.repository.FileDispatchRecordRepository;
+import com.example.filebatchprocessor.repository.FileReceptionQueueRepository;
 import com.example.filebatchprocessor.repository.FileRetentionPolicyRepository;
+import com.example.filebatchprocessor.repository.ReceptionGroupMemberRepository;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
@@ -42,6 +45,15 @@ public class FileArchivalService {
     // #8:归档/删文件只让 leader 跑,避免多副本并发改/删同一批文件
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private SchedulerLeaderService schedulerLeaderService;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private FileDispatchRecordRepository fileDispatchRecordRepository;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private FileReceptionQueueRepository fileReceptionQueueRepository;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ReceptionGroupMemberRepository receptionGroupMemberRepository;
 
     @Scheduled(cron = "${file.archive.cron:0 0 2 * * *}")
     public void runArchiveJob() {
@@ -110,6 +122,37 @@ public class FileArchivalService {
     }
 
     private boolean hasActiveDependencies(FileAssetRecord file) {
+        if (file.getId() == null) {
+            return false;
+        }
+        if (fileDispatchRecordRepository != null
+                && fileDispatchRecordRepository.countByFileRecordIdAndDispatchStatusIn(
+                                file.getId(), List.of("PENDING", "DISPATCHING", "RETRY"))
+                        > 0) {
+            return true;
+        }
+        if (fileReceptionQueueRepository != null
+                && fileReceptionQueueRepository.countByFileRecordIdAndStatusIn(
+                                file.getId(), List.of("RECEIVED", "WAITING", "PROCESSING"))
+                        > 0) {
+            return true;
+        }
+        if (receptionGroupMemberRepository != null) {
+            try {
+                if (fileReceptionQueueRepository == null) {
+                    return false;
+                }
+                for (var queue : fileReceptionQueueRepository.findByFileRecordId(file.getId())) {
+                    if (queue.getId() != null
+                            && receptionGroupMemberRepository.countByActualQueueId(queue.getId()) > 0) {
+                        return true;
+                    }
+                }
+                return false;
+            } catch (Exception ignored) {
+                return false;
+            }
+        }
         return false;
     }
 

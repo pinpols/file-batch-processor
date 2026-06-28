@@ -93,7 +93,7 @@ VALUES ('import-excel', 'excel.sheet.name', 'Sheet1', 'STRING', 'sheet 名称，
 | 路径穿越防护 | `batch.io.input-base-dir` / `output-base-dir` | 配置后导入/导出文件限定在基目录内；留空也拒绝 `..` 逃逸 |
 | SFTP 主机密钥 | `sftp.known-hosts-path` | 默认 fail-closed(加载 known_hosts，缺失即拒连)；`sftp.insecure-skip-host-key-check=true` 仅 dev |
 | 分发 SSRF | `distribution.allowed-hosts` | HTTP/FTP 目标白名单;`distribution.block-internal-targets=true` 额外拦内网 |
-| 质量门硬闸门 | `quality.enforce`(job 参数)/`quality.enforce-default` | true 时质量门 FAIL 即把作业判 FAILED(默认软降级 PARTIAL) |
+| 质量门硬闸门 | `quality.enforce`(job 参数)/`quality.enforce-default` | 默认硬阻断；需兼容旧软降级时按作业设 `quality.enforce=false` |
 | 运维端点鉴权 | `ops.security.*`(viewer/operator/admin) | 破坏性端点限 ADMIN;生产弱口令 fail-fast |
 
 ## 多告警渠道 / 声明式映射

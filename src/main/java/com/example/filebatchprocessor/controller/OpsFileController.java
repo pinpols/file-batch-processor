@@ -212,7 +212,6 @@ public class OpsFileController {
         response.put("authorized", true);
         response.put("fileId", fileId);
         response.put("fileNo", record.getFileNo());
-        response.put("storedPath", record.getStoredPath());
         response.put("originalName", record.getOriginalName());
         response.put("operator", operator);
         response.put("expiresIn", 300);

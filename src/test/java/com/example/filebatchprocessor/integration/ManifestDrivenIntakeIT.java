@@ -69,7 +69,14 @@ class ManifestDrivenIntakeIT extends PostgresContainerSupport {
         Path file = dir.resolve(fileName);
         StringBuilder sb = new StringBuilder("id,name,description\n");
         for (int i = 1; i <= dataLines; i++) {
-            sb.append(i).append(",name").append(i).append(",desc").append(i).append('\n');
+            sb.append(i)
+                    .append(",")
+                    .append(fileName)
+                    .append("-name")
+                    .append(i)
+                    .append(",desc")
+                    .append(i)
+                    .append('\n');
         }
         Files.writeString(file, sb.toString(), StandardCharsets.UTF_8);
 
@@ -111,7 +118,10 @@ class ManifestDrivenIntakeIT extends PostgresContainerSupport {
 
         // 2) 数据文件后到:写真文件(表头 + 2 行)并经 receiveFile 入队
         Path file = dir.resolve(fa);
-        Files.writeString(file, "id,name,description\n1,name1,desc1\n2,name2,desc2\n", StandardCharsets.UTF_8);
+        Files.writeString(
+                file,
+                "id,name,description\n1," + tag + "-name1,desc1\n2," + tag + "-name2,desc2\n",
+                StandardCharsets.UTF_8);
         FileReceptionQueue saved = fileReceptionService.receiveFile(fa, file.toString(), "S");
 
         // 3) 断言:queue 行回填 receptionGroupId,对应 member.actualQueueId 回填

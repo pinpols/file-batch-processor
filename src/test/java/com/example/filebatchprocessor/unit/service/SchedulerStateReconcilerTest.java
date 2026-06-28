@@ -1,6 +1,7 @@
 package com.example.filebatchprocessor.unit.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.never;
@@ -58,7 +59,7 @@ class SchedulerStateReconcilerTest {
         TaskExecutionState stale = new TaskExecutionState();
         stale.setTaskId("task-1");
         stale.setBatchDate("2026-03-14");
-        stale.setStatus(TaskExecutionStatus.RUNNING.name());
+        stale.setStatus(TaskExecutionStatus.BLOCKED.name());
         when(taskExecutionStateRepository.findTop200ByStatusInAndUpdatedAtBefore(anyList(), any(LocalDateTime.class)))
                 .thenReturn(List.of(stale));
 
@@ -68,5 +69,37 @@ class SchedulerStateReconcilerTest {
         verify(taskExecutionStateRepository).save(stateCaptor.capture());
         assertEquals(TaskExecutionStatus.FAILED.name(), stateCaptor.getValue().getStatus());
         verify(dlqRecordRepository).save(any());
+    }
+
+    @Test
+    void shouldLeaveReadyStateToMisfirePolicy() {
+        when(schedulerLeaderService.isLeader()).thenReturn(true);
+        when(taskExecutionStateRepository.findTop200ByStatusInAndUpdatedAtBefore(anyList(), any(LocalDateTime.class)))
+                .thenReturn(List.of());
+
+        reconciler.reconcileStaleStates();
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<String>> statusesCaptor = ArgumentCaptor.forClass(List.class);
+        verify(taskExecutionStateRepository)
+                .findTop200ByStatusInAndUpdatedAtBefore(statusesCaptor.capture(), any(LocalDateTime.class));
+        assertFalse(statusesCaptor.getValue().contains(TaskExecutionStatus.READY.name()));
+    }
+
+    @Test
+    void shouldNotFailLongRunningTaskBeforeExecutionWindowEnds() {
+        when(schedulerLeaderService.isLeader()).thenReturn(true);
+        TaskExecutionState running = new TaskExecutionState();
+        running.setTaskId("task-long");
+        running.setBatchDate("2026-03-14");
+        running.setStatus(TaskExecutionStatus.RUNNING.name());
+        running.setWindowEnd(LocalDateTime.now().plusHours(2));
+        when(taskExecutionStateRepository.findTop200ByStatusInAndUpdatedAtBefore(anyList(), any(LocalDateTime.class)))
+                .thenReturn(List.of(running));
+
+        reconciler.reconcileStaleStates();
+
+        verify(taskExecutionStateRepository, never()).save(any(TaskExecutionState.class));
+        verify(dlqRecordRepository, never()).save(any());
     }
 }

@@ -9,8 +9,10 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.util.Locale;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Slf4j
@@ -19,13 +21,27 @@ public class HttpFileDistributor implements FileDistributor {
 
     private final FileDistributionService fileDistributionService;
     private final DistributionTargetValidator targetValidator;
-    private final HttpClient httpClient =
-            HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER).build();
+    private final HttpClient httpClient;
+    private final Duration requestTimeout;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public HttpFileDistributor(
+            FileDistributionService fileDistributionService,
+            DistributionTargetValidator targetValidator,
+            @Value("${distribution.http.connect-timeout-ms:5000}") long connectTimeoutMs,
+            @Value("${distribution.http.request-timeout-ms:30000}") long requestTimeoutMs) {
+        this.fileDistributionService = fileDistributionService;
+        this.targetValidator = targetValidator;
+        this.httpClient = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofMillis(Math.max(1000L, connectTimeoutMs)))
+                .followRedirects(HttpClient.Redirect.NEVER)
+                .build();
+        this.requestTimeout = Duration.ofMillis(Math.max(1000L, requestTimeoutMs));
+    }
 
     public HttpFileDistributor(
             FileDistributionService fileDistributionService, DistributionTargetValidator targetValidator) {
-        this.fileDistributionService = fileDistributionService;
-        this.targetValidator = targetValidator;
+        this(fileDistributionService, targetValidator, 5000L, 30000L);
     }
 
     @Override
@@ -63,6 +79,7 @@ public class HttpFileDistributor implements FileDistributor {
                     .uri(URI.create(url))
                     .header("Content-Type", "application/octet-stream")
                     .header("X-File-Name", task.getFileName())
+                    .timeout(requestTimeout)
                     .method(normalizedMethod, HttpRequest.BodyPublishers.ofFile(localFile.toPath()))
                     .build();
 

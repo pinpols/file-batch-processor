@@ -123,7 +123,8 @@ class OperationalTaskJobConfigIT {
         FileDistributorDispatcher fileDistributorDispatcher =
                 new FileDistributorDispatcher(List.of(new HttpFileDistributor(
                         fileDistributionService,
-                        new com.example.filebatchprocessor.service.distribution.DistributionTargetValidator(""))));
+                        new com.example.filebatchprocessor.service.distribution.DistributionTargetValidator(
+                                "127.0.0.1", false))));
 
         JobRepository jobRepository = new ResourcelessJobRepository();
         PlatformTransactionManager transactionManager = new ResourcelessTransactionManager();
