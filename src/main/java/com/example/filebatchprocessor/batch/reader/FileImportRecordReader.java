@@ -48,6 +48,12 @@ public class FileImportRecordReader implements ItemStreamReader<FileRecord>, Ste
     private final DocumentRecordReader documentReader;
     private java.util.Iterator<FileRecord> documentIterator;
     private long recordSeq = 0;
+    // feed 模式:非 null 即开启(空 list=用文件首行探测列名,非空=用注入列名并跳过文件首行)
+    private final java.util.List<String> feedHeaderColumns;
+    // feed 模式自用的分隔符(默认模式不读取)
+    private final String feedDelimiter;
+    // feed 模式解析后缓存的表头列名
+    private java.util.List<String> resolvedHeader;
 
     public FileImportRecordReader(Resource resource) {
         this(resource, 0, 1, "CSV", ",", null);
@@ -77,7 +83,31 @@ public class FileImportRecordReader implements ItemStreamReader<FileRecord>, Ste
             RecordLineParserFactory parserFactory,
             DocumentRecordReaderFactory documentReaderFactory,
             DocumentReadOptions documentReadOptions) {
+        this(
+                resource,
+                shardIndex,
+                shardTotal,
+                format,
+                delimiter,
+                parserFactory,
+                documentReaderFactory,
+                documentReadOptions,
+                null);
+    }
+
+    public FileImportRecordReader(
+            Resource resource,
+            Integer shardIndex,
+            Integer shardTotal,
+            String format,
+            String delimiter,
+            RecordLineParserFactory parserFactory,
+            DocumentRecordReaderFactory documentReaderFactory,
+            DocumentReadOptions documentReadOptions,
+            java.util.List<String> feedHeaderColumns) {
         this.resource = resource;
+        this.feedHeaderColumns = feedHeaderColumns;
+        this.feedDelimiter = (delimiter == null || delimiter.isEmpty()) ? "," : delimiter;
         this.shardIndex = shardIndex == null ? 0 : shardIndex;
         int total = shardTotal == null ? 1 : shardTotal;
         this.shardTotal = total <= 0 ? 1 : total;
@@ -119,6 +149,10 @@ public class FileImportRecordReader implements ItemStreamReader<FileRecord>, Ste
             return null;
         }
 
+        if (feedHeaderColumns != null) {
+            return readFeedLine();
+        }
+
         if (reader == null) {
             initializeReader();
         }
@@ -154,6 +188,51 @@ public class FileImportRecordReader implements ItemStreamReader<FileRecord>, Ste
                 log.error("Error parsing line {}: {}", lineCount, line, e);
                 parseErrorCount++;
             }
+        }
+    }
+
+    /** feed 模式:CSV 行 zip 成 rawValues,name/description/id 留空。 */
+    private FileRecord readFeedLine() throws Exception {
+        if (reader == null) {
+            initializeReader();
+        }
+        while (true) {
+            String line = reader.readLine();
+            if (line == null) {
+                return null;
+            }
+            lineCount++;
+
+            if (lineCount == 1) {
+                if (feedHeaderColumns.isEmpty()) {
+                    String[] cols = line.split(java.util.regex.Pattern.quote(feedDelimiter), -1);
+                    java.util.List<String> header = new java.util.ArrayList<>(cols.length);
+                    for (String c : cols) {
+                        header.add(c.trim());
+                    }
+                    resolvedHeader = header;
+                } else {
+                    resolvedHeader = feedHeaderColumns;
+                }
+                // 首行为文件表头,跳过(不产生数据)
+                continue;
+            }
+
+            if (shardingEnabled && ((lineCount - 1) % shardTotal) != shardIndex) {
+                continue;
+            }
+
+            String[] vals = line.split(java.util.regex.Pattern.quote(feedDelimiter), -1);
+            java.util.LinkedHashMap<String, Object> raw = new java.util.LinkedHashMap<>();
+            for (int i = 0; i < resolvedHeader.size(); i++) {
+                raw.put(resolvedHeader.get(i), i < vals.length ? vals[i] : null);
+            }
+            FileRecord rec = new FileRecord();
+            rec.setRawValues(raw);
+            rec.setLineNo((long) lineCount);
+            checksum.update(line.getBytes(StandardCharsets.UTF_8));
+            readCount++;
+            return rec;
         }
     }
 
