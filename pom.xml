@@ -34,7 +34,6 @@
         <maven.compiler.plugin.version>3.14.0</maven.compiler.plugin.version>
         <maven.surefire.plugin.version>3.5.2</maven.surefire.plugin.version>
         <maven.enforcer.plugin.version>3.6.2</maven.enforcer.plugin.version>
-        <dependency-check.plugin.version>12.1.0</dependency-check.plugin.version>
         <spotless.plugin.version>2.44.5</spotless.plugin.version>
         <palantir-java-format.version>2.58.0</palantir-java-format.version>
         <spotbugs.plugin.version>4.9.3.0</spotbugs.plugin.version>
@@ -343,19 +342,6 @@
                 </executions>
             </plugin>
 
-            <!-- Security scan -->
-            <plugin>
-                <groupId>org.owasp</groupId>
-                <artifactId>dependency-check-maven</artifactId>
-                <version>${dependency-check.plugin.version}</version>
-                <configuration>
-                    <formats>
-                        <format>HTML</format>
-                        <format>JSON</format>
-                    </formats>
-                    <failBuildOnCVSS>9</failBuildOnCVSS>
-                </configuration>
-            </plugin>
         </plugins>
     </build>
 

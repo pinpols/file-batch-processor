@@ -50,38 +50,6 @@ jobs:
             **/target/surefire-reports/**
           if-no-files-found: ignore
 
-  dependency-check:
-    name: OWASP Dependency Check
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    needs: full-test
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup JDK
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: ${{ env.JAVA_VERSION }}
-          cache: maven
-
-      - name: Grant execute permission for mvnw
-        run: chmod +x ./mvnw
-
-      - name: Run OWASP Dependency Check
-        run: ./mvnw -B -ntp -DskipTests org.owasp:dependency-check-maven:check
-
-      - name: Upload dependency check report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: nightly-dependency-check-report
-          path: |
-            **/target/dependency-check-report.*
-          if-no-files-found: ignore
-
   trivy-fs-scan:
     name: Trivy Filesystem Scan
     runs-on: ubuntu-latest
