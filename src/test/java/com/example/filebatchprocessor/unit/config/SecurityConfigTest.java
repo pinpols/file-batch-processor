@@ -21,8 +21,9 @@ class SecurityConfigTest {
         properties.getAdmin().setUsername("admin");
         properties.getAdmin().setPassword("{noop}admin");
 
-        UserDetailsService userDetailsService = securityConfig.userDetailsService(
-                properties, new org.springframework.core.env.StandardEnvironment());
+        org.springframework.mock.env.MockEnvironment environment = new org.springframework.mock.env.MockEnvironment();
+        environment.setActiveProfiles("test"); // 非生产:弱口令仅告警不阻断
+        UserDetailsService userDetailsService = securityConfig.userDetailsService(properties, environment);
 
         assertTrue(userDetailsService.loadUserByUsername("viewer").getAuthorities().stream()
                 .anyMatch(a -> "ROLE_VIEWER".equals(a.getAuthority())));

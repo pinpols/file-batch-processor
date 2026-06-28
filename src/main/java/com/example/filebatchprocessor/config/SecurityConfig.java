@@ -66,7 +66,7 @@ public class SecurityConfig {
     @Bean
     public UserDetailsService userDetailsService(
             OpsSecurityProperties properties, org.springframework.core.env.Environment environment) {
-        boolean prod = environment.acceptsProfiles(org.springframework.core.env.Profiles.of("prod"));
+        boolean prod = BatchProfiles.isProductionLike(environment);
         UserDetails viewer = user(properties.getViewer(), "VIEWER", prod);
         UserDetails operator = user(properties.getOperator(), "OPERATOR", prod);
         UserDetails admin = user(properties.getAdmin(), "ADMIN", prod);
@@ -75,11 +75,12 @@ public class SecurityConfig {
 
     private UserDetails user(OpsSecurityProperties.User u, String role, boolean prod) {
         String password = u.getPassword();
-        boolean weak = password == null || password.isBlank() || password.contains("change_me");
+        boolean weak = SecurityCredentials.isWeak(password);
         if (weak) {
-            // 生产:拒绝启动,杜绝 {noop}change_me_* 弱口令进生产;非生产:仅告警,不阻断本地/测试。
+            // 生产:拒绝启动,杜绝占位/弱口令进生产;非生产:仅告警,不阻断本地/测试。
             String msg = "ops.security 用户 [" + u.getUsername()
-                    + "] 口令为空或仍是占位值(change_me);生产请用环境变量配置强口令(支持 {bcrypt}/{noop} 前缀)";
+                    + "] 口令为空、命中占位符前缀,或明文长度不足("
+                    + "生产请用环境变量配置强口令,支持 {bcrypt}/{noop} 前缀)";
             if (prod) {
                 throw new IllegalStateException(msg);
             }
