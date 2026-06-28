@@ -25,7 +25,7 @@
 - **加密/压缩文件导入**：上游文件可 PGP 加密 + `.gz`/`.zip` 压缩送达；导入前解密+解压到临时明文文件再解析（PGP 完整性校验、zip-slip 防护、step 结束清理临时文件）。详见 [encrypted-compressed-intake](docs/operations/encrypted-compressed-intake.md)。
 - **清单(manifest)驱动入库**：上游送 `.manifest.json` 控制文件列出期望文件 + 条数/MD5；等一组到齐且对账通过才放行（灰度默认关）。详见 [manifest-driven-intake](docs/operations/manifest-driven-intake.md)。
 - **多告警渠道**：`AlertSender` SPI（webhook/email/IM 飞书）+ `AlertDispatcher` 失败隔离 + severity 门槛。详见 [alerting-channels](docs/operations/alerting-channels.md)。
-- **声明式映射(地基)**：`feed_definition`/`field_mapping` 配置 + `MappingEngine`（6 算子)+ `attributes JSONB`；**尚未接入导入链路**（business_key 多字段化为后续增量）。详见 [declarative-mapping](docs/operations/declarative-mapping.md)。
+- **声明式映射**：`feed_definition`/`field_mapping` 配置 + `MappingEngine`（6 算子)+ `attributes JSONB`；**已接入导入链路（feedId 路由,默认路径不变）**——job 参数带 `feedId` 走 feed 路径,按配置映射列与 business_key。详见 [declarative-mapping](docs/operations/declarative-mapping.md)。
 - **安全/可靠性加固**：export.sql 只读白名单、SSRF/路径穿越防护、SFTP 主机密钥校验、运维端点角色限制、弱口令 fail-fast；ACK 无限重发修复、熔断状态持久化、多副本 leader 门控、FIXED_DELAY 退避持久化、质量门 opt-in 硬闸门。
 
 ### 配置示例（application.yml）

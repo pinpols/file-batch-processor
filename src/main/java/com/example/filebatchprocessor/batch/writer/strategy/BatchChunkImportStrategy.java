@@ -44,9 +44,12 @@ public class BatchChunkImportStrategy implements ChunkImportStrategy {
     @Override
     public int persist(List<? extends FileRecord> records, ImportContext context) {
         List<ImportedRecordPartitioned> entities = new ArrayList<>(records.size());
+        // 主循环算出的 bizKey 与 records 同序保存,trace 循环复用,消除「两次算 key 可能不一致」的隐患。
+        List<String> orderedKeys = new ArrayList<>(records.size());
         Set<String> businessKeys = new LinkedHashSet<>();
         for (FileRecord item : records) {
-            String bizKey = context.buildBusinessKey(item.getName());
+            String bizKey = businessKeyOf(item, context);
+            orderedKeys.add(bizKey);
             businessKeys.add(bizKey);
 
             ImportedRecordPartitioned entity = new ImportedRecordPartitioned();
@@ -55,6 +58,8 @@ public class BatchChunkImportStrategy implements ChunkImportStrategy {
             entity.setDescription(item.getDescription());
             entity.setBatchDate(context.batchDate());
             entity.setSourceFileName(context.inputFileName());
+            // attributes==null 时 set null,JSONB 列保持 NULL,默认路径零影响。
+            entity.setAttributes(item.getAttributes());
             entities.add(entity);
         }
 
@@ -65,8 +70,9 @@ public class BatchChunkImportStrategy implements ChunkImportStrategy {
         // 批量回查 id,关联 trace(回查失败或缺失则 trace 的 partitionId 置空,不阻断导入)
         Map<String, Long> idByKey = partitionedImportService.findIdsByBatchDate(businessKeys, context.batchDate());
         List<RecordTrace> traces = new ArrayList<>(records.size());
-        for (FileRecord item : records) {
-            String bizKey = context.buildBusinessKey(item.getName());
+        for (int i = 0; i < records.size(); i++) {
+            FileRecord item = records.get(i);
+            String bizKey = orderedKeys.get(i);
             traces.add(buildTrace(bizKey, item.getLineNo(), idByKey.get(bizKey), context));
         }
         try {
@@ -78,6 +84,21 @@ public class BatchChunkImportStrategy implements ChunkImportStrategy {
         }
 
         return records.size();
+    }
+
+    /**
+     * 统一的 business_key 组装口径:从 FileRecord 拼 mappedRow 后交给 {@link ImportContext#buildBusinessKeyFromFields}。
+     * <p>默认(businessKeyFields=null)退回 {@code name:batchDate},与历史 {@code buildBusinessKey(name)} 字节级一致。
+     * 三处(本主循环、trace、PerRecord、Writer.dedup)必须逐字一致。
+     */
+    public static String businessKeyOf(FileRecord item, ImportContext context) {
+        Map<String, Object> row = new java.util.LinkedHashMap<>();
+        row.put("name", item.getName());
+        row.put("description", item.getDescription());
+        if (item.getAttributes() != null) {
+            row.putAll(item.getAttributes());
+        }
+        return context.buildBusinessKeyFromFields(row);
     }
 
     private RecordTrace buildTrace(String businessKey, Long lineNo, Long partitionId, ImportContext context) {

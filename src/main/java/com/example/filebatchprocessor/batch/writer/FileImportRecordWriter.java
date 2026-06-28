@@ -1,5 +1,6 @@
 package com.example.filebatchprocessor.batch.writer;
 
+import com.example.filebatchprocessor.batch.writer.strategy.BatchChunkImportStrategy;
 import com.example.filebatchprocessor.batch.writer.strategy.ChunkImportStrategy;
 import com.example.filebatchprocessor.batch.writer.strategy.ImportContext;
 import com.example.filebatchprocessor.exception.TransientImportException;
@@ -37,6 +38,8 @@ public class FileImportRecordWriter implements ItemWriter<FileRecord>, StepExecu
     private final ChunkImportStrategy fallbackStrategy;
     /** 批内去重集合的上限:达到后不再缓存新键,仅靠 DB 唯一约束兜底,避免超大文件把整张键表读进内存。 */
     private final int maxDedupKeys;
+    /** feed 模式的业务键字段列表;默认路径为 null(退回 name:batchDate)。 */
+    private final List<String> businessKeyFields;
 
     private final Set<String> seenKeys = new HashSet<>();
     private long writeCount = 0L;
@@ -48,11 +51,21 @@ public class FileImportRecordWriter implements ItemWriter<FileRecord>, StepExecu
             ChunkImportStrategy batchStrategy,
             ChunkImportStrategy fallbackStrategy,
             int maxDedupKeys) {
+        this(batchDate, batchStrategy, fallbackStrategy, maxDedupKeys, null);
+    }
+
+    public FileImportRecordWriter(
+            String batchDate,
+            ChunkImportStrategy batchStrategy,
+            ChunkImportStrategy fallbackStrategy,
+            int maxDedupKeys,
+            List<String> businessKeyFields) {
         this.batchDate =
                 StringUtils.hasText(batchDate) ? batchDate : LocalDate.now().format(BATCH_DATE_FORMATTER);
         this.batchStrategy = batchStrategy;
         this.fallbackStrategy = fallbackStrategy;
         this.maxDedupKeys = maxDedupKeys > 0 ? maxDedupKeys : Integer.MAX_VALUE;
+        this.businessKeyFields = businessKeyFields;
     }
 
     @Override
@@ -68,7 +81,7 @@ public class FileImportRecordWriter implements ItemWriter<FileRecord>, StepExecu
             log.warn("Failed to get input.file.name from job parameters", e);
             inputFileName = null;
         }
-        this.context = new ImportContext(batchDate, jobExecutionId, inputFileName);
+        this.context = new ImportContext(batchDate, jobExecutionId, inputFileName, businessKeyFields);
     }
 
     @Override
@@ -107,7 +120,8 @@ public class FileImportRecordWriter implements ItemWriter<FileRecord>, StepExecu
     private List<FileRecord> dedup(List<? extends FileRecord> items) {
         List<FileRecord> fresh = new ArrayList<>(items.size());
         for (FileRecord item : items) {
-            String bizKey = context.buildBusinessKey(item.getName());
+            // 去重口径必须与 strategy 落库口径逐字一致,否则去重与唯一索引错位。
+            String bizKey = BatchChunkImportStrategy.businessKeyOf(item, context);
             if (seenKeys.size() < maxDedupKeys) {
                 if (!seenKeys.add(bizKey)) {
                     log.debug("Skipping duplicate record in current batch: {}", bizKey);

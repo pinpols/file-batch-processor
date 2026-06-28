@@ -88,7 +88,8 @@ class FileImportJobConfigTest {
                 mock(com.example.filebatchprocessor.batch.reader.spi.RecordLineParserFactory.class),
                 mock(com.example.filebatchprocessor.batch.reader.spi.DocumentRecordReaderFactory.class),
                 filePreprocessor,
-                importTempFileHolder);
+                importTempFileHolder,
+                mock(com.example.filebatchprocessor.repository.FeedDefinitionRepository.class));
 
         // Then
         assertNotNull(reader);
@@ -111,7 +112,12 @@ class FileImportJobConfigTest {
 
         // When
         FileImportRecordWriter writer = fileImportJobConfig.importWriter(
-                jobParameters, partitionedImportService, dlqRecordRepository, recordTraceRepository);
+                jobParameters,
+                partitionedImportService,
+                dlqRecordRepository,
+                recordTraceRepository,
+                mock(com.example.filebatchprocessor.repository.FeedDefinitionRepository.class),
+                mock(com.example.filebatchprocessor.repository.FieldMappingRepository.class));
 
         // Then
         assertNotNull(writer);
@@ -212,7 +218,8 @@ class FileImportJobConfigTest {
                     mock(com.example.filebatchprocessor.batch.reader.spi.RecordLineParserFactory.class),
                     mock(com.example.filebatchprocessor.batch.reader.spi.DocumentRecordReaderFactory.class),
                     filePreprocessor,
-                    importTempFileHolder);
+                    importTempFileHolder,
+                    mock(com.example.filebatchprocessor.repository.FeedDefinitionRepository.class));
         });
     }
 }
