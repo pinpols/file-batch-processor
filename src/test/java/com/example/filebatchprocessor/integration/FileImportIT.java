@@ -12,6 +12,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
+/**
+ * 导入相关仓库的装配冒烟(context-load smoke),非端到端导入行为测试。
+ * 仅验证 Spring 上下文能起、相关 JpaRepository bean 被正确装配;真正的导入流程行为
+ * 覆盖在专门的导入流程测试中。
+ */
 @SpringBootTest
 @ActiveProfiles("test")
 class FileImportIT extends PostgresContainerSupport {
