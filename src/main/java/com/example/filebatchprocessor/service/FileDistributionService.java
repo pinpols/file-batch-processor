@@ -1,7 +1,5 @@
 package com.example.filebatchprocessor.service;
 
-import cn.hutool.extra.ftp.Ftp;
-import cn.hutool.extra.ftp.FtpMode;
 import com.example.filebatchprocessor.exception.BusinessException;
 import com.example.filebatchprocessor.exception.ErrorCode;
 import com.example.filebatchprocessor.exception.SystemException;
@@ -14,22 +12,13 @@ import com.example.filebatchprocessor.model.RecordTrace;
 import com.example.filebatchprocessor.repository.FileDistributionTaskRepository;
 import com.example.filebatchprocessor.repository.RecordTraceRepository;
 import java.io.File;
-import java.io.IOException;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
-import net.schmizz.sshj.SSHClient;
-import net.schmizz.sshj.sftp.SFTPClient;
-import net.schmizz.sshj.xfer.FileSystemFile;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -51,13 +40,6 @@ public class FileDistributionService {
     private final FileDispatchRecordService fileDispatchRecordService;
     private final FileProcessLogService fileProcessLogService;
     private final RetryCompensationService retryCompensationService;
-    private final HttpClient httpClient = HttpClient.newBuilder().build();
-
-    @org.springframework.beans.factory.annotation.Value("${sftp.known-hosts-path:}")
-    private String sftpKnownHostsPath;
-
-    @org.springframework.beans.factory.annotation.Value("${sftp.insecure-skip-host-key-check:false}")
-    private boolean sftpInsecureSkipHostKeyCheck;
 
     @Autowired
     public FileDistributionService(
@@ -291,185 +273,6 @@ public class FileDistributionService {
     public List<FileDistributionTask> findTimeoutTasks(int minutesTimeout) {
         LocalDateTime threshold = LocalDateTime.now().minus(minutesTimeout, ChronoUnit.MINUTES);
         return fileDistributionTaskRepository.findTimeoutTasks(threshold);
-    }
-
-    public void distributeBySFTP(
-            Long taskId, String host, int port, String username, String password, String remoteDir) {
-        distributeBySFTP(taskId, host, port, username, password, remoteDir, null);
-    }
-
-    public void distributeBySFTP(
-            Long taskId,
-            String host,
-            int port,
-            String username,
-            String password,
-            String remoteDir,
-            Long jobInstanceId) {
-        log.info("Distributing via SFTP: taskId={}, host={}", taskId, host);
-
-        SSHClient sshClient = new SSHClient();
-        try {
-            markAsInProgress(taskId, jobInstanceId);
-
-            FileDistributionTask taskFile = loadTask(taskId);
-            File localFile = new File(taskFile.getFilePath());
-            if (!localFile.exists()) {
-                throw new BusinessException(ErrorCode.NOT_FOUND, "Local file not found: " + taskFile.getFilePath());
-            }
-
-            com.example.filebatchprocessor.service.distribution.SftpHostKeyVerification.apply(
-                    sshClient, sftpKnownHostsPath, sftpInsecureSkipHostKeyCheck);
-            sshClient.connect(host, port);
-            sshClient.authPassword(username, password);
-            try (SFTPClient sftpClient = sshClient.newSFTPClient()) {
-                try {
-                    sftpClient.statExistence(remoteDir);
-                    if (sftpClient.statExistence(remoteDir) == null) {
-                        sftpClient.mkdirs(remoteDir);
-                    }
-                } catch (IOException e) {
-                    throw new IOException("Failed to access or create remote dir: " + remoteDir, e);
-                }
-                String remotePath = remoteDir.endsWith("/")
-                        ? remoteDir + localFile.getName()
-                        : remoteDir + "/" + localFile.getName();
-                sftpClient.put(new FileSystemFile(localFile), remotePath);
-            }
-
-            markAsSuccess(taskId, jobInstanceId, false, null, null);
-        } catch (BusinessException e) {
-            log.warn("SFTP distribution failed (business) for task: {}", taskId, e);
-            markAsFailed(taskId, "SFTP transfer failed: " + e.getMessage(), jobInstanceId);
-        } catch (Exception e) {
-            log.error("SFTP distribution failed for task: {}", taskId, e);
-            markAsFailed(taskId, "SFTP transfer failed: " + e.getMessage(), jobInstanceId);
-        } finally {
-            if (sshClient.isConnected()) {
-                try {
-                    sshClient.disconnect();
-                } catch (IOException e) {
-                    log.warn("Failed to disconnect SSH client for task {}", taskId, e);
-                }
-            }
-        }
-    }
-
-    public void distributeByHTTP(Long taskId, String url, String method) {
-        distributeByHTTP(taskId, url, method, null);
-    }
-
-    public void distributeByHTTP(Long taskId, String url, String method, Long jobInstanceId) {
-        log.info("Distributing via HTTP: taskId={}, url={}", taskId, url);
-
-        try {
-            markAsInProgress(taskId, jobInstanceId);
-            FileDistributionTask task = loadTask(taskId);
-
-            if (task.getFilePath() == null || task.getFilePath().isBlank()) {
-                throw new BusinessException(ErrorCode.INVALID_ARGUMENT, "Local file path is required");
-            }
-            File localFile = new File(task.getFilePath());
-            if (!localFile.exists()) {
-                throw new BusinessException(ErrorCode.NOT_FOUND, "Local file not found: " + task.getFilePath());
-            }
-            if (url == null || url.isBlank()) {
-                throw new BusinessException(ErrorCode.INVALID_ARGUMENT, "HTTP target URL is required");
-            }
-
-            String normalizedMethod = (method == null || method.isBlank()) ? "POST" : method.toUpperCase(Locale.ROOT);
-            if (!"POST".equals(normalizedMethod) && !"PUT".equals(normalizedMethod)) {
-                throw new BusinessException(ErrorCode.INVALID_ARGUMENT, "Unsupported HTTP method: " + normalizedMethod);
-            }
-
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(url))
-                    .header("Content-Type", "application/octet-stream")
-                    .header("X-File-Name", task.getFileName())
-                    .method(normalizedMethod, HttpRequest.BodyPublishers.ofFile(localFile.toPath()))
-                    .build();
-
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() >= 200 && response.statusCode() < 300) {
-                markAsSuccess(
-                        taskId,
-                        jobInstanceId,
-                        false,
-                        null,
-                        Map.of(
-                                "httpStatus", response.statusCode(),
-                                "responseBody", truncate(response.body(), 1000)));
-            } else {
-                markAsFailed(taskId, "HTTP transfer failed with status " + response.statusCode(), jobInstanceId);
-            }
-        } catch (BusinessException e) {
-            log.warn("HTTP distribution failed (business) for task: {}", taskId, e);
-            markAsFailed(taskId, "HTTP transfer failed: " + e.getMessage(), jobInstanceId);
-        } catch (Exception e) {
-            log.error("HTTP distribution failed for task: {}", taskId, e);
-            markAsFailed(taskId, "HTTP transfer failed: " + e.getMessage(), jobInstanceId);
-        }
-    }
-
-    public void distributeByFTP(
-            Long taskId, String host, int port, String username, String password, String remoteDir) {
-        distributeByFTP(taskId, host, port, username, password, remoteDir, null);
-    }
-
-    public void distributeByFTP(
-            Long taskId,
-            String host,
-            int port,
-            String username,
-            String password,
-            String remoteDir,
-            Long jobInstanceId) {
-        log.info("Distributing via FTP: taskId={}, host={}", taskId, host);
-        Ftp ftp = null;
-        try {
-            markAsInProgress(taskId, jobInstanceId);
-            FileDistributionTask task = loadTask(taskId);
-
-            if (task.getFilePath() == null || task.getFilePath().isBlank()) {
-                throw new BusinessException(ErrorCode.INVALID_ARGUMENT, "Local file path is required");
-            }
-            File localFile = new File(task.getFilePath());
-            if (!localFile.exists()) {
-                throw new BusinessException(ErrorCode.NOT_FOUND, "Local file not found: " + task.getFilePath());
-            }
-            if (host == null || host.isBlank()) {
-                throw new BusinessException(ErrorCode.INVALID_ARGUMENT, "FTP host is required");
-            }
-            if (username == null || username.isBlank()) {
-                throw new BusinessException(ErrorCode.INVALID_ARGUMENT, "FTP username is required");
-            }
-            if (password == null) {
-                throw new BusinessException(ErrorCode.INVALID_ARGUMENT, "FTP password is required");
-            }
-
-            String targetDir = (remoteDir == null || remoteDir.isBlank()) ? "/" : remoteDir;
-            ftp = new Ftp(host, port, username, password, null, null, null, FtpMode.Active);
-
-            boolean uploaded = ftp.upload(targetDir, localFile);
-            if (!uploaded) {
-                throw new SystemException(ErrorCode.INTERNAL_ERROR, "FTP upload returned false");
-            }
-            markAsSuccess(taskId, jobInstanceId, false, null, null);
-        } catch (BusinessException e) {
-            log.warn("FTP distribution failed (business) for task: {}", taskId, e);
-            markAsFailed(taskId, "FTP transfer failed: " + e.getMessage(), jobInstanceId);
-        } catch (Exception e) {
-            log.error("FTP distribution failed for task: {}", taskId, e);
-            markAsFailed(taskId, "FTP transfer failed: " + e.getMessage(), jobInstanceId);
-        } finally {
-            if (ftp != null) {
-                try {
-                    ftp.close();
-                } catch (IOException e) {
-                    log.warn("Failed to close FTP client for taskId={}", taskId, e);
-                }
-            }
-        }
     }
 
     @Transactional
@@ -997,12 +800,5 @@ public class FileDistributionService {
             extra.put("ackPayload", ackPayload);
         }
         return extra;
-    }
-
-    private String truncate(String value, int maxLength) {
-        if (value == null || value.length() <= maxLength) {
-            return value;
-        }
-        return value.substring(0, maxLength);
     }
 }
