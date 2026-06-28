@@ -96,15 +96,34 @@ public class DistributionTargetValidator {
     private boolean isPrivateOrMetadata(InetAddress addr) {
         byte[] b = addr.getAddress();
         if (b.length == 4) {
-            int o0 = b[0] & 0xff;
-            int o1 = b[1] & 0xff;
-            // 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 100.64.0.0/10(CGNAT), 169.254.0.0/16(含元数据)
-            if (o0 == 10) return true;
-            if (o0 == 172 && o1 >= 16 && o1 <= 31) return true;
-            if (o0 == 192 && o1 == 168) return true;
-            if (o0 == 100 && o1 >= 64 && o1 <= 127) return true;
-            if (o0 == 169 && o1 == 254) return true;
+            return isPrivateIpv4(b[0] & 0xff, b[1] & 0xff);
         }
+        if (b.length == 16) {
+            // IPv4-mapped IPv6(::ffff:a.b.c.d):前 10 字节 0,11-12 字节 0xff → 按末 4 字节复用 IPv4 规则
+            boolean ipv4Mapped = (b[10] & 0xff) == 0xff && (b[11] & 0xff) == 0xff;
+            for (int i = 0; i < 10 && ipv4Mapped; i++) {
+                if (b[i] != 0) {
+                    ipv4Mapped = false;
+                }
+            }
+            if (ipv4Mapped) {
+                return isPrivateIpv4(b[12] & 0xff, b[13] & 0xff);
+            }
+            // ULA fc00::/7
+            if ((b[0] & 0xfe) == 0xfc) return true;
+            // IPv6 link-local fe80::/10(isLinkLocalAddress 已覆盖,冗余兜底)
+            if ((b[0] & 0xff) == 0xfe && (b[1] & 0xc0) == 0x80) return true;
+        }
+        return false;
+    }
+
+    /** IPv4 私网/元数据判定:10/8、172.16-31、192.168/16、100.64-127(CGNAT)、169.254/16(含元数据)。 */
+    private boolean isPrivateIpv4(int o0, int o1) {
+        if (o0 == 10) return true;
+        if (o0 == 172 && o1 >= 16 && o1 <= 31) return true;
+        if (o0 == 192 && o1 == 168) return true;
+        if (o0 == 100 && o1 >= 64 && o1 <= 127) return true;
+        if (o0 == 169 && o1 == 254) return true;
         return false;
     }
 }
