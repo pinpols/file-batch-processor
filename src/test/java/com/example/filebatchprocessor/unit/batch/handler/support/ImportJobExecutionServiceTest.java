@@ -37,23 +37,23 @@ class ImportJobExecutionServiceTest {
     void shouldCompleteWithoutRetry() throws Exception {
         JobExecution execution = mock(JobExecution.class);
         when(execution.getStatus()).thenReturn(BatchStatus.COMPLETED);
-        when(jobOperator.start(eq(job), any(JobParameters.class))).thenReturn(execution);
+        when(jobOperator.run(eq(job), any(JobParameters.class))).thenReturn(execution);
 
         BatchStatus status = service.executeWithRetry(job, params, 0, 1, 0, 0);
         assertEquals(BatchStatus.COMPLETED, status);
-        verify(jobOperator, times(1)).start(eq(job), any(JobParameters.class));
+        verify(jobOperator, times(1)).run(eq(job), any(JobParameters.class));
     }
 
     @Test
     void shouldRetryAndThenSucceed() throws Exception {
         JobExecution success = mock(JobExecution.class);
         when(success.getStatus()).thenReturn(BatchStatus.COMPLETED);
-        when(jobOperator.start(eq(job), any(JobParameters.class)))
+        when(jobOperator.run(eq(job), any(JobParameters.class)))
                 .thenThrow(new RuntimeException("boom"))
                 .thenReturn(success);
 
         BatchStatus status = service.executeWithRetry(job, params, 1, 1, 10_000, 0);
         assertEquals(BatchStatus.COMPLETED, status);
-        verify(jobOperator, times(2)).start(eq(job), any(JobParameters.class));
+        verify(jobOperator, times(2)).run(eq(job), any(JobParameters.class));
     }
 }

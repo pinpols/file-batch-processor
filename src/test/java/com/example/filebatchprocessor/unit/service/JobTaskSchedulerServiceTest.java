@@ -59,7 +59,7 @@ class JobTaskSchedulerServiceTest {
         JobExecution execution = mock(JobExecution.class);
         when(execution.getId()).thenReturn(1001L);
         when(execution.getStatus()).thenReturn(BatchStatus.COMPLETED);
-        when(jobOperator.start(eq(job), any(JobParameters.class))).thenReturn(execution);
+        when(jobOperator.run(eq(job), any(JobParameters.class))).thenReturn(execution);
 
         Map<String, Object> requestParams = new HashMap<>();
         requestParams.put("source", "manual");
@@ -71,7 +71,7 @@ class JobTaskSchedulerServiceTest {
         assertTrue(result.contains("jobName=fileImportJob"));
         assertTrue(result.contains("executionId=1001"));
 
-        verify(jobOperator).start(eq(job), any(JobParameters.class));
+        verify(jobOperator).run(eq(job), any(JobParameters.class));
     }
 
     @Test
@@ -102,7 +102,7 @@ class JobTaskSchedulerServiceTest {
         JobExecution execution = mock(JobExecution.class);
         when(execution.getId()).thenReturn(2002L);
         when(execution.getStatus()).thenReturn(BatchStatus.STARTING);
-        when(jobOperator.start(eq(job), any(JobParameters.class))).thenReturn(execution);
+        when(jobOperator.run(eq(job), any(JobParameters.class))).thenReturn(execution);
 
         String result = service.triggerJob("dataExportJob", Map.of("batchDate", "2026-03-14"), "tester");
 

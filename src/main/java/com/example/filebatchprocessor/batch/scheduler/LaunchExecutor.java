@@ -203,7 +203,7 @@ public class LaunchExecutor {
     private JobExecution runAndWarnIfSlow(Job job, JobParameters parameters, long launchWarnThresholdMs)
             throws Exception {
         long startedAtMs = System.currentTimeMillis();
-        JobExecution execution = jobOperator.start(job, parameters);
+        JobExecution execution = jobOperator.run(job, parameters);
         if (launchWarnThresholdMs > 0) {
             long elapsedMs = System.currentTimeMillis() - startedAtMs;
             if (elapsedMs > launchWarnThresholdMs) {

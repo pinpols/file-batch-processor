@@ -62,7 +62,7 @@ class BatchE2ERegressionIT extends PostgresContainerSupport {
                 "id,name,description\n" + "1,alice,first\n" + "2,alice,duplicate name\n" + "3,bob,second\n",
                 StandardCharsets.UTF_8);
 
-        JobExecution firstImport = jobOperator.start(
+        JobExecution firstImport = jobOperator.run(
                 fileImportJob,
                 new JobParametersBuilder()
                         .addLong("time", System.currentTimeMillis())
@@ -74,7 +74,7 @@ class BatchE2ERegressionIT extends PostgresContainerSupport {
         assertEquals(BatchStatus.COMPLETED, firstImport.getStatus());
         assertEquals(2L, partitionedRepository.countByBatchDate(batchDate));
 
-        JobExecution secondImport = jobOperator.start(
+        JobExecution secondImport = jobOperator.run(
                 fileImportJob,
                 new JobParametersBuilder()
                         .addLong("time", System.currentTimeMillis() + 1)
@@ -123,7 +123,7 @@ class BatchE2ERegressionIT extends PostgresContainerSupport {
         importedRecordRepository.saveAll(plainRows);
 
         Path output = Files.createTempFile("batch-e2e-export", ".csv");
-        JobExecution exportExecution = jobOperator.start(
+        JobExecution exportExecution = jobOperator.run(
                 dataExportJob,
                 new JobParametersBuilder()
                         .addLong("time", System.currentTimeMillis() + 2)

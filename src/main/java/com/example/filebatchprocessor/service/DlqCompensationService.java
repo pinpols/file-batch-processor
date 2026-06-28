@@ -213,7 +213,7 @@ public class DlqCompensationService {
                 builder.addString(key, value);
             });
 
-            JobExecution execution = jobOperator.start(replayJob, builder.toJobParameters());
+            JobExecution execution = jobOperator.run(replayJob, builder.toJobParameters());
             return new ReplayOutcome(
                     businessInstance.getId(),
                     execution.getId(),

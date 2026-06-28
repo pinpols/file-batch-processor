@@ -134,7 +134,6 @@ class OperationalTaskJobConfigIT {
         TaskExecutorJobOperator jobOperator = new TaskExecutorJobOperator();
         jobOperator.setJobRepository(jobRepository);
         jobOperator.setTaskExecutor(new SyncTaskExecutor());
-        jobOperator.afterPropertiesSet();
 
         Tasklet partitionedImportTasklet =
                 config.partitionedImportTasklet(importedRecordRepository, partitionedImportService);
@@ -166,7 +165,7 @@ class OperationalTaskJobConfigIT {
 
         FileReceptionQueue queue = fileReceptionService.receiveFile("reception.csv", source.toString(), "ERP");
 
-        JobExecution execution = jobs.jobOperator.start(
+        JobExecution execution = jobs.jobOperator.run(
                 jobs.fileReceptionJob,
                 new JobParametersBuilder().addLong("run.id", System.nanoTime()).toJobParameters());
 
@@ -196,7 +195,7 @@ class OperationalTaskJobConfigIT {
         FileDistributionTask task = fileDistributionService.createDistributionTask(
                 "distribution.csv", payload.toString(), "HTTP", targetUrl);
 
-        JobExecution execution = jobs.jobOperator.start(
+        JobExecution execution = jobs.jobOperator.run(
                 jobs.fileDistributionJob,
                 new JobParametersBuilder().addLong("run.id", System.nanoTime()).toJobParameters());
 
@@ -221,7 +220,7 @@ class OperationalTaskJobConfigIT {
         record.setBatchDate(batchDate);
         importedRecordRepository.save(record);
 
-        JobExecution execution = jobs.jobOperator.start(
+        JobExecution execution = jobs.jobOperator.run(
                 jobs.partitionedImportJob,
                 new JobParametersBuilder()
                         .addString("batchDate", batchDate)
@@ -254,7 +253,7 @@ class OperationalTaskJobConfigIT {
         row.setUpdatedAt(LocalDateTime.now());
         importedRecordPartitionedRepository.save(row);
 
-        JobExecution execution = jobs.jobOperator.start(
+        JobExecution execution = jobs.jobOperator.run(
                 jobs.fileExportJob,
                 new JobParametersBuilder()
                         .addString("batchDate", batchDate)

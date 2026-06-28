@@ -153,7 +153,7 @@ class DagOrchestratorServiceTest {
         execution.setStatus(BatchStatus.COMPLETED);
         StepExecution stepExecution = new StepExecution(12L, "s1", execution);
         execution.addStepExecutions(List.of(stepExecution));
-        when(jobOperator.start(any(Job.class), any())).thenReturn(execution);
+        when(jobOperator.run(any(Job.class), any())).thenReturn(execution);
 
         when(dagRunRepository.save(any(DagRun.class))).thenAnswer(invocation -> {
             DagRun run = invocation.getArgument(0);

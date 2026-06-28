@@ -58,7 +58,7 @@ public class DefaultReceptionImportTrigger implements ReceptionImportTrigger {
         fileReceptionService.markAsProcessing(queueId);
         JobExecution execution;
         try {
-            execution = jobOperator.start(fileImportJob, jobParameters(queue));
+            execution = jobOperator.run(fileImportJob, jobParameters(queue));
         } catch (Exception e) {
             fileReceptionService.markAsFailed(queueId, e.getMessage());
             throw new IllegalStateException("failed to trigger reception import: queueId=" + queueId, e);

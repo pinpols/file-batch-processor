@@ -75,7 +75,7 @@ class DeclarativeMappingWiringIT extends PostgresContainerSupport {
         if (feedId != null) {
             builder.addString("feedId", feedId);
         }
-        return jobOperator.start(fileImportJob, builder.toJobParameters());
+        return jobOperator.run(fileImportJob, builder.toJobParameters());
     }
 
     /** business_key 去掉结尾 {@code ":"+batchDate}(对照口径)。 */

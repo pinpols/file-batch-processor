@@ -59,7 +59,7 @@ class ReconcileJobConfigIT extends PostgresContainerSupport {
         Path csv = Files.createTempFile("reconcile", ".csv");
         Files.writeString(csv, "id,name,description\n" + "1,Alice,x\n" + "2,Bob,y\n", StandardCharsets.UTF_8);
 
-        JobExecution execution = jobOperator.start(
+        JobExecution execution = jobOperator.run(
                 reconcileImportJob,
                 new JobParametersBuilder()
                         .addLong("time", System.currentTimeMillis())
@@ -106,7 +106,7 @@ class ReconcileJobConfigIT extends PostgresContainerSupport {
         Path csv = Files.createTempFile("reconcile-match", ".csv");
         Files.writeString(csv, "id,name,description\n" + "2,bob,second\n" + "1,alice,first\n", StandardCharsets.UTF_8);
 
-        JobExecution execution = jobOperator.start(
+        JobExecution execution = jobOperator.run(
                 reconcileImportJob,
                 new JobParametersBuilder()
                         .addLong("time", System.currentTimeMillis())

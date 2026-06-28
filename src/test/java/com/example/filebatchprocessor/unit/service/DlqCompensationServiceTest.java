@@ -63,7 +63,7 @@ class DlqCompensationServiceTest {
         businessJobInstance.setId(900L);
         businessJobInstance.setJobInstanceNo("JOB-900");
         when(jobInstanceService.createTriggeredInstance(any())).thenReturn(businessJobInstance);
-        when(jobOperator.start(any(Job.class), any(JobParameters.class)))
+        when(jobOperator.run(any(Job.class), any(JobParameters.class)))
                 .thenReturn(new JobExecution(
                         123L, new JobInstance(124L, BatchJobNames.FILE_IMPORT_JOB), new JobParameters()));
 

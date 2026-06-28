@@ -77,7 +77,7 @@ class CompleteBusinessFlowE2ETest extends PostgresContainerSupport {
                 .addString("batchDate", batchDate)
                 .toJobParameters();
 
-        JobExecution importExecution = jobOperator.start(fileImportJob, importParams);
+        JobExecution importExecution = jobOperator.run(fileImportJob, importParams);
         assertEquals(COMPLETED, importExecution.getStatus());
 
         List<ImportedRecordPartitioned> importedRecords =
@@ -105,7 +105,7 @@ class CompleteBusinessFlowE2ETest extends PostgresContainerSupport {
                 .addString("batchDate", batchDate)
                 .toJobParameters();
 
-        JobExecution importExecution = jobOperator.start(fileImportJob, importParams);
+        JobExecution importExecution = jobOperator.run(fileImportJob, importParams);
         assertEquals(COMPLETED, importExecution.getStatus());
 
         List<ImportedRecordPartitioned> importedRecords =

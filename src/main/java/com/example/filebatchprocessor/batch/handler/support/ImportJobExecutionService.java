@@ -64,13 +64,13 @@ public class ImportJobExecutionService {
 
     private BatchStatus runWithTimeout(Job job, JobParameters params, long timeoutMs) throws Exception {
         if (timeoutMs <= 0) {
-            JobExecution execution = jobOperator.start(job, params);
+            JobExecution execution = jobOperator.run(job, params);
             return execution.getStatus();
         }
         CompletableFuture<JobExecution> future = CompletableFuture.supplyAsync(
                 () -> {
                     try {
-                        return jobOperator.start(job, params);
+                        return jobOperator.run(job, params);
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     }

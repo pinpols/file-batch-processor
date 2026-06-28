@@ -77,7 +77,7 @@ class EndToEndPerformanceE2ETest extends PostgresContainerSupport {
                 .addString("batchDate", batchDate)
                 .toJobParameters();
 
-        JobExecution execution = jobOperator.start(fileImportJob, params);
+        JobExecution execution = jobOperator.run(fileImportJob, params);
         long duration = System.currentTimeMillis() - start;
 
         assertEquals(COMPLETED, execution.getStatus());

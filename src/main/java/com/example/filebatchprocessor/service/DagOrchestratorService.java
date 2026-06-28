@@ -242,7 +242,7 @@ public class DagOrchestratorService {
                 false,
                 null);
         try {
-            JobExecution execution = jobOperator.start(job, builder.toJobParameters());
+            JobExecution execution = jobOperator.run(job, builder.toJobParameters());
             BatchStatus status = execution.getStatus();
             TaskExecutionStatus normalized = convertBatchStatus(status, execution.getStepExecutions());
             taskExecutionStateService.upsert(

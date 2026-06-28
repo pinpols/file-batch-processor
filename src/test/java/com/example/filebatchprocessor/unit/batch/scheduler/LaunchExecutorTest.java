@@ -74,7 +74,7 @@ class LaunchExecutorTest {
         when(jobResolver.resolve("jobA"))
                 .thenReturn(Optional.of(new BatchJobResolver.ResolvedJob("jobA", "jobA", job)));
         when(jobInstanceService.createTriggeredInstance(any())).thenReturn(businessJobInstance);
-        when(jobOperator.start(eq(job), any())).thenReturn(execution);
+        when(jobOperator.run(eq(job), any())).thenReturn(execution);
 
         LaunchExecutor launchExecutor =
                 new LaunchExecutor(jobOperator, jobResolver, jobInstanceService, new Semaphore(1), 1, 1000);
@@ -84,7 +84,7 @@ class LaunchExecutorTest {
         LaunchExecutor.LaunchResult result = launchExecutor.launch(def, "2026-03-01", 0);
         assertTrue(result.isSuccess());
         verify(jobInstanceService).createTriggeredInstance(any());
-        verify(jobOperator, atLeastOnce()).start(eq(job), any());
+        verify(jobOperator, atLeastOnce()).run(eq(job), any());
     }
 
     @Test

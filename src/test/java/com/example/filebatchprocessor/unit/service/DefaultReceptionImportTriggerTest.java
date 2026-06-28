@@ -58,13 +58,13 @@ class DefaultReceptionImportTriggerTest {
 
         when(queueRepository.findById(42L)).thenReturn(Optional.of(queue));
         when(groupRepository.findById(7L)).thenReturn(Optional.of(group));
-        when(jobOperator.start(any(Job.class), any(JobParameters.class))).thenReturn(execution);
+        when(jobOperator.run(any(Job.class), any(JobParameters.class))).thenReturn(execution);
 
         DefaultReceptionImportTrigger trigger = trigger();
         trigger.triggerImport(42L);
 
         ArgumentCaptor<JobParameters> paramsCaptor = ArgumentCaptor.forClass(JobParameters.class);
-        verify(jobOperator).start(any(Job.class), paramsCaptor.capture());
+        verify(jobOperator).run(any(Job.class), paramsCaptor.capture());
         JobParameters params = paramsCaptor.getValue();
         assertThat(params.getString(ImportJobParams.KEY_INPUT_FILE_NAME)).isEqualTo("C:/inbox/daily.xlsx");
         assertThat(params.getString(ImportJobParams.KEY_BATCH_DATE)).isEqualTo("2026-03-14");
@@ -83,7 +83,7 @@ class DefaultReceptionImportTriggerTest {
 
         trigger().triggerImport(42L);
 
-        verify(jobOperator, never()).start(any(Job.class), any(JobParameters.class));
+        verify(jobOperator, never()).run(any(Job.class), any(JobParameters.class));
         verify(fileReceptionService, never()).markAsProcessing(any());
     }
 

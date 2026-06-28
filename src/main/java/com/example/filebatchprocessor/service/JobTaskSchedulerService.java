@@ -74,7 +74,7 @@ public class JobTaskSchedulerService {
             businessJobInstanceId = businessInstance.getId();
             JobParameters jobParameters = buildJobParameters(
                     mergedParameters, businessInstance.getId(), businessInstance.getJobInstanceNo(), triggeredBy);
-            JobExecution execution = jobOperator.start(job, jobParameters);
+            JobExecution execution = jobOperator.run(job, jobParameters);
             return "Job triggered: taskId="
                     + taskId
                     + ", jobName="
