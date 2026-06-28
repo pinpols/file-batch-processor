@@ -41,8 +41,15 @@ public class MappingImportProcessor implements ItemProcessor<FileRecord, FileRec
             return delegate.process(record);
         }
 
-        // feed 模式
-        Map<String, Object> mapped = mappingEngine.apply(rules, record.getRawValues());
+        // feed 模式:required 字段缺失时 MappingEngine 抛 IllegalArgumentException,
+        // 包成 RecordValidationException 以走 step 的 skip 机制(与默认 processor 对坏行的处理对齐),
+        // 否则 feed 路径会因单条坏行整 job 失败,而默认路径只跳该行——两条路径行为必须对等。
+        final Map<String, Object> mapped;
+        try {
+            mapped = mappingEngine.apply(rules, record.getRawValues());
+        } catch (IllegalArgumentException e) {
+            throw new RecordValidationException(e.getMessage());
+        }
 
         FileRecord out = new FileRecord();
         out.setId(record.getId());

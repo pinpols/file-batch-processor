@@ -86,4 +86,17 @@ class MappingImportProcessorTest {
     void nullRecordThrows() {
         assertThrows(RecordValidationException.class, () -> processor(List.of()).process(null));
     }
+
+    @Test
+    void feedModeRequiredFieldMissingThrowsRecordValidationNotIllegalArgument() {
+        // required 字段缺失:MappingEngine 抛 IllegalArgumentException,processor 须包成
+        // RecordValidationException 以走 step skip(与默认路径对坏行的处理对等),而非让整 job 失败。
+        var rules = List.of(new MappingRule("c_name", "name", TransformOp.NONE, null, true));
+        FileRecord in = new FileRecord();
+        Map<String, Object> raw = new LinkedHashMap<>();
+        raw.put("c_name", ""); // required 但空白
+        in.setRawValues(raw);
+
+        assertThrows(RecordValidationException.class, () -> processor(rules).process(in));
+    }
 }
