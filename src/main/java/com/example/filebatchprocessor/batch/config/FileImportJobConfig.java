@@ -7,6 +7,7 @@ import com.example.filebatchprocessor.batch.preprocess.ImportTempFileHolder;
 import com.example.filebatchprocessor.batch.preprocess.PreprocessResult;
 import com.example.filebatchprocessor.batch.preprocess.TempFileManager;
 import com.example.filebatchprocessor.batch.processor.FileImportRecordProcessor;
+import com.example.filebatchprocessor.batch.processor.MappingImportProcessor;
 import com.example.filebatchprocessor.batch.reader.FileImportRecordReader;
 import com.example.filebatchprocessor.batch.reader.spi.DocumentReadOptions;
 import com.example.filebatchprocessor.batch.reader.spi.DocumentRecordReaderFactory;
@@ -18,12 +19,19 @@ import com.example.filebatchprocessor.batch.writer.strategy.PerRecordChunkImport
 import com.example.filebatchprocessor.exception.RecordValidationException;
 import com.example.filebatchprocessor.exception.TransientImportException;
 import com.example.filebatchprocessor.listener.JobCompletionNotificationListener;
+import com.example.filebatchprocessor.mapping.MappingEngine;
+import com.example.filebatchprocessor.mapping.TransformOp;
+import com.example.filebatchprocessor.model.FeedDefinition;
+import com.example.filebatchprocessor.model.FieldMapping;
 import com.example.filebatchprocessor.model.FileRecord;
 import com.example.filebatchprocessor.params.ImportJobParams;
 import com.example.filebatchprocessor.repository.DlqRecordRepository;
+import com.example.filebatchprocessor.repository.FeedDefinitionRepository;
+import com.example.filebatchprocessor.repository.FieldMappingRepository;
 import com.example.filebatchprocessor.repository.RecordTraceRepository;
 import com.example.filebatchprocessor.service.DlqCompensationService;
 import com.example.filebatchprocessor.service.PartitionedImportService;
+import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.configuration.annotation.StepScope;
@@ -84,7 +92,9 @@ public class FileImportJobConfig {
             RecordLineParserFactory recordLineParserFactory,
             DocumentRecordReaderFactory documentReaderFactory,
             FilePreprocessor filePreprocessor,
-            ImportTempFileHolder tempFileHolder) {
+            ImportTempFileHolder tempFileHolder,
+            FeedDefinitionRepository feedDefinitionRepository,
+            FieldMappingRepository fieldMappingRepository) {
 
         ImportJobParams params = ImportJobParams.from(jobParameters);
         params.validateForReader();
@@ -107,6 +117,31 @@ public class FileImportJobConfig {
         } else {
             throw new IllegalArgumentException("input.file.name is required; default sample file is disabled");
         }
+
+        String feedId = params.getFeedId();
+        if (StringUtils.hasText(feedId)) {
+            FeedDefinition feed = feedDefinitionRepository
+                    .findByFeedIdAndEnabledTrue(feedId)
+                    .orElseThrow(() -> new IllegalArgumentException("unknown or disabled feedId: " + feedId));
+            String fmt = feed.getFormat() == null ? "CSV" : feed.getFormat().toUpperCase();
+            if (!"CSV".equals(fmt)) {
+                throw new IllegalArgumentException(
+                        "feed 模式当前仅支持 CSV: feedId=" + feedId + " format=" + fmt);
+            }
+            String feedDelimiter = StringUtils.hasText(feed.getDelimiter()) ? feed.getDelimiter() : ",";
+            // feed 模式:用 9 参构造器,feedHeaderColumns 传空 list(自动探测文件首行表头)
+            return new FileImportRecordReader(
+                    resource,
+                    params.getShardIndex(),
+                    params.getShardTotal(),
+                    "CSV",
+                    feedDelimiter,
+                    recordLineParserFactory,
+                    documentReaderFactory,
+                    new DocumentReadOptions(params.getExcelSheetIndex(), params.getExcelSheetName()),
+                    java.util.List.of());
+        }
+
         return new FileImportRecordReader(
                 resource,
                 params.getShardIndex(),
@@ -127,7 +162,9 @@ public class FileImportJobConfig {
             @Value("#{jobParameters}") Map<String, Object> jobParameters,
             PartitionedImportService partitionedImportService,
             DlqRecordRepository dlqRecordRepository,
-            RecordTraceRepository recordTraceRepository) {
+            RecordTraceRepository recordTraceRepository,
+            FeedDefinitionRepository feedDefinitionRepository,
+            FieldMappingRepository fieldMappingRepository) {
         ImportJobParams params = ImportJobParams.from(jobParameters);
         params.validateForWriter();
         // Strategy 模式:批量快路径 + 逐条降级路径,由 writer 作为 Context 选择
@@ -135,7 +172,48 @@ public class FileImportJobConfig {
                 new BatchChunkImportStrategy(partitionedImportService, recordTraceRepository, transactionManager);
         ChunkImportStrategy fallbackStrategy = new PerRecordChunkImportStrategy(
                 partitionedImportService, dlqRecordRepository, recordTraceRepository, transactionManager);
+
+        String feedId = params.getFeedId();
+        if (StringUtils.hasText(feedId)) {
+            FeedDefinition feed = feedDefinitionRepository
+                    .findByFeedIdAndEnabledTrue(feedId)
+                    .orElseThrow(() -> new IllegalArgumentException("unknown or disabled feedId: " + feedId));
+            String bkf = feed.getBusinessKeyFields();
+            List<String> businessKeyFields = StringUtils.hasText(bkf)
+                    ? java.util.Arrays.stream(bkf.split(","))
+                            .map(String::trim)
+                            .filter(s -> !s.isEmpty())
+                            .toList()
+                    : null;
+            return new FileImportRecordWriter(
+                    params.getBatchDate(), batchStrategy, fallbackStrategy, maxDedupKeys, businessKeyFields);
+        }
+
         return new FileImportRecordWriter(params.getBatchDate(), batchStrategy, fallbackStrategy, maxDedupKeys);
+    }
+
+    @Bean
+    @StepScope
+    public org.springframework.batch.infrastructure.item.ItemProcessor<FileRecord, FileRecord> importProcessor(
+            @Value("#{jobParameters}") Map<String, Object> jobParameters,
+            FileImportRecordProcessor defaultProcessor,
+            MappingEngine mappingEngine,
+            FieldMappingRepository fieldMappingRepository) {
+        ImportJobParams params = ImportJobParams.from(jobParameters);
+        String feedId = params.getFeedId();
+        if (!StringUtils.hasText(feedId)) {
+            return defaultProcessor;
+        }
+        List<FieldMapping> mappings = fieldMappingRepository.findByFeedIdAndEnabledTrueOrderByOrderNoAsc(feedId);
+        List<MappingEngine.MappingRule> rules = mappings.stream()
+                .map(m -> new MappingEngine.MappingRule(
+                        m.getSourceColumn(),
+                        m.getTargetField(),
+                        m.getTransformOp() == null ? TransformOp.NONE : m.getTransformOp(),
+                        m.getTransformArg(),
+                        m.isRequired()))
+                .toList();
+        return new MappingImportProcessor(defaultProcessor, mappingEngine, rules);
     }
 
     /**
@@ -162,7 +240,8 @@ public class FileImportJobConfig {
             JobRepository jobRepository,
             PlatformTransactionManager transactionManager,
             FileImportRecordReader reader,
-            FileImportRecordProcessor processor,
+            @Qualifier("importProcessor")
+                    org.springframework.batch.infrastructure.item.ItemProcessor<FileRecord, FileRecord> processor,
             FileImportRecordWriter writer,
             JobCompletionNotificationListener listener,
             ParseErrorRateGateListener parseErrorRateGateListener,

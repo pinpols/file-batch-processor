@@ -16,6 +16,7 @@ public class ImportJobParams {
     public static final String KEY_EXCEL_SHEET_NAME = "excel.sheet.name";
     public static final String KEY_INPUT_FILE_ENCRYPTED = "input.file.encrypted";
     public static final String KEY_INPUT_FILE_COMPRESSION = "input.file.compression";
+    public static final String KEY_FEED_ID = "feedId";
 
     private final String inputFileName;
     private final String batchDate;
@@ -27,6 +28,7 @@ public class ImportJobParams {
     private final String excelSheetName;
     private final Boolean inputFileEncrypted;
     private final String inputFileCompression;
+    private final String feedId;
 
     private ImportJobParams(
             String inputFileName,
@@ -38,7 +40,8 @@ public class ImportJobParams {
             int excelSheetIndex,
             String excelSheetName,
             Boolean inputFileEncrypted,
-            String inputFileCompression) {
+            String inputFileCompression,
+            String feedId) {
         this.inputFileName = inputFileName;
         this.batchDate = batchDate;
         this.shardIndex = shardIndex;
@@ -49,6 +52,7 @@ public class ImportJobParams {
         this.excelSheetName = excelSheetName;
         this.inputFileEncrypted = inputFileEncrypted;
         this.inputFileCompression = inputFileCompression;
+        this.feedId = feedId;
     }
 
     public static ImportJobParams from(JobParameters jobParameters) {
@@ -77,6 +81,7 @@ public class ImportJobParams {
         // 缺省 null 表示"未显式指定",交给后缀判定;不要默认 false。
         Boolean inputFileEncrypted = encryptedRaw == null ? null : Boolean.valueOf(encryptedRaw);
         String inputFileCompression = acc.getString(KEY_INPUT_FILE_COMPRESSION);
+        String feedId = acc.getString(KEY_FEED_ID);
         return new ImportJobParams(
                 input,
                 batchDate,
@@ -87,7 +92,8 @@ public class ImportJobParams {
                 excelSheetIndex,
                 excelSheetName,
                 inputFileEncrypted,
-                inputFileCompression);
+                inputFileCompression,
+                feedId);
     }
 
     public void validateForReader() {
@@ -140,5 +146,9 @@ public class ImportJobParams {
 
     public String getInputFileCompression() {
         return inputFileCompression;
+    }
+
+    public String getFeedId() {
+        return feedId;
     }
 }
