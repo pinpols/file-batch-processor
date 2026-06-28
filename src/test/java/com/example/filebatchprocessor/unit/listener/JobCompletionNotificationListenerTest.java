@@ -67,7 +67,8 @@ class JobCompletionNotificationListenerTest {
                 fileProcessLogService,
                 jobInstanceService,
                 0.0,
-                100);
+                100,
+                false);
 
         Path output = tempDir.resolve("export.csv");
         Files.writeString(output, "id,business_key\n1,key1\n");

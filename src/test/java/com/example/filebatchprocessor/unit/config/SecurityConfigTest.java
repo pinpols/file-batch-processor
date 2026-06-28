@@ -21,7 +21,8 @@ class SecurityConfigTest {
         properties.getAdmin().setUsername("admin");
         properties.getAdmin().setPassword("{noop}admin");
 
-        UserDetailsService userDetailsService = securityConfig.userDetailsService(properties);
+        UserDetailsService userDetailsService = securityConfig.userDetailsService(
+                properties, new org.springframework.core.env.StandardEnvironment());
 
         assertTrue(userDetailsService.loadUserByUsername("viewer").getAuthorities().stream()
                 .anyMatch(a -> "ROLE_VIEWER".equals(a.getAuthority())));

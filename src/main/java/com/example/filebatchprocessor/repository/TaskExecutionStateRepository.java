@@ -15,6 +15,10 @@ public interface TaskExecutionStateRepository extends JpaRepository<TaskExecutio
 
     List<TaskExecutionState> findTop200ByStatusInAndUpdatedAtBefore(List<String> statuses, LocalDateTime cutoff);
 
+    // #16:misfire 检测——按 next_retry_at 索引直接查,替代全表 findAll 后内存过滤
+    List<TaskExecutionState> findTop100ByStatusAndNextRetryAtBeforeOrderByNextRetryAtAsc(
+            String status, LocalDateTime threshold);
+
     long countByStatusIn(List<String> statuses);
 
     long countByStatusAndUpdatedAtAfter(String status, LocalDateTime after);

@@ -50,9 +50,16 @@ public class BatchDataRetentionService {
         this.batchRunRecordRepository = batchRunRecordRepository;
     }
 
+    // #8:删除类清理只让 leader 跑,避免多副本并发全表删
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private SchedulerLeaderService schedulerLeaderService;
+
     @Transactional
     @Scheduled(cron = "${batch.retention.cron:0 30 3 * * ?}")
     public void cleanup() {
+        if (schedulerLeaderService != null && !schedulerLeaderService.isLeader()) {
+            return;
+        }
         if (!retentionEnabled) {
             return;
         }

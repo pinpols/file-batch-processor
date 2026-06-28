@@ -45,6 +45,8 @@ class TargetSystemCircuitBreakerTest {
         state.setStatus("OPEN");
         state.setCooldownUntil(LocalDateTime.now().minusMinutes(1));
         when(repository.findByTargetSystem("bad")).thenReturn(Optional.of(state));
+        // 新设计:OPEN+冷却到期时用原子条件 UPDATE 抢唯一探测资格,受影响行数=1 表示本调用方放行
+        when(repository.tryTransitionToHalfOpen(eq("bad"), any())).thenReturn(1);
 
         TargetSystemCircuitBreaker breaker = new TargetSystemCircuitBreaker(repository, properties, batchMetrics);
         assertTrue(breaker.tryAcquire("bad"));
@@ -55,7 +57,13 @@ class TargetSystemCircuitBreakerTest {
     void shouldOpenWhenFailureRateExceedsThreshold() {
         properties.setWindowSize(4L);
         properties.setFailureRateThreshold(0.5);
-        when(repository.findByTargetSystem("flaky")).thenReturn(Optional.empty());
+        // 新设计:失败计数持久化在 windowFailureCount;用共享 state 实例模拟跨调用累积(mock save 为 no-op)
+        TargetSystemCircuitState shared = new TargetSystemCircuitState();
+        shared.setTargetSystem("flaky");
+        shared.setStatus("CLOSED");
+        shared.setWindowSize(4L);
+        shared.setFailureRateThreshold(0.5);
+        when(repository.findByTargetSystem("flaky")).thenReturn(Optional.of(shared));
 
         TargetSystemCircuitBreaker breaker = new TargetSystemCircuitBreaker(repository, properties, batchMetrics);
         // Record 3 failures out of 4 -> 0.75 > 0.5

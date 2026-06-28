@@ -5,6 +5,8 @@
 本文档描述了任务配置相关的三张表：`task_definition`、`task_trigger`、`task_parameter`。
 这些表用于在数据库中存储任务的定义、触发规则和执行参数，支持通过数据库动态管理任务。
 
+> 可直接落库执行的导入/导出作业配置范例见：[../user-guide/job-configuration-examples.md](../user-guide/job-configuration-examples.md)
+
 ## 表结构详解
 
 ### 1. task_definition (任务定义表)

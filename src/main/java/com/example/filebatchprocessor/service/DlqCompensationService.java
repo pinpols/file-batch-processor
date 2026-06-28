@@ -72,11 +72,15 @@ public class DlqCompensationService {
                 dlqRecordRepository
                         .findTop100ByHandledFalseAndManualRequiredFalseAndRetryableTrueAndNextRetryAtBeforeOrderByCreatedAtAsc(
                                 LocalDateTime.now());
+        // #26:limit 用"本次实际处理过的记录数(含转人工/失败)"来卡,避免一批里多数失败时超额处理;
+        // 返回值 processed 仍只数"真正重放成功"的条数(转人工/失败不算重放)。
         int processed = 0;
+        int attempts = 0;
         for (DlqRecord record : records) {
-            if (processed >= Math.max(limit, 1)) {
+            if (attempts >= Math.max(limit, 1)) {
                 break;
             }
+            attempts++;
             long currentReplay = record.getReplayCount() == null ? 0L : record.getReplayCount();
             if (currentReplay >= maxReplayCount) {
                 record.setManualRequired(true);

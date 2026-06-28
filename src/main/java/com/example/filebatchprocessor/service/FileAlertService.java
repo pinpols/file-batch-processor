@@ -56,8 +56,15 @@ public class FileAlertService {
         this.alertDispatcher = alertDispatcher;
     }
 
+    // #8:告警 + ACK 超时处理(会改状态)只让 leader 跑,避免多副本重复
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private SchedulerLeaderService schedulerLeaderService;
+
     @Scheduled(fixedDelayString = "${file.alert.evaluate-ms:300000}")
     public void evaluateAlerts() {
+        if (schedulerLeaderService != null && !schedulerLeaderService.isLeader()) {
+            return;
+        }
         if (!enabled) {
             return;
         }

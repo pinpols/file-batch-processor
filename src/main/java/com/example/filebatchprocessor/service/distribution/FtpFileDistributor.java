@@ -9,9 +9,12 @@ import org.springframework.stereotype.Component;
 public class FtpFileDistributor implements FileDistributor {
 
     private final FileDistributionService fileDistributionService;
+    private final DistributionTargetValidator targetValidator;
 
-    public FtpFileDistributor(FileDistributionService fileDistributionService) {
+    public FtpFileDistributor(
+            FileDistributionService fileDistributionService, DistributionTargetValidator targetValidator) {
         this.fileDistributionService = fileDistributionService;
+        this.targetValidator = targetValidator;
     }
 
     @Override
@@ -37,6 +40,8 @@ public class FtpFileDistributor implements FileDistributor {
 
         String normalized = targetAddress.startsWith("ftp://") ? targetAddress : "ftp://" + targetAddress;
         try {
+            // SSRF 防护:校验目标地址(白名单 + 拦内网/环回/元数据)
+            targetValidator.validate(normalized);
             URI uri = URI.create(normalized);
             String host = uri.getHost();
             int port = uri.getPort() > 0 ? uri.getPort() : 21;

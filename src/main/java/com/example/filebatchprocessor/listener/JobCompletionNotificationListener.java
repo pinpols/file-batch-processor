@@ -19,10 +19,12 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.batch.core.BatchStatus;
+import org.springframework.batch.core.ExitStatus;
 import org.springframework.batch.core.job.JobExecution;
 import org.springframework.batch.core.listener.JobExecutionListener;
 import org.springframework.batch.core.step.StepExecution;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 @Component
 public class JobCompletionNotificationListener implements JobExecutionListener {
@@ -36,6 +38,7 @@ public class JobCompletionNotificationListener implements JobExecutionListener {
     private final JobInstanceService jobInstanceService;
     private final double defaultDuplicateMaxRate;
     private final long defaultDuplicateMinLines;
+    private final boolean qualityEnforceDefault;
 
     public JobCompletionNotificationListener(
             BatchRunRecordRepository batchRunRecordRepository,
@@ -47,7 +50,9 @@ public class JobCompletionNotificationListener implements JobExecutionListener {
             @org.springframework.beans.factory.annotation.Value("${batch.import.duplicate.max-rate:0.0}")
                     double defaultDuplicateMaxRate,
             @org.springframework.beans.factory.annotation.Value("${batch.import.duplicate.min-lines:100}")
-                    long defaultDuplicateMinLines) {
+                    long defaultDuplicateMinLines,
+            @org.springframework.beans.factory.annotation.Value("${quality.enforce-default:false}")
+                    boolean qualityEnforceDefault) {
         this.batchRunRecordRepository = batchRunRecordRepository;
         this.importedRecordRepository = importedRecordRepository;
         this.qualityGateResultRepository = qualityGateResultRepository;
@@ -56,6 +61,7 @@ public class JobCompletionNotificationListener implements JobExecutionListener {
         this.jobInstanceService = jobInstanceService;
         this.defaultDuplicateMaxRate = Math.max(0.0, defaultDuplicateMaxRate);
         this.defaultDuplicateMinLines = Math.max(1L, defaultDuplicateMinLines);
+        this.qualityEnforceDefault = qualityEnforceDefault;
     }
 
     @Override
@@ -66,7 +72,10 @@ public class JobCompletionNotificationListener implements JobExecutionListener {
         upsertBatchRun(jobExecution, "RUNNING");
     }
 
+    // #28:把 afterJob 内的两处持久化(completeFromBatch + upsertBatchRun)纳入同一事务,
+    // 避免中途 crash 留下 BusinessJobInstance 与 BatchRunRecord 状态不一致。
     @Override
+    @Transactional
     public void afterJob(JobExecution jobExecution) {
         String jobName = jobExecution.getJobInstance().getJobName();
         BatchStatus status = jobExecution.getStatus();
@@ -82,17 +91,41 @@ public class JobCompletionNotificationListener implements JobExecutionListener {
         if (status == BatchStatus.COMPLETED) {
             validateDataQuality(jobExecution);
             logJobStatistics(jobExecution);
-            evaluatePostImportQuality(jobExecution);
-            evaluateDuplicateRate(jobExecution);
-            evaluatePostExportQuality(jobExecution);
+            boolean gateFailed = false;
+            gateFailed |= evaluatePostImportQuality(jobExecution);
+            gateFailed |= evaluateDuplicateRate(jobExecution);
+            gateFailed |= evaluatePostExportQuality(jobExecution);
             registerGeneratedExportFile(jobExecution);
+            // 可选硬闸门：opt-in (quality.enforce=true) 时，任一质量门 FAIL 即把作业判为 FAILED，
+            // 复用既有失败/补偿/告警路径；默认 false 保持原「软降级 PARTIAL」行为不变。
+            if (gateFailed && isQualityEnforced(jobExecution)) {
+                log.error(
+                        "Job [{}] failed quality gate enforcement (quality.enforce=true) -> marking FAILED", jobName);
+                jobExecution.setStatus(BatchStatus.FAILED);
+                jobExecution.setExitStatus(
+                        ExitStatus.FAILED.and(new ExitStatus("QUALITY_GATE_FAILED", "quality gate failed")));
+            }
         } else if (status == BatchStatus.FAILED) {
             handleJobFailure(jobExecution);
         }
 
         logJobSummary(jobExecution);
         jobInstanceService.completeFromBatch(jobExecution);
-        upsertBatchRun(jobExecution, status.name());
+        upsertBatchRun(jobExecution, jobExecution.getStatus().name());
+    }
+
+    /**
+     * 质量门是否强制阻断。opt-in：job 参数 {@code quality.enforce=true} 时开启，
+     * 缺省（含全局默认 {@code quality.enforce-default})关闭，行为与改造前一致。
+     */
+    private boolean isQualityEnforced(JobExecution jobExecution) {
+        if (jobExecution.getJobParameters() != null) {
+            String enforce = jobExecution.getJobParameters().getString("quality.enforce");
+            if (enforce != null && !enforce.isBlank()) {
+                return Boolean.parseBoolean(enforce.trim());
+            }
+        }
+        return qualityEnforceDefault;
     }
 
     private void validateDataQuality(JobExecution jobExecution) {
@@ -161,10 +194,11 @@ public class JobCompletionNotificationListener implements JobExecutionListener {
         log.info("=======================");
     }
 
-    private void evaluatePostImportQuality(JobExecution jobExecution) {
+    /** @return true 当且仅当该质量门被评估且结果为 FAIL（用于可选硬闸门判定）。 */
+    private boolean evaluatePostImportQuality(JobExecution jobExecution) {
         String jobName = jobExecution.getJobInstance().getJobName();
         if (!"importJob".equals(jobName)) {
-            return;
+            return false;
         }
         String batchDate = null;
         if (jobExecution.getJobParameters() != null) {
@@ -174,12 +208,13 @@ public class JobCompletionNotificationListener implements JobExecutionListener {
             }
         }
         if (batchDate == null || batchDate.isBlank()) {
-            return;
+            return false;
         }
         try {
             long total = importedRecordRepository.countByBatchDate(batchDate);
             long missingName = importedRecordRepository.countMissingNameByBatchDate(batchDate);
             double missingRate = total == 0 ? 0.0 : (double) missingName / (double) total;
+            boolean failed = missingRate > 0.01;
 
             persistQualityGate(
                     jobExecution,
@@ -190,24 +225,27 @@ public class JobCompletionNotificationListener implements JobExecutionListener {
                     missingRate,
                     0.01,
                     total,
-                    missingRate <= 0.01 ? "PASS" : "FAIL",
+                    failed ? "FAIL" : "PASS",
                     "missing-name-rate=" + missingRate);
+            return failed;
         } catch (Exception ex) {
             log.warn("Failed to evaluate post-import quality gate for executionId={}", jobExecution.getId(), ex);
+            return false;
         }
     }
 
-    private void evaluateDuplicateRate(JobExecution jobExecution) {
+    /** @return true 当且仅当重复率门被评估且结果为 FAIL。 */
+    private boolean evaluateDuplicateRate(JobExecution jobExecution) {
         String jobName = jobExecution.getJobInstance().getJobName();
         if (!"importJob".equals(jobName)) {
-            return;
+            return false;
         }
         String batchDate = null;
         if (jobExecution.getJobParameters() != null) {
             batchDate = jobExecution.getJobParameters().getString("batchDate");
         }
         if (batchDate == null || batchDate.isBlank()) {
-            return;
+            return false;
         }
         double maxRate = defaultDuplicateMaxRate;
         long minLines = defaultDuplicateMinLines;
@@ -226,11 +264,11 @@ public class JobCompletionNotificationListener implements JobExecutionListener {
         try {
             long total = importedRecordRepository.countByBatchDate(batchDate);
             if (total < minLines) {
-                return;
+                return false;
             }
             long duplicates = importedRecordRepository.countDuplicateBusinessKeysByBatchDate(batchDate);
             double rate = total == 0 ? 0.0 : (double) duplicates / (double) total;
-            String status = rate <= maxRate ? "PASS" : "FAIL";
+            boolean failed = rate > maxRate;
             persistQualityGate(
                     jobExecution,
                     "IMPORT_DUPLICATE_RATE",
@@ -240,17 +278,20 @@ public class JobCompletionNotificationListener implements JobExecutionListener {
                     rate,
                     maxRate,
                     minLines,
-                    status,
+                    failed ? "FAIL" : "PASS",
                     "duplicate-rate=" + rate);
+            return failed;
         } catch (Exception ex) {
             log.warn("Failed to evaluate duplicate rate gate for executionId={}", jobExecution.getId(), ex);
+            return false;
         }
     }
 
-    private void evaluatePostExportQuality(JobExecution jobExecution) {
+    /** @return true 当且仅当导出行数门被评估且结果为 FAIL。 */
+    private boolean evaluatePostExportQuality(JobExecution jobExecution) {
         String jobName = jobExecution.getJobInstance().getJobName();
         if (!"dataExportJob".equals(jobName) && !"fileExportJob".equals(jobName)) {
-            return;
+            return false;
         }
         long writeCount = jobExecution.getStepExecutions().stream()
                 .mapToLong(StepExecution::getWriteCount)
@@ -266,7 +307,7 @@ public class JobCompletionNotificationListener implements JobExecutionListener {
         Long expected = parseLong(expectedStr);
         Long min = parseLong(minStr);
         if (expected == null && min == null) {
-            return;
+            return false;
         }
         long total = writeCount;
         String status;
@@ -292,6 +333,7 @@ public class JobCompletionNotificationListener implements JobExecutionListener {
                 min == null ? 0L : min,
                 status,
                 message);
+        return "FAIL".equals(status);
     }
 
     private Long parseLong(String raw) {
