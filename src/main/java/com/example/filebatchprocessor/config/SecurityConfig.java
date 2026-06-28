@@ -30,6 +30,8 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers("/actuator/prometheus")
                         .hasAnyRole("VIEWER", "OPERATOR", "ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/v3/api-docs", "/v3/api-docs/**")
+                        .hasAnyRole("VIEWER", "OPERATOR", "ADMIN")
                         .requestMatchers(
                                 HttpMethod.GET,
                                 "/ops/console",
@@ -45,7 +47,10 @@ public class SecurityConfig {
                                 HttpMethod.POST,
                                 "/ops/tasks/*/toggle",
                                 "/ops/change-requests",
-                                "/ops/scheduler/trigger/*")
+                                "/ops/scheduler/trigger/*",
+                                "/ops/batch/**",
+                                "/ops/file-dispatch/**",
+                                "/ops/files/*/reprocess")
                         .hasAnyRole("OPERATOR", "ADMIN")
                         .requestMatchers(
                                 "/ops/change-requests/*/approve",

@@ -1,6 +1,7 @@
 package com.example.filebatchprocessor.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -13,6 +14,7 @@ import static org.mockito.Mockito.when;
 
 import com.example.filebatchprocessor.model.FileData;
 import com.example.filebatchprocessor.repository.FileDataRepository;
+import java.io.IOException;
 import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -43,6 +45,19 @@ class FileProcessingServiceTest {
         assertEquals("UPLOADED", saved.getStatus());
         assertTrue(Files.exists(Path.of(saved.getFilePath())));
         verify(repository).save(any(FileData.class));
+    }
+
+    @Test
+    void shouldRejectUploadedFilenameWithPathSegments() throws Exception {
+        FileDataRepository repository = mock(FileDataRepository.class);
+        PartitionedImportService partitionedImportService = mock(PartitionedImportService.class);
+        FileProcessingService service = new FileProcessingService(repository, partitionedImportService);
+        setUploadDirectory(service, tempDir.toString());
+
+        MockMultipartFile file = new MockMultipartFile("file", "../evil.csv", "text/csv", "bad".getBytes());
+
+        assertThrows(IOException.class, () -> service.saveFile(file));
+        verify(repository, never()).save(any(FileData.class));
     }
 
     @Test

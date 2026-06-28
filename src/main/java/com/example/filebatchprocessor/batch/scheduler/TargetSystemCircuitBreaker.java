@@ -76,6 +76,8 @@ public class TargetSystemCircuitBreaker {
                     return s;
                 });
 
+        boolean wasOpen = "OPEN".equals(state.getStatus());
+
         if (success) {
             // #12 修复:失败计数持久化在 windowFailureCount(跨重启/多实例),成功即清零
             state.setWindowFailureCount(0L);
@@ -86,28 +88,47 @@ public class TargetSystemCircuitBreaker {
             }
             repository.save(state);
         } else {
-            // 失败计数从持久化值自增(不再依赖内存 map)
-            long failures = state.getWindowFailureCount() + 1L;
-            state.setWindowFailureCount(failures);
-            state.setLastFailureAt(LocalDateTime.now());
-            state.setUpdatedAt(LocalDateTime.now());
+            LocalDateTime now = LocalDateTime.now();
+            LocalDateTime cooldownUntil = now.plusNanos(properties.getCooldownDurationMs() * 1_000_000L);
+            int updated = repository.incrementFailureAndOpenIfThreshold(
+                    targetSystem,
+                    now,
+                    properties.getWindowSize(),
+                    properties.getFailureRateThreshold(),
+                    properties.getCooldownDurationMs(),
+                    cooldownUntil);
+            if (updated == 0) {
+                TargetSystemCircuitState created = new TargetSystemCircuitState();
+                created.setTargetSystem(targetSystem);
+                created.setStatus("CLOSED");
+                created.setWindowSize(properties.getWindowSize());
+                created.setFailureRateThreshold(properties.getFailureRateThreshold());
+                created.setCooldownDurationMs(properties.getCooldownDurationMs());
+                repository.save(created);
+                repository.incrementFailureAndOpenIfThreshold(
+                        targetSystem,
+                        now,
+                        properties.getWindowSize(),
+                        properties.getFailureRateThreshold(),
+                        properties.getCooldownDurationMs(),
+                        cooldownUntil);
+            }
 
-            // Check failure rate against threshold
-            double failureRate = ((double) failures) / ((double) state.getWindowSize());
-            if (failureRate >= state.getFailureRateThreshold()) {
-                // Open the circuit
-                state.setStatus("OPEN");
-                state.setCooldownUntil(LocalDateTime.now().plusNanos(state.getCooldownDurationMs() * 1_000_000L));
-                repository.save(state);
+            Optional<TargetSystemCircuitState> current = repository.findByTargetSystem(targetSystem);
+            if (current.isPresent() && "OPEN".equals(current.get().getStatus()) && !wasOpen) {
+                TargetSystemCircuitState updatedState = current.get();
                 batchMetrics.counter("circuit_open_total", "target", targetSystem);
                 log.warn(
                         "Circuit opened for targetSystem={} due to failureRate={}/{}",
                         targetSystem,
-                        failureRate,
-                        state.getFailureRateThreshold());
-            } else {
-                repository.save(state);
+                        failureRate(updatedState),
+                        updatedState.getFailureRateThreshold());
             }
         }
+    }
+
+    private double failureRate(TargetSystemCircuitState state) {
+        long windowSize = Math.max(1L, state.getWindowSize());
+        return ((double) state.getWindowFailureCount()) / ((double) windowSize);
     }
 }

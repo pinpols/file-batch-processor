@@ -65,4 +65,14 @@ class PathSafetySymlinkTest {
         assertThatThrownBy(() -> PathSafety.confine(base.toString(), "/etc/passwd"))
                 .isInstanceOf(IllegalArgumentException.class);
     }
+
+    @Test
+    void rejectsAbsolutePathWhenBaseDirIsNotConfigured(@TempDir Path tmp) throws IOException {
+        Path absolute = tmp.resolve("outside.csv").toAbsolutePath();
+        Files.createFile(absolute);
+
+        assertThatThrownBy(() -> PathSafety.confine("", absolute.toString()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("base dir");
+    }
 }

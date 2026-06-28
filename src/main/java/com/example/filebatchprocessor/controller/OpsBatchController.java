@@ -7,6 +7,9 @@ import com.example.filebatchprocessor.service.FileAssetService;
 import com.example.filebatchprocessor.service.JobInstanceService;
 import com.example.filebatchprocessor.service.OpsAuditService;
 import com.example.filebatchprocessor.service.RetryCompensationService;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.NotBlank;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.springframework.security.core.Authentication;
@@ -33,7 +36,7 @@ public class OpsBatchController {
     }
 
     @PostMapping("/rerun")
-    public Map<String, Object> rerunBatch(@RequestBody RerunRequest request, Authentication authentication) {
+    public Map<String, Object> rerunBatch(@Valid @RequestBody RerunRequest request, Authentication authentication) {
         String operator = authentication != null ? authentication.getName() : "SYSTEM";
         String bizDate = request.bizDate();
         String taskId = request.taskId();
@@ -74,7 +77,8 @@ public class OpsBatchController {
     }
 
     @PostMapping("/compensate")
-    public Map<String, Object> compensate(@RequestBody CompensateRequest request, Authentication authentication) {
+    public Map<String, Object> compensate(
+            @Valid @RequestBody CompensateRequest request, Authentication authentication) {
         String operator = authentication != null ? authentication.getName() : "SYSTEM";
         String reason = request.reason() != null ? request.reason() : "Manual compensation requested";
 
@@ -175,7 +179,7 @@ public class OpsBatchController {
     }
 
     @PostMapping("/retry")
-    public Map<String, Object> retry(@RequestBody RetryRequest request, Authentication authentication) {
+    public Map<String, Object> retry(@Valid @RequestBody RetryRequest request, Authentication authentication) {
         String operator = authentication != null ? authentication.getName() : "SYSTEM";
         String reason = request.reason() != null ? request.reason() : "Manual retry requested";
 
@@ -245,9 +249,19 @@ public class OpsBatchController {
         }
     }
 
-    public record RerunRequest(String bizDate, String taskId, String reason) {}
+    public record RerunRequest(String bizDate, @NotBlank String taskId, String reason) {}
 
-    public record CompensateRequest(Long fileId, Long instanceId, Long stepId, String reason) {}
+    public record CompensateRequest(Long fileId, Long instanceId, Long stepId, String reason) {
+        @AssertTrue(message = "one of fileId, instanceId, stepId is required")
+        public boolean hasTarget() {
+            return fileId != null || instanceId != null || stepId != null;
+        }
+    }
 
-    public record RetryRequest(Long fileId, Long instanceId, String reason) {}
+    public record RetryRequest(Long fileId, Long instanceId, String reason) {
+        @AssertTrue(message = "one of fileId, instanceId is required")
+        public boolean hasTarget() {
+            return fileId != null || instanceId != null;
+        }
+    }
 }

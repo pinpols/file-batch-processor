@@ -53,7 +53,10 @@ public final class PathSafety {
             return resolved.toString();
         }
 
-        // 无 baseDir:至少拒绝 .. 逃逸
+        // 无 baseDir:fail closed for absolute paths, only allow relative paths without traversal.
+        if (candidatePath.isAbsolute()) {
+            throw new IllegalArgumentException("absolute path requires configured base dir: " + candidate);
+        }
         if (candidate.contains("..") || candidatePath.toString().contains("..")) {
             throw new IllegalArgumentException("path traversal segment '..' is not allowed: " + candidate);
         }

@@ -53,7 +53,7 @@ class DataExportJobConfigTest {
     void shouldCreateExportReader() {
         // Given
         Map<String, Object> jobParameters = new HashMap<>();
-        jobParameters.put("export.sql", "SELECT * FROM test_table");
+        jobParameters.put("export.sql", "SELECT id, business_key, name, description, batch_date FROM imported_records");
         jobParameters.put("output.file.name", "test.csv");
 
         // When
@@ -89,6 +89,39 @@ class DataExportJobConfigTest {
         assertThrows(IllegalArgumentException.class, () -> {
             dataExportJobConfig.exportReader(jobParameters, 500);
         });
+    }
+
+    @Test
+    void shouldRejectSelectFromTableOutsideAllowList() {
+        Map<String, Object> jobParameters = new HashMap<>();
+        jobParameters.put("export.sql", "SELECT id, username FROM app_users");
+        jobParameters.put("output.file.name", "test.csv");
+
+        assertThrows(IllegalArgumentException.class, () -> dataExportJobConfig.exportReader(jobParameters, 500));
+    }
+
+    @Test
+    void shouldAllowCteAliasWhenUnderlyingTablesAreAllowListed() {
+        Map<String, Object> jobParameters = new HashMap<>();
+        jobParameters.put(
+                "export.sql",
+                "WITH recent AS (SELECT id, business_key, name, description, batch_date FROM imported_records) "
+                        + "SELECT id, business_key, name, description, batch_date FROM recent");
+        jobParameters.put("output.file.name", "test.csv");
+
+        assertNotNull(dataExportJobConfig.exportReader(jobParameters, 500));
+    }
+
+    @Test
+    void shouldRejectCteWhenUnderlyingTableIsNotAllowListed() {
+        Map<String, Object> jobParameters = new HashMap<>();
+        jobParameters.put(
+                "export.sql",
+                "WITH recent AS (SELECT id, username FROM app_users) "
+                        + "SELECT id, username, username AS name, username AS description, username AS batch_date FROM recent");
+        jobParameters.put("output.file.name", "test.csv");
+
+        assertThrows(IllegalArgumentException.class, () -> dataExportJobConfig.exportReader(jobParameters, 500));
     }
 
     @Test

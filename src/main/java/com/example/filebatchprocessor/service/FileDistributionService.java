@@ -9,6 +9,7 @@ import com.example.filebatchprocessor.model.FileAssetRecord;
 import com.example.filebatchprocessor.model.FileDispatchRecord;
 import com.example.filebatchprocessor.model.FileDistributionTask;
 import com.example.filebatchprocessor.model.RecordTrace;
+import com.example.filebatchprocessor.observability.BatchMetrics;
 import com.example.filebatchprocessor.repository.FileDistributionTaskRepository;
 import com.example.filebatchprocessor.repository.RecordTraceRepository;
 import java.io.File;
@@ -40,6 +41,7 @@ public class FileDistributionService {
     private final FileDispatchRecordService fileDispatchRecordService;
     private final FileProcessLogService fileProcessLogService;
     private final RetryCompensationService retryCompensationService;
+    private final BatchMetrics batchMetrics;
 
     @Autowired
     public FileDistributionService(
@@ -48,19 +50,38 @@ public class FileDistributionService {
             FileAssetService fileAssetService,
             FileDispatchRecordService fileDispatchRecordService,
             FileProcessLogService fileProcessLogService,
-            RetryCompensationService retryCompensationService) {
+            RetryCompensationService retryCompensationService,
+            BatchMetrics batchMetrics) {
         this.fileDistributionTaskRepository = fileDistributionTaskRepository;
         this.recordTraceRepository = recordTraceRepository;
         this.fileAssetService = fileAssetService;
         this.fileDispatchRecordService = fileDispatchRecordService;
         this.fileProcessLogService = fileProcessLogService;
         this.retryCompensationService = retryCompensationService;
+        this.batchMetrics = batchMetrics;
     }
 
     public FileDistributionService(
             FileDistributionTaskRepository fileDistributionTaskRepository,
             RecordTraceRepository recordTraceRepository) {
-        this(fileDistributionTaskRepository, recordTraceRepository, null, null, null, null);
+        this(fileDistributionTaskRepository, recordTraceRepository, null, null, null, null, null);
+    }
+
+    public FileDistributionService(
+            FileDistributionTaskRepository fileDistributionTaskRepository,
+            RecordTraceRepository recordTraceRepository,
+            FileAssetService fileAssetService,
+            FileDispatchRecordService fileDispatchRecordService,
+            FileProcessLogService fileProcessLogService,
+            RetryCompensationService retryCompensationService) {
+        this(
+                fileDistributionTaskRepository,
+                recordTraceRepository,
+                fileAssetService,
+                fileDispatchRecordService,
+                fileProcessLogService,
+                retryCompensationService,
+                null);
     }
 
     public FileDistributionTask createDistributionTask(
@@ -101,6 +122,7 @@ public class FileDistributionService {
             }
 
             FileDistributionTask saved = fileDistributionTaskRepository.save(task);
+            metric("file_distribution_task_created_total", saved.getTargetSystem(), "PENDING");
             saved = ensureLinkage(saved, ackRequired, ackTimeoutMinutes, createdJobInstanceId);
             logFileProcess(
                     saved.getFileRecordId(),
@@ -138,6 +160,7 @@ public class FileDistributionService {
         FileAssetStateMachineService.TransitionResult transition = markDispatching(task, jobInstanceId);
 
         persistDistributionTrace(task, "DISTRIBUTE", "IN_PROGRESS", null);
+        metric("file_distribution_task_started_total", task.getTargetSystem(), "IN_PROGRESS");
         logFileProcess(
                 task.getFileRecordId(),
                 "markAsInProgress",
@@ -187,6 +210,7 @@ public class FileDistributionService {
                 distributionExtra(task.getTargetSystem(), task.getTargetAddress(), null, jobInstanceId));
 
         persistDistributionTrace(task, "DISTRIBUTE", "SUCCESS", null);
+        metric("file_distribution_task_completed_total", task.getTargetSystem(), "SUCCESS");
     }
 
     public boolean markAsFailed(Long taskId, String errorMessage) {
@@ -240,7 +264,19 @@ public class FileDistributionService {
                 distributionExtra(task.getTargetSystem(), task.getTargetAddress(), task.getStatus(), jobInstanceId));
 
         persistDistributionTrace(task, "DISTRIBUTE", task.getStatus(), errorMessage);
+        metric("file_distribution_task_completed_total", task.getTargetSystem(), task.getStatus());
         return "RETRY".equals(task.getStatus());
+    }
+
+    private void metric(String name, String targetSystem, String status) {
+        if (batchMetrics != null) {
+            batchMetrics.counter(
+                    name,
+                    "target_system",
+                    targetSystem == null || targetSystem.isBlank() ? "UNKNOWN" : targetSystem,
+                    "status",
+                    status == null || status.isBlank() ? "UNKNOWN" : status);
+        }
     }
 
     private void persistDistributionTrace(FileDistributionTask task, String eventType, String status, String message) {

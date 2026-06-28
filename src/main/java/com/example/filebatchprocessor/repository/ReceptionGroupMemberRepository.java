@@ -14,4 +14,6 @@ public interface ReceptionGroupMemberRepository extends JpaRepository<ReceptionG
 
     /** 找尚未绑定(actualQueueId 为空)的同名期望成员,用于数据文件后到时回绑等待中的组。 */
     List<ReceptionGroupMember> findByExpectedFileNameAndActualQueueIdIsNull(String expectedFileName);
+
+    long countByActualQueueId(Long actualQueueId);
 }

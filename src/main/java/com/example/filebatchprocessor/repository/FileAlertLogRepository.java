@@ -2,6 +2,7 @@ package com.example.filebatchprocessor.repository;
 
 import com.example.filebatchprocessor.model.FileAlertLog;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -17,6 +18,9 @@ public interface FileAlertLogRepository extends JpaRepository<FileAlertLog, Long
     Page<FileAlertLog> findByAcknowledgedFalse(Pageable pageable);
 
     List<FileAlertLog> findByFileRecordIdAndResolvedFalse(Long fileRecordId);
+
+    Optional<FileAlertLog> findFirstByAlertCodeAndFileRecordIdAndTargetSystemAndResolvedFalseOrderByCreatedAtDesc(
+            String alertCode, Long fileRecordId, String targetSystem);
 
     long countByResolvedFalse();
 

@@ -3,6 +3,7 @@ package com.example.filebatchprocessor.listener;
 import com.example.filebatchprocessor.batch.BatchJobNames;
 import com.example.filebatchprocessor.model.BatchRunRecord;
 import com.example.filebatchprocessor.model.QualityGateResult;
+import com.example.filebatchprocessor.observability.BatchMetrics;
 import com.example.filebatchprocessor.repository.BatchRunRecordRepository;
 import com.example.filebatchprocessor.repository.ImportedRecordRepository;
 import com.example.filebatchprocessor.repository.QualityGateResultRepository;
@@ -37,10 +38,12 @@ public class JobCompletionNotificationListener implements JobExecutionListener {
     private final FileAssetService fileAssetService;
     private final FileProcessLogService fileProcessLogService;
     private final JobInstanceService jobInstanceService;
+    private final BatchMetrics batchMetrics;
     private final double defaultDuplicateMaxRate;
     private final long defaultDuplicateMinLines;
     private final boolean qualityEnforceDefault;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public JobCompletionNotificationListener(
             BatchRunRecordRepository batchRunRecordRepository,
             ImportedRecordRepository importedRecordRepository,
@@ -48,6 +51,7 @@ public class JobCompletionNotificationListener implements JobExecutionListener {
             FileAssetService fileAssetService,
             FileProcessLogService fileProcessLogService,
             JobInstanceService jobInstanceService,
+            BatchMetrics batchMetrics,
             @org.springframework.beans.factory.annotation.Value("${batch.import.duplicate.max-rate:0.0}")
                     double defaultDuplicateMaxRate,
             @org.springframework.beans.factory.annotation.Value("${batch.import.duplicate.min-lines:100}")
@@ -60,15 +64,40 @@ public class JobCompletionNotificationListener implements JobExecutionListener {
         this.fileAssetService = fileAssetService;
         this.fileProcessLogService = fileProcessLogService;
         this.jobInstanceService = jobInstanceService;
+        this.batchMetrics = batchMetrics;
         this.defaultDuplicateMaxRate = Math.max(0.0, defaultDuplicateMaxRate);
         this.defaultDuplicateMinLines = Math.max(1L, defaultDuplicateMinLines);
         this.qualityEnforceDefault = qualityEnforceDefault;
+    }
+
+    public JobCompletionNotificationListener(
+            BatchRunRecordRepository batchRunRecordRepository,
+            ImportedRecordRepository importedRecordRepository,
+            QualityGateResultRepository qualityGateResultRepository,
+            FileAssetService fileAssetService,
+            FileProcessLogService fileProcessLogService,
+            JobInstanceService jobInstanceService,
+            double defaultDuplicateMaxRate,
+            long defaultDuplicateMinLines,
+            boolean qualityEnforceDefault) {
+        this(
+                batchRunRecordRepository,
+                importedRecordRepository,
+                qualityGateResultRepository,
+                fileAssetService,
+                fileProcessLogService,
+                jobInstanceService,
+                null,
+                defaultDuplicateMaxRate,
+                defaultDuplicateMinLines,
+                qualityEnforceDefault);
     }
 
     @Override
     public void beforeJob(JobExecution jobExecution) {
         log.info("Starting job: {}", jobExecution.getJobInstance().getJobName());
         log.info("Job parameters: {}", jobExecution.getJobParameters());
+        metric("batch_job_started_total", "job", jobExecution.getJobInstance().getJobName());
         jobInstanceService.markRunning(jobExecution);
         upsertBatchRun(jobExecution, "RUNNING");
     }
@@ -88,6 +117,7 @@ public class JobCompletionNotificationListener implements JobExecutionListener {
 
         log.info("Job [{}] completed with status: {}", jobName, status);
         log.info("Job [{}] execution time: {} seconds", jobName, duration.getSeconds());
+        metric("batch_job_completed_total", "job", jobName, "status", status.name());
 
         if (status == BatchStatus.COMPLETED) {
             validateDataQuality(jobExecution);
@@ -112,6 +142,12 @@ public class JobCompletionNotificationListener implements JobExecutionListener {
         logJobSummary(jobExecution);
         jobInstanceService.completeFromBatch(jobExecution);
         upsertBatchRun(jobExecution, jobExecution.getStatus().name());
+    }
+
+    private void metric(String name, String... tags) {
+        if (batchMetrics != null) {
+            batchMetrics.counter(name, tags);
+        }
     }
 
     /**

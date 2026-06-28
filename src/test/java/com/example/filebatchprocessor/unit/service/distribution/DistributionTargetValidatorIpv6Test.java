@@ -50,6 +50,14 @@ class DistributionTargetValidatorIpv6Test {
     }
 
     @Test
+    void defaultPolicyBlocksCloudMetadataAddress() {
+        DistributionTargetValidator defaultValidator = new DistributionTargetValidator("");
+
+        assertThatThrownBy(() -> defaultValidator.validate("http://169.254.169.254/latest/meta-data"))
+                .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
     void allowsPublicIpv4Regression() {
         // example.com 的公网 IP,放行
         assertThatCode(() -> validator.validate("http://93.184.216.34/x")).doesNotThrowAnyException();

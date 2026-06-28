@@ -1,6 +1,7 @@
 package com.example.filebatchprocessor.service.distribution;
 
 import cn.hutool.extra.ftp.Ftp;
+import cn.hutool.extra.ftp.FtpConfig;
 import cn.hutool.extra.ftp.FtpMode;
 import com.example.filebatchprocessor.exception.BusinessException;
 import com.example.filebatchprocessor.exception.ErrorCode;
@@ -11,6 +12,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Slf4j
@@ -19,11 +21,24 @@ public class FtpFileDistributor implements FileDistributor {
 
     private final FileDistributionService fileDistributionService;
     private final DistributionTargetValidator targetValidator;
+    private final long connectTimeoutMs;
+    private final long socketTimeoutMs;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public FtpFileDistributor(
+            FileDistributionService fileDistributionService,
+            DistributionTargetValidator targetValidator,
+            @Value("${distribution.ftp.connect-timeout-ms:5000}") long connectTimeoutMs,
+            @Value("${distribution.ftp.socket-timeout-ms:30000}") long socketTimeoutMs) {
+        this.fileDistributionService = fileDistributionService;
+        this.targetValidator = targetValidator;
+        this.connectTimeoutMs = Math.max(1000L, connectTimeoutMs);
+        this.socketTimeoutMs = Math.max(1000L, socketTimeoutMs);
+    }
 
     public FtpFileDistributor(
             FileDistributionService fileDistributionService, DistributionTargetValidator targetValidator) {
-        this.fileDistributionService = fileDistributionService;
-        this.targetValidator = targetValidator;
+        this(fileDistributionService, targetValidator, 5000L, 30000L);
     }
 
     @Override
@@ -90,7 +105,14 @@ public class FtpFileDistributor implements FileDistributor {
                 throw new BusinessException(ErrorCode.NOT_FOUND, "Local file not found: " + task.getFilePath());
             }
             String targetDir = (remoteDir == null || remoteDir.isBlank()) ? "/" : remoteDir;
-            ftp = new Ftp(host, port, username, password, null, null, null, FtpMode.Active);
+            FtpConfig config = FtpConfig.create()
+                    .setHost(host)
+                    .setPort(port)
+                    .setUser(username)
+                    .setPassword(password)
+                    .setConnectionTimeout(connectTimeoutMs)
+                    .setSoTimeout(socketTimeoutMs);
+            ftp = new Ftp(config, FtpMode.Active);
             boolean uploaded = ftp.upload(targetDir, localFile);
             if (!uploaded) {
                 throw new SystemException(ErrorCode.INTERNAL_ERROR, "FTP upload returned false");

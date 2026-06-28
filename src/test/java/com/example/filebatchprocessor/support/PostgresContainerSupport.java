@@ -38,6 +38,8 @@ public abstract class PostgresContainerSupport {
         registry.add("spring.jpa.hibernate.ddl-auto", () -> "update");
         registry.add("spring.batch.job.enabled", () -> "false");
         registry.add("batch.alert.enabled", () -> "false");
+        registry.add("batch.io.input-base-dir", () -> System.getProperty("java.io.tmpdir"));
+        registry.add("batch.io.output-base-dir", () -> System.getProperty("java.io.tmpdir"));
     }
 
     private static DatabaseConfig resolveDatabaseConfig() {

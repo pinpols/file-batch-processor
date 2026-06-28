@@ -42,6 +42,12 @@ public class SftpFileDistributor implements FileDistributor {
     @Value("${sftp.insecure-skip-host-key-check:false}")
     private boolean sftpInsecureSkipHostKeyCheck;
 
+    @Value("${sftp.connect-timeout-ms:5000}")
+    private int sftpConnectTimeoutMs;
+
+    @Value("${sftp.socket-timeout-ms:30000}")
+    private int sftpSocketTimeoutMs;
+
     public SftpFileDistributor(FileDistributionService fileDistributionService, SftpConcurrencyLimiter limiter) {
         this.fileDistributionService = fileDistributionService;
         this.limiter = limiter;
@@ -92,6 +98,8 @@ public class SftpFileDistributor implements FileDistributor {
             }
 
             SftpHostKeyVerification.apply(sshClient, sftpKnownHostsPath, sftpInsecureSkipHostKeyCheck);
+            sshClient.setConnectTimeout(Math.max(1000, sftpConnectTimeoutMs));
+            sshClient.setTimeout(Math.max(1000, sftpSocketTimeoutMs));
             sshClient.connect(sftpHost, sftpPort);
             sshClient.authPassword(sftpUsername, sftpPassword);
             try (SFTPClient sftpClient = sshClient.newSFTPClient()) {

@@ -107,7 +107,9 @@ public class TaskSchedulerService {
             @Value("${orchestration.scheduler.max-queue-size:2000}") int maxQueueSize,
             @Value("${orchestration.scheduler.max-concurrent-launches:4}") int maxConcurrentLaunches,
             @Value("${orchestration.scheduler.default-max-queue-wait-ms:300000}") long defaultMaxQueueWaitMs,
-            @Value("${orchestration.scheduler.default-timeout-ms:1800000}") long defaultTimeoutMs,
+            @Value(
+                            "${orchestration.scheduler.default-warn-threshold-ms:${orchestration.scheduler.default-timeout-ms:1800000}}")
+                    long defaultLaunchWarnThresholdMs,
             @Value("${orchestration.scheduler.default-dynamic-shard-max:1}") int defaultDynamicShardMax,
             @Value("${orchestration.scheduler.default-dependency-timeout-ms:600000}") long defaultDependencyTimeoutMs,
             @Value("${orchestration.scheduler.default-rerun-window-ms:86400000}") long defaultRerunWindowMs,
@@ -161,7 +163,7 @@ public class TaskSchedulerService {
                 jobInstanceService,
                 launchPermits,
                 defaultDynamicShardMax,
-                defaultTimeoutMs);
+                defaultLaunchWarnThresholdMs);
     }
 
     public void register(OrchestrationTaskDefinition definition) {
@@ -371,6 +373,8 @@ public class TaskSchedulerService {
         }
         // 本轮被判定为依赖未就绪(WAITING)的任务暂存于此,轮末统一重入队,避免在同一 pass 内立即重 poll 自旋。
         List<OrchestrationTaskDefinition> heldWaiting = new java.util.ArrayList<>();
+        List<OrchestrationTaskDefinition> heldThrottled = new java.util.ArrayList<>();
+        java.util.Set<String> heldRunKeys = new java.util.HashSet<>();
         OrchestrationTaskDefinition def;
         while ((def = queueManager.poll()) != null) {
             String runKey = taskRunKey(def);
@@ -444,14 +448,16 @@ public class TaskSchedulerService {
                 String limitKey = buildConcurrencyKey(task);
                 SchedulerConcurrencyLimiter.Permit permit = schedulerConcurrencyLimiter.tryAcquire(limitKey);
                 if (permit == null) {
-                    queueManager.requeue(task);
+                    heldThrottled.add(task);
+                    heldRunKeys.add(taskRunKey(task));
                     batchMetrics.counter("scheduler_concurrency_limited_total", "key", limitKey);
                     continue;
                 }
 
                 String targetSystem = task.getParameters().get("targetSystem");
                 if (targetSystem != null && !circuitBreaker.tryAcquire(targetSystem)) {
-                    queueManager.requeue(task);
+                    heldThrottled.add(task);
+                    heldRunKeys.add(taskRunKey(task));
                     batchMetrics.counter("scheduler_circuit_rejected_total", "target", targetSystem);
                     permit.release();
                     continue;
@@ -571,17 +577,20 @@ public class TaskSchedulerService {
             java.util.Set<String> completedKeys = new java.util.HashSet<>();
             for (OrchestrationTaskDefinition mergedTask : merged) {
                 String mergedKey = taskRunKey(mergedTask);
-                if (completedKeys.add(mergedKey)) {
+                if (!heldRunKeys.contains(mergedKey) && completedKeys.add(mergedKey)) {
                     completeRun(mergedTask, mergedKey);
                 }
             }
-            if (completedKeys.add(runKey)) {
+            if (!heldRunKeys.contains(runKey) && completedKeys.add(runKey)) {
                 completeRun(def, runKey);
             }
         }
         // #3:本轮暂存的 WAITING 任务统一重入队(enqueuedAt 由 putIfAbsent 保留,依赖超时仍正确计时),
         // 由周期 drain tick 在下一轮重查依赖,避免在本 pass 内忙旋。
         for (OrchestrationTaskDefinition held : heldWaiting) {
+            queueManager.requeue(held);
+        }
+        for (OrchestrationTaskDefinition held : heldThrottled) {
             queueManager.requeue(held);
         }
     }
@@ -603,12 +612,20 @@ public class TaskSchedulerService {
             return true;
         }
         Instant now = Instant.now();
+        pruneDedupMap(now);
         Instant last = dedupMap.get(key);
         if (last != null && Duration.between(last, now).getSeconds() < dedupWindowSeconds) {
             return true;
         }
         dedupMap.put(key, now);
         return false;
+    }
+
+    private void pruneDedupMap(Instant now) {
+        if (dedupMap.size() < 10_000) {
+            return;
+        }
+        dedupMap.entrySet().removeIf(e -> Duration.between(e.getValue(), now).getSeconds() >= dedupWindowSeconds);
     }
 
     public Map<String, Object> schedulerSnapshot() {
@@ -686,6 +703,8 @@ public class TaskSchedulerService {
             baseAt = Instant.now().plusMillis(baseDelayMs);
         }
 
+        Instant now = Instant.now();
+        pruneFixedDelayState(now);
         FixedDelayBackoffState state = fixedDelayState.computeIfAbsent(def.getId(), this::loadFixedDelayState);
         long minIntervalMs = fixedDelayMinIntervalMs;
         if (fixedDelayMaxRequeuePerMinute > 0) {
@@ -700,7 +719,6 @@ public class TaskSchedulerService {
         }
 
         Instant candidate = baseAt;
-        Instant now = Instant.now();
         Instant backoffAt = now.plusMillis(backoffDelayMs);
         if (backoffAt.isAfter(candidate)) {
             candidate = backoffAt;
@@ -754,6 +772,7 @@ public class TaskSchedulerService {
         if (def.getTrigger() == null || def.getTrigger().getType() != TriggerType.FIXED_DELAY) {
             return;
         }
+        pruneFixedDelayState(Instant.now());
         FixedDelayBackoffState state = fixedDelayState.computeIfAbsent(def.getId(), this::loadFixedDelayState);
         if (success) {
             state.failureStreak = 0;
@@ -761,6 +780,16 @@ public class TaskSchedulerService {
             state.failureStreak = Math.min(state.failureStreak + 1, 10);
         }
         persistFixedDelayState(def.getId(), state);
+    }
+
+    private void pruneFixedDelayState(Instant now) {
+        if (fixedDelayState.size() < 10_000) {
+            return;
+        }
+        fixedDelayState.entrySet().removeIf(e -> {
+            Instant last = e.getValue().lastScheduledAt;
+            return last != null && Duration.between(last, now).toHours() >= 24;
+        });
     }
 
     private static class FixedDelayBackoffState {

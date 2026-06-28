@@ -1,5 +1,6 @@
 package com.example.filebatchprocessor.config;
 
+import com.example.filebatchprocessor.batch.writer.strategy.ImportContext;
 import com.example.filebatchprocessor.listener.JobCompletionNotificationListener;
 import com.example.filebatchprocessor.model.ReconcileDiffRecord;
 import com.example.filebatchprocessor.model.ReconcileRunRecord;
@@ -7,12 +8,19 @@ import com.example.filebatchprocessor.params.ReconcileJobParams;
 import com.example.filebatchprocessor.repository.ImportedRecordPartitionedRepository;
 import com.example.filebatchprocessor.repository.ReconcileDiffRecordRepository;
 import com.example.filebatchprocessor.repository.ReconcileRunRecordRepository;
+import com.example.filebatchprocessor.util.PathSafety;
+import com.opencsv.CSVReader;
 import java.io.BufferedReader;
+import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.MessageDigest;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.job.Job;
@@ -41,6 +49,9 @@ public class ReconcileJobConfig {
     private final ReconcileRunRecordRepository reconcileRunRecordRepository;
     private final ReconcileDiffRecordRepository reconcileDiffRecordRepository;
 
+    @Value("${batch.io.input-base-dir:}")
+    private String inputBaseDir;
+
     @Autowired
     public ReconcileJobConfig(
             JobRepository jobRepository,
@@ -66,7 +77,7 @@ public class ReconcileJobConfig {
             long sourceCount = countDataLines(params.getInputFileName());
             long targetCount = importedRecordPartitionedRepository.countByBatchDate(params.getBatchDate());
 
-            String sourceHash = calculateSourceHash(params.getInputFileName());
+            String sourceHash = calculateSourceHash(params.getInputFileName(), params.getBatchDate());
             String targetHash = calculateTargetHash(params.getBatchDate());
 
             ReconcileRunRecord record = new ReconcileRunRecord();
@@ -134,30 +145,10 @@ public class ReconcileJobConfig {
     }
 
     private List<String> sampleSourceBusinessKeys(String inputFileName, String batchDate, int limit) throws Exception {
-        FileSystemResource resource = new FileSystemResource(inputFileName);
-        java.util.ArrayList<String> keys = new java.util.ArrayList<>();
-        try (BufferedReader br = Files.newBufferedReader(resource.getFile().toPath(), StandardCharsets.UTF_8)) {
-            boolean first = true;
-            String line;
-            while ((line = br.readLine()) != null) {
-                if (first) {
-                    first = false;
-                    continue;
-                }
-                if (line.isBlank()) {
-                    continue;
-                }
-                // assume CSV name is first column
-                String name = line.split(",", 2)[0].trim();
-                if (!name.isBlank()) {
-                    keys.add(name + ":" + batchDate);
-                }
-                if (keys.size() >= limit) {
-                    break;
-                }
-            }
-        }
-        return keys;
+        return canonicalSourceRows(inputFileName, batchDate).stream()
+                .map(line -> line.split(",", 2)[0])
+                .limit(Math.max(1, limit))
+                .toList();
     }
 
     private List<String> sampleTargetBusinessKeys(String batchDate, int limit) {
@@ -169,7 +160,7 @@ public class ReconcileJobConfig {
     }
 
     private long countDataLines(String inputFileName) throws Exception {
-        FileSystemResource resource = new FileSystemResource(inputFileName);
+        FileSystemResource resource = new FileSystemResource(confinedInput(inputFileName));
         long count = 0L;
         try (BufferedReader br = Files.newBufferedReader(resource.getFile().toPath(), StandardCharsets.UTF_8)) {
             boolean first = true;
@@ -187,23 +178,11 @@ public class ReconcileJobConfig {
         return count;
     }
 
-    private String calculateSourceHash(String inputFileName) throws Exception {
-        FileSystemResource resource = new FileSystemResource(inputFileName);
+    private String calculateSourceHash(String inputFileName, String batchDate) throws Exception {
         MessageDigest md = MessageDigest.getInstance("MD5");
-        try (BufferedReader br = Files.newBufferedReader(resource.getFile().toPath(), StandardCharsets.UTF_8)) {
-            boolean first = true;
-            String line;
-            while ((line = br.readLine()) != null) {
-                if (first) {
-                    first = false;
-                    continue;
-                }
-                if (line.isBlank()) {
-                    continue;
-                }
-                md.update(line.getBytes(StandardCharsets.UTF_8));
-                md.update((byte) '\n');
-            }
+        for (String line : canonicalSourceRows(inputFileName, batchDate)) {
+            md.update(line.getBytes(StandardCharsets.UTF_8));
+            md.update((byte) '\n');
         }
         return HexFormat.of().formatHex(md.digest());
     }
@@ -219,8 +198,7 @@ public class ReconcileJobConfig {
             // 不吞异常:单条拼接失败若被静默跳过,会让目标哈希少算记录却仍"完整"返回,
             // 把它本该保护的完整性校验悄悄掏空。任何失败应让对账可见地失败(方法已 throws Exception)。
             for (com.example.filebatchprocessor.model.ImportedRecordPartitioned rec : p) {
-                String line = rec.getBusinessKey() + "," + (rec.getName() == null ? "" : rec.getName()) + ","
-                        + (rec.getDescription() == null ? "" : rec.getDescription());
+                String line = canonicalLine(rec.getBusinessKey(), rec.getName(), rec.getDescription());
                 md.update(line.getBytes(StandardCharsets.UTF_8));
                 md.update((byte) '\n');
             }
@@ -230,6 +208,75 @@ public class ReconcileJobConfig {
             page++;
         }
         return HexFormat.of().formatHex(md.digest());
+    }
+
+    private List<String> canonicalSourceRows(String inputFileName, String overrideBatchDate) throws Exception {
+        List<String> rows = new ArrayList<>();
+        Path input = Path.of(confinedInput(inputFileName));
+        try (Reader reader = Files.newBufferedReader(input, StandardCharsets.UTF_8);
+                CSVReader csv = new CSVReader(reader)) {
+            String[] header = csv.readNext();
+            if (header == null) {
+                return rows;
+            }
+            int nameIndex = indexOf(header, "name", header.length > 1 ? 1 : 0);
+            int descriptionIndex = indexOf(header, "description", header.length > 2 ? 2 : -1);
+            String[] row;
+            while ((row = csv.readNext()) != null) {
+                if (isBlankRow(row)) {
+                    continue;
+                }
+                String rawName = valueAt(row, nameIndex);
+                if (rawName.isBlank()) {
+                    continue;
+                }
+                String batchDate = overrideBatchDate;
+                String name = rawName.toUpperCase(Locale.ROOT);
+                String businessKey = new ImportContext(batchDate, null, inputFileName, null)
+                        .buildBusinessKeyFromFields(
+                                Map.of("name", name, "description", valueAt(row, descriptionIndex)));
+                rows.add(canonicalLine(businessKey, name, valueAt(row, descriptionIndex)));
+            }
+        }
+        rows.sort(Comparator.naturalOrder());
+        return rows;
+    }
+
+    private String confinedInput(String inputFileName) {
+        return PathSafety.confine(inputBaseDir, inputFileName);
+    }
+
+    private static String canonicalLine(String businessKey, String name, String description) {
+        return (businessKey == null ? "" : businessKey) + "," + (name == null ? "" : name) + ","
+                + (description == null ? "" : description);
+    }
+
+    private static int indexOf(String[] header, String name, int fallback) {
+        for (int i = 0; i < header.length; i++) {
+            if (header[i] != null && header[i].trim().equalsIgnoreCase(name)) {
+                return i;
+            }
+        }
+        return fallback;
+    }
+
+    private static String valueAt(String[] row, int index) {
+        if (index < 0 || index >= row.length || row[index] == null) {
+            return "";
+        }
+        return row[index].trim();
+    }
+
+    private static boolean isBlankRow(String[] row) {
+        if (row == null || row.length == 0) {
+            return true;
+        }
+        for (String cell : row) {
+            if (cell != null && !cell.isBlank()) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Bean

@@ -43,16 +43,21 @@ public class SchedulerStateReconciler {
         }
         LocalDateTime cutoff = LocalDateTime.now().minusNanos(staleRunningMs * 1_000_000);
         List<TaskExecutionState> stale = taskExecutionStateRepository.findTop200ByStatusInAndUpdatedAtBefore(
-                List.of(
-                        TaskExecutionStatus.RUNNING.name(),
-                        TaskExecutionStatus.READY.name(),
-                        TaskExecutionStatus.BLOCKED.name()),
-                cutoff);
+                List.of(TaskExecutionStatus.RUNNING.name(), TaskExecutionStatus.BLOCKED.name()), cutoff);
         if (stale.isEmpty()) {
             return;
         }
         for (TaskExecutionState state : stale) {
             try {
+                if (TaskExecutionStatus.RUNNING.name().equals(state.getStatus())
+                        && (state.getWindowEnd() == null || state.getWindowEnd().isAfter(LocalDateTime.now()))) {
+                    log.info(
+                            "Skip stale RUNNING state before execution window ends: taskId={} batchDate={} windowEnd={}",
+                            state.getTaskId(),
+                            state.getBatchDate(),
+                            state.getWindowEnd());
+                    continue;
+                }
                 String reason = "Stale state beyond reconcile window";
                 state.setStatus(TaskExecutionStatus.FAILED.name());
                 state.setLastError(reason);

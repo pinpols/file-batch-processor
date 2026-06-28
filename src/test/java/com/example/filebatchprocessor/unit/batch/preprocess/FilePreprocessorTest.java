@@ -13,7 +13,9 @@ import com.example.filebatchprocessor.batch.preprocess.PreprocessResult;
 import com.example.filebatchprocessor.batch.preprocess.TempFileManager;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermission;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Stream;
 import java.util.zip.GZIPOutputStream;
 import org.junit.jupiter.api.Test;
@@ -72,5 +74,40 @@ class FilePreprocessorTest {
             List<Path> residue = files.toList();
             assertTrue(residue.isEmpty(), "temp dir should have no .dec/.plain residue but found: " + residue);
         }
+    }
+
+    @Test
+    void tempFileManagerCreatesOwnerOnlyFileWhenPosixIsAvailable(@TempDir Path dir) throws Exception {
+        Path tmpDir = dir.resolve("secure-tmp");
+        TempFileManager manager = new TempFileManager(tmpDir.toString());
+
+        Path temp = manager.newTempFile(".plain");
+
+        assertTrue(Files.exists(temp));
+        try {
+            Set<PosixFilePermission> dirPerms = Files.getPosixFilePermissions(tmpDir);
+            Set<PosixFilePermission> filePerms = Files.getPosixFilePermissions(temp);
+            assertEquals(
+                    Set.of(
+                            PosixFilePermission.OWNER_READ,
+                            PosixFilePermission.OWNER_WRITE,
+                            PosixFilePermission.OWNER_EXECUTE),
+                    dirPerms);
+            assertEquals(Set.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE), filePerms);
+        } catch (UnsupportedOperationException ignored) {
+            // Windows ACLs are validated by existence + cleanup behavior.
+        }
+    }
+
+    @Test
+    void startupCleanupDeletesStaleTempFiles(@TempDir Path dir) throws Exception {
+        Path tmpDir = dir.resolve("cleanup-tmp");
+        TempFileManager manager = new TempFileManager(tmpDir.toString());
+        Path stale = manager.newTempFile(".plain");
+        assertTrue(Files.exists(stale));
+
+        manager.cleanupStaleFiles(java.time.Duration.ZERO);
+
+        assertTrue(Files.notExists(stale));
     }
 }

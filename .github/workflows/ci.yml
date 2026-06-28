@@ -87,6 +87,9 @@ jobs:
       - name: Spotless format check
         run: ./mvnw -B -ntp spotless:check
 
+      - name: Flyway migration safety check
+        run: python scripts/check_flyway_safety.py
+
       - name: SpotBugs static analysis
         run: ./mvnw -B -ntp -DskipTests compile spotbugs:check
 

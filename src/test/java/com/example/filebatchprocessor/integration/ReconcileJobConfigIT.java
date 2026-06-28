@@ -84,4 +84,45 @@ class ReconcileJobConfigIT extends PostgresContainerSupport {
                 reconcileDiffRecordRepository.findTop200ByReconcileRunIdOrderByIdAsc(latest.getId());
         assertFalse(diffs.isEmpty(), "diff samples should be persisted when FAIL");
     }
+
+    @Test
+    void shouldPassWhenSourceRowsMatchImportedCanonicalRowsRegardlessOfInputOrder() throws Exception {
+        String batchDate = "2026-03-03";
+
+        ImportedRecordPartitioned alice = new ImportedRecordPartitioned();
+        alice.setBusinessKey("ALICE:" + batchDate);
+        alice.setName("ALICE");
+        alice.setDescription("first");
+        alice.setBatchDate(batchDate);
+        alice.setPartitionKey(batchDate.substring(0, 4) + "_" + batchDate.substring(5, 7));
+
+        ImportedRecordPartitioned bob = new ImportedRecordPartitioned();
+        bob.setBusinessKey("BOB:" + batchDate);
+        bob.setName("BOB");
+        bob.setDescription("second");
+        bob.setBatchDate(batchDate);
+        bob.setPartitionKey(batchDate.substring(0, 4) + "_" + batchDate.substring(5, 7));
+        importedRecordPartitionedRepository.saveAll(List.of(alice, bob));
+
+        Path csv = Files.createTempFile("reconcile-match", ".csv");
+        Files.writeString(csv, "id,name,description\n" + "2,bob,second\n" + "1,alice,first\n", StandardCharsets.UTF_8);
+
+        JobExecution execution = jobLauncher.run(
+                reconcileImportJob,
+                new JobParametersBuilder()
+                        .addLong("time", System.currentTimeMillis())
+                        .addString("input.file.name", csv.toString())
+                        .addString("batchDate", batchDate)
+                        .addString("target.job.name", "fileImportJob")
+                        .toJobParameters());
+
+        assertEquals(BatchStatus.COMPLETED, execution.getStatus());
+
+        ReconcileRunRecord latest = reconcileRunRecordRepository.findTop50ByOrderByCreatedAtDesc().stream()
+                .filter(r -> batchDate.equals(r.getBatchDate()))
+                .findFirst()
+                .orElseThrow();
+        assertEquals("PASS", latest.getStatus());
+        assertEquals(latest.getSourceHash(), latest.getTargetHash());
+    }
 }
