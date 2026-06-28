@@ -17,17 +17,17 @@ import org.junit.jupiter.api.Test;
 import org.springframework.batch.core.BatchStatus;
 import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.JobExecution;
-import org.springframework.batch.core.launch.JobLauncher;
+import org.springframework.batch.core.launch.JobOperator;
 
 class LaunchExecutorTest {
 
-    private JobLauncher jobLauncher;
+    private JobOperator jobOperator;
     private BatchJobResolver jobResolver;
     private JobInstanceService jobInstanceService;
 
     @BeforeEach
     void setUp() {
-        jobLauncher = mock(JobLauncher.class);
+        jobOperator = mock(JobOperator.class);
         jobResolver = mock(BatchJobResolver.class);
         jobInstanceService = mock(JobInstanceService.class);
     }
@@ -37,7 +37,7 @@ class LaunchExecutorTest {
         when(jobResolver.resolve("missingJob")).thenReturn(Optional.empty());
         when(jobResolver.describeAvailableJobs()).thenReturn("[" + "jobA,".repeat(80) + "]");
         LaunchExecutor launchExecutor =
-                new LaunchExecutor(jobLauncher, jobResolver, jobInstanceService, new Semaphore(1), 1, 1000);
+                new LaunchExecutor(jobOperator, jobResolver, jobInstanceService, new Semaphore(1), 1, 1000);
 
         OrchestrationTaskDefinition def = definition("t1", "missingJob");
 
@@ -54,7 +54,7 @@ class LaunchExecutorTest {
         when(jobResolver.resolve("jobA"))
                 .thenReturn(Optional.of(new BatchJobResolver.ResolvedJob("jobA", "jobA", job)));
         LaunchExecutor launchExecutor =
-                new LaunchExecutor(jobLauncher, jobResolver, jobInstanceService, new Semaphore(0), 1, 1000);
+                new LaunchExecutor(jobOperator, jobResolver, jobInstanceService, new Semaphore(0), 1, 1000);
 
         OrchestrationTaskDefinition def = definition("t1", "jobA");
 
@@ -74,17 +74,17 @@ class LaunchExecutorTest {
         when(jobResolver.resolve("jobA"))
                 .thenReturn(Optional.of(new BatchJobResolver.ResolvedJob("jobA", "jobA", job)));
         when(jobInstanceService.createTriggeredInstance(any())).thenReturn(businessJobInstance);
-        when(jobLauncher.run(eq(job), any())).thenReturn(execution);
+        when(jobOperator.run(eq(job), any())).thenReturn(execution);
 
         LaunchExecutor launchExecutor =
-                new LaunchExecutor(jobLauncher, jobResolver, jobInstanceService, new Semaphore(1), 1, 1000);
+                new LaunchExecutor(jobOperator, jobResolver, jobInstanceService, new Semaphore(1), 1, 1000);
 
         OrchestrationTaskDefinition def = definition("t1", "jobA");
 
         LaunchExecutor.LaunchResult result = launchExecutor.launch(def, "2026-03-01", 0);
         assertTrue(result.isSuccess());
         verify(jobInstanceService).createTriggeredInstance(any());
-        verify(jobLauncher, atLeastOnce()).run(eq(job), any());
+        verify(jobOperator, atLeastOnce()).run(eq(job), any());
     }
 
     @Test
@@ -94,7 +94,7 @@ class LaunchExecutorTest {
         when(jobResolver.resolve("jobA"))
                 .thenReturn(Optional.of(new BatchJobResolver.ResolvedJob("jobA", "jobA", job)));
         LaunchExecutor launchExecutor =
-                new LaunchExecutor(jobLauncher, jobResolver, jobInstanceService, permits, 1, 1000);
+                new LaunchExecutor(jobOperator, jobResolver, jobInstanceService, permits, 1, 1000);
 
         OrchestrationTaskDefinition def = definition("t1", "jobA");
 

@@ -11,6 +11,7 @@ import java.security.SecureRandom;
 import java.util.Date;
 import org.bouncycastle.bcpg.ArmoredOutputStream;
 import org.bouncycastle.bcpg.HashAlgorithmTags;
+import org.bouncycastle.bcpg.PublicKeyPacket;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.openpgp.PGPEncryptedData;
 import org.bouncycastle.openpgp.PGPEncryptedDataGenerator;
@@ -39,7 +40,7 @@ class BouncyCastlePgpDecryptorTest {
         KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA", "BC");
         kpg.initialize(2048);
         java.security.KeyPair jceKp = kpg.generateKeyPair();
-        PGPKeyPair pgpKp = new JcaPGPKeyPair(PGPPublicKey.RSA_GENERAL, jceKp, new Date());
+        PGPKeyPair pgpKp = new JcaPGPKeyPair(PublicKeyPacket.VERSION_4, PGPPublicKey.RSA_GENERAL, jceKp, new Date());
         PGPSecretKey secretKey = new PGPSecretKey(
                 org.bouncycastle.openpgp.PGPSignature.DEFAULT_CERTIFICATION,
                 pgpKp,

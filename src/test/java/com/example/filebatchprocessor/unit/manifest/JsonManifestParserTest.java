@@ -15,8 +15,7 @@ class JsonManifestParserTest {
 
     @Test
     void parsesValidManifest() {
-        String json =
-                """
+        String json = """
             {"manifestId":"M1","sourceSystem":"S","bizDate":"2026-06-27",
              "files":[
                {"fileName":"a.csv","expectedRecordCount":10,"checksum":"abc","required":true},

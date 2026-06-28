@@ -10,13 +10,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 
 public abstract class PostgresContainerSupport {
 
     private static final Logger log = LoggerFactory.getLogger(PostgresContainerSupport.class);
 
-    private static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:17")
+    private static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(TestContainerImages.POSTGRES)
             .withDatabaseName("testdb")
             .withUsername("postgres")
             .withPassword("postgres");
@@ -55,9 +55,6 @@ public abstract class PostgresContainerSupport {
     }
 
     private static DatabaseConfig initializeDatabaseConfig() {
-        if (hasSetting("TEST_POSTGRES_URL", "test.postgres.url")) {
-            return createLocalConfig();
-        }
         try {
             if (!POSTGRES.isRunning()) {
                 POSTGRES.start();
@@ -72,43 +69,9 @@ public abstract class PostgresContainerSupport {
             return config;
         } catch (Throwable dockerFailure) {
             throw new IllegalStateException(
-                    "Failed to start Testcontainers PostgreSQL for integration tests. "
-                            + "Start Docker, or explicitly set TEST_POSTGRES_URL / -Dtest.postgres.url "
-                            + "to use a local PostgreSQL test database.",
+                    "Failed to start Testcontainers PostgreSQL for integration tests. Start Docker and" + " retry.",
                     dockerFailure);
         }
-    }
-
-    private static DatabaseConfig createLocalConfig() {
-        String jdbcUrl = readRequiredSetting("TEST_POSTGRES_URL", "test.postgres.url");
-        String username = readSetting("TEST_POSTGRES_USERNAME", "test.postgres.username", "postgres");
-        String password = readSetting("TEST_POSTGRES_PASSWORD", "test.postgres.password", "postgres");
-        String driverClassName = "org.postgresql.Driver";
-        try {
-            DatabaseConfig config = createSchemaScopedConfig(jdbcUrl, username, password, driverClassName, "local");
-            log.info("Using explicitly configured local PostgreSQL for integration tests: schema={}", config.schema());
-            return config;
-        } catch (RuntimeException localFailure) {
-            throw localFailure;
-        }
-    }
-
-    private static boolean hasSetting(String envKey, String systemPropertyKey) {
-        String envValue = System.getenv(envKey);
-        if (envValue != null && !envValue.isBlank()) {
-            return true;
-        }
-        String systemValue = System.getProperty(systemPropertyKey);
-        return systemValue != null && !systemValue.isBlank();
-    }
-
-    private static String readRequiredSetting(String envKey, String systemPropertyKey) {
-        String value = readSetting(envKey, systemPropertyKey, null);
-        if (value == null || value.isBlank()) {
-            throw new IllegalStateException("Missing required test database setting: " + envKey + " or -D"
-                    + systemPropertyKey);
-        }
-        return value;
     }
 
     private static DatabaseConfig createSchemaScopedConfig(
@@ -117,18 +80,6 @@ public abstract class PostgresContainerSupport {
         ensureSchemaExists(baseJdbcUrl, username, password, schema);
         return new DatabaseConfig(
                 appendCurrentSchema(baseJdbcUrl, schema), username, password, driverClassName, schema);
-    }
-
-    private static String readSetting(String envKey, String systemPropertyKey, String defaultValue) {
-        String envValue = System.getenv(envKey);
-        if (envValue != null && !envValue.isBlank()) {
-            return envValue;
-        }
-        String systemValue = System.getProperty(systemPropertyKey);
-        if (systemValue != null && !systemValue.isBlank()) {
-            return systemValue;
-        }
-        return defaultValue;
     }
 
     private static String buildSchemaName(String prefix) {

@@ -208,7 +208,7 @@ orchestration:
       max-backoff-ms: 300000
     # 默认调度治理参数（任务级未配置时生效）
     default-max-queue-wait-ms: 300000
-    # 同步 JobLauncher 无法可靠硬中断任务；该值仅用于慢启动/慢执行告警阈值。
+    # 同步 JobOperator 无法可靠硬中断任务；该值仅用于慢启动/慢执行告警阈值。
     # 兼容旧配置名 default-timeout-ms，但推荐使用此语义更准确的新名称。
     default-warn-threshold-ms: 1800000
     default-dynamic-shard-max: 1

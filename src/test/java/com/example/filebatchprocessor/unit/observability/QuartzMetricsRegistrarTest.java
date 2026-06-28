@@ -21,6 +21,7 @@ import org.quartz.TriggerListener;
 import org.quartz.impl.matchers.EverythingMatcher;
 
 @ExtendWith(MockitoExtension.class)
+@SuppressWarnings({"rawtypes", "unchecked"})
 class QuartzMetricsRegistrarTest {
 
     @Mock

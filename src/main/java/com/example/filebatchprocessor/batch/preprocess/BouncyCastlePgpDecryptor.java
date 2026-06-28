@@ -47,7 +47,8 @@ public class BouncyCastlePgpDecryptor implements PgpDecryptor {
         Iterator<?> it = encList.getEncryptedDataObjects();
         while (privateKey == null && it.hasNext()) {
             PGPPublicKeyEncryptedData ed = (PGPPublicKeyEncryptedData) it.next();
-            PGPSecretKey secretKey = secretKeys.getSecretKey(ed.getKeyID());
+            PGPSecretKey secretKey =
+                    secretKeys.getSecretKey(ed.getKeyIdentifier().getKeyId());
             if (secretKey != null) {
                 privateKey = secretKey.extractPrivateKey(
                         new JcePBESecretKeyDecryptorBuilder().setProvider("BC").build(passphrase));

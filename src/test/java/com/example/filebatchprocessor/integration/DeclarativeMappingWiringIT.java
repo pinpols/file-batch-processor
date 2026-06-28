@@ -22,7 +22,7 @@ import org.springframework.batch.core.BatchStatus;
 import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.JobExecution;
 import org.springframework.batch.core.job.parameters.JobParametersBuilder;
-import org.springframework.batch.core.launch.JobLauncher;
+import org.springframework.batch.core.launch.JobOperator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -31,8 +31,8 @@ import org.springframework.test.context.ActiveProfiles;
 /**
  * 守门回归 IT:证明声明式映射接线(feedId 路由)未漂移默认导入语义。
  *
- * <p>测试 A:字节级对照 —— 默认路径 vs 对照 feed(default-csv,复刻默认语义)在
- * (name, description, business_key 去 batchDate) 上逐行一致。
+ * <p>测试 A:字节级对照 —— 默认路径 vs 对照 feed(default-csv,复刻默认语义)在 (name, description, business_key 去
+ * batchDate) 上逐行一致。
  *
  * <p>测试 B:真映射 + attributes JSONB 落库与回读。
  */
@@ -43,8 +43,7 @@ class DeclarativeMappingWiringIT extends PostgresContainerSupport {
     private static final String ATTRS_FEED_ID = "it-attrs-feed";
 
     @Autowired
-    @Qualifier("asyncJobLauncher")
-    private JobLauncher jobLauncher;
+    private JobOperator jobOperator;
 
     @Autowired
     @Qualifier("fileImportJob")
@@ -76,7 +75,7 @@ class DeclarativeMappingWiringIT extends PostgresContainerSupport {
         if (feedId != null) {
             builder.addString("feedId", feedId);
         }
-        return jobLauncher.run(fileImportJob, builder.toJobParameters());
+        return jobOperator.run(fileImportJob, builder.toJobParameters());
     }
 
     /** business_key 去掉结尾 {@code ":"+batchDate}(对照口径)。 */

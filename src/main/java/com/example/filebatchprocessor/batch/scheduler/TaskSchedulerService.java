@@ -29,8 +29,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Semaphore;
 import lombok.extern.slf4j.Slf4j;
 import org.quartz.*;
-import org.springframework.batch.core.launch.JobLauncher;
-import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.batch.core.launch.JobOperator;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
@@ -85,7 +84,7 @@ public class TaskSchedulerService {
     private final Object quartzTriggerWriteLock = new Object();
 
     public TaskSchedulerService(
-            @Qualifier("asyncJobLauncher") JobLauncher jobLauncher,
+            JobOperator jobOperator,
             BatchJobResolver batchJobResolver,
             TaskGraphManager taskGraphManager,
             LocalCacheService localCacheService,
@@ -158,7 +157,7 @@ public class TaskSchedulerService {
         this.dependencyResolver = new DependencyResolver(taskExecutionStateRepository);
         this.retryPolicy = new RetryPolicy(defaultMaxAttempts, defaultRetryBackoffMs, defaultRetryJitterRatio);
         this.launchExecutor = new LaunchExecutor(
-                jobLauncher,
+                jobOperator,
                 batchJobResolver,
                 jobInstanceService,
                 launchPermits,
@@ -798,15 +797,14 @@ public class TaskSchedulerService {
     }
 
     /**
-     * 从 scheduler_fixed_delay_state 表回填退避状态（应用重启后首次访问该任务时触发），
-     * 使 fixedDelayState 内存 map 成为「写穿缓存」而非易失内存。读失败时退回全新状态，
-     * 保证调度可用性优先于退避精度（亦兼容单测中 mock 的 JdbcTemplate）。
+     * 从 scheduler_fixed_delay_state 表回填退避状态（应用重启后首次访问该任务时触发）， 使 fixedDelayState 内存 map
+     * 成为「写穿缓存」而非易失内存。读失败时退回全新状态， 保证调度可用性优先于退避精度（亦兼容单测中 mock 的 JdbcTemplate）。
      */
     private FixedDelayBackoffState loadFixedDelayState(String taskId) {
         FixedDelayBackoffState state = new FixedDelayBackoffState();
         try {
             jdbcTemplate.query(
-                    "SELECT failure_streak, last_scheduled_at FROM scheduler_fixed_delay_state WHERE task_id = ?",
+                    "SELECT failure_streak, last_scheduled_at FROM scheduler_fixed_delay_state WHERE task_id" + " = ?",
                     rs -> {
                         state.failureStreak = Math.max(0, Math.min(rs.getInt("failure_streak"), 10));
                         java.sql.Timestamp ts = rs.getTimestamp("last_scheduled_at");
@@ -823,18 +821,14 @@ public class TaskSchedulerService {
         try {
             java.sql.Timestamp lastScheduled =
                     state.lastScheduledAt == null ? null : java.sql.Timestamp.from(state.lastScheduledAt);
-            jdbcTemplate.update(
-                    """
-                    INSERT INTO scheduler_fixed_delay_state(task_id, failure_streak, last_scheduled_at, updated_at)
-                    VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-                    ON CONFLICT (task_id) DO UPDATE
-                    SET failure_streak = EXCLUDED.failure_streak,
-                        last_scheduled_at = EXCLUDED.last_scheduled_at,
-                        updated_at = CURRENT_TIMESTAMP
-                    """,
-                    taskId,
-                    state.failureStreak,
-                    lastScheduled);
+            jdbcTemplate.update("""
+          INSERT INTO scheduler_fixed_delay_state(task_id, failure_streak, last_scheduled_at, updated_at)
+          VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+          ON CONFLICT (task_id) DO UPDATE
+          SET failure_streak = EXCLUDED.failure_streak,
+              last_scheduled_at = EXCLUDED.last_scheduled_at,
+              updated_at = CURRENT_TIMESTAMP
+          """, taskId, state.failureStreak, lastScheduled);
         } catch (Exception e) {
             log.warn("Failed to persist fixed-delay backoff state for task={}", taskId, e);
         }
@@ -893,7 +887,8 @@ public class TaskSchedulerService {
     private void resetPersistedSchedules(String schedName) {
         synchronized (quartzTriggerWriteLock) {
             int firedRows = jdbcTemplate.update(
-                    "DELETE FROM qrtz_fired_triggers WHERE sched_name = ? AND (trigger_group = ? OR job_group = ?)",
+                    "DELETE FROM qrtz_fired_triggers WHERE sched_name = ? AND (trigger_group = ? OR"
+                            + " job_group = ?)",
                     schedName,
                     ORCHESTRATION_GROUP,
                     ORCHESTRATION_GROUP);
@@ -926,7 +921,8 @@ public class TaskSchedulerService {
                     schedName,
                     ORCHESTRATION_GROUP);
             log.info(
-                    "Reset persisted Quartz orchestration rows: schedName={}, jobs={}, triggers={}, simple={}, cron={}, simprop={}, blob={}, fired={}, paused={}",
+                    "Reset persisted Quartz orchestration rows: schedName={}, jobs={}, triggers={},"
+                            + " simple={}, cron={}, simprop={}, blob={}, fired={}, paused={}",
                     schedName,
                     jobRows,
                     triggerRows,

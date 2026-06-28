@@ -26,7 +26,7 @@ import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.JobExecution;
 import org.springframework.batch.core.job.JobInstance;
 import org.springframework.batch.core.job.parameters.JobParameters;
-import org.springframework.batch.core.launch.JobLauncher;
+import org.springframework.batch.core.launch.JobOperator;
 
 class DlqCompensationServiceTest {
 
@@ -34,7 +34,7 @@ class DlqCompensationServiceTest {
     void batchReplayUsesStableRunKeyForSameDlqAttempt() throws Exception {
         DlqRecordRepository dlqRepository = mock(DlqRecordRepository.class);
         PartitionedImportService partitionedImportService = mock(PartitionedImportService.class);
-        JobLauncher jobLauncher = mock(JobLauncher.class);
+        JobOperator jobOperator = mock(JobOperator.class);
         Job replayJob = mock(Job.class);
         BatchJobResolver batchJobResolver = mock(BatchJobResolver.class);
         TaskConfigService taskConfigService = mock(TaskConfigService.class);
@@ -63,14 +63,14 @@ class DlqCompensationServiceTest {
         businessJobInstance.setId(900L);
         businessJobInstance.setJobInstanceNo("JOB-900");
         when(jobInstanceService.createTriggeredInstance(any())).thenReturn(businessJobInstance);
-        when(jobLauncher.run(any(), any()))
+        when(jobOperator.run(any(Job.class), any(JobParameters.class)))
                 .thenReturn(new JobExecution(
                         123L, new JobInstance(124L, BatchJobNames.FILE_IMPORT_JOB), new JobParameters()));
 
         DlqCompensationService service = new DlqCompensationService(
                 dlqRepository,
                 partitionedImportService,
-                jobLauncher,
+                jobOperator,
                 replayJob,
                 batchJobResolver,
                 taskConfigService,

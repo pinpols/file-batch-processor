@@ -19,7 +19,7 @@ import java.util.UUID;
 import org.springframework.batch.core.BatchStatus;
 import org.springframework.batch.core.job.JobExecution;
 import org.springframework.batch.core.launch.JobOperator;
-import org.springframework.batch.core.repository.explore.JobExplorer;
+import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,7 +33,7 @@ public class RetryCompensationService {
     private final BusinessJobInstanceRepository businessJobInstanceRepository;
     private final JobExecutionLogService jobExecutionLogService;
     private final JobOperator jobOperator;
-    private final JobExplorer jobExplorer;
+    private final JobRepository jobRepository;
     private final ObjectMapper objectMapper;
 
     public RetryCompensationService(
@@ -41,13 +41,13 @@ public class RetryCompensationService {
             BusinessJobInstanceRepository businessJobInstanceRepository,
             JobExecutionLogService jobExecutionLogService,
             JobOperator jobOperator,
-            JobExplorer jobExplorer,
+            JobRepository jobRepository,
             ObjectMapper objectMapper) {
         this.compensationRecordRepository = compensationRecordRepository;
         this.businessJobInstanceRepository = businessJobInstanceRepository;
         this.jobExecutionLogService = jobExecutionLogService;
         this.jobOperator = jobOperator;
-        this.jobExplorer = jobExplorer;
+        this.jobRepository = jobRepository;
         this.objectMapper = objectMapper;
     }
 
@@ -161,7 +161,8 @@ public class RetryCompensationService {
                         "jobName", execution.getJobInstance().getJobName(),
                         "batchStatus", execution.getStatus().name())));
         try {
-            long restartedId = jobOperator.restart(executionId);
+            JobExecution restarted = jobOperator.restart(execution);
+            long restartedId = restarted.getId();
             completeCompensation(
                     record.getId(),
                     targetJobInstanceId,
@@ -179,12 +180,12 @@ public class RetryCompensationService {
 
     public Long restartLatestFailed(String jobName, String operatorName, String reason) throws Exception {
         List<JobExecution> running =
-                jobExplorer.findRunningJobExecutions(jobName).stream().toList();
+                jobRepository.findRunningJobExecutions(jobName).stream().toList();
         if (!running.isEmpty()) {
             throw new IllegalStateException("Job is currently running: " + jobName);
         }
-        List<JobExecution> failedExecutions = jobExplorer.getJobInstances(jobName, 0, 100).stream()
-                .flatMap(instance -> jobExplorer.getJobExecutions(instance).stream())
+        List<JobExecution> failedExecutions = jobRepository.getJobInstances(jobName, 0, 100).stream()
+                .flatMap(instance -> jobRepository.getJobExecutions(instance).stream())
                 .filter(exec -> exec.getStatus() == BatchStatus.FAILED || exec.getStatus() == BatchStatus.STOPPED)
                 .sorted((left, right) -> right.getCreateTime().compareTo(left.getCreateTime()))
                 .toList();
@@ -202,7 +203,7 @@ public class RetryCompensationService {
     }
 
     private JobExecution loadRestartableExecution(long executionId) {
-        JobExecution execution = jobExplorer.getJobExecution(executionId);
+        JobExecution execution = jobRepository.getJobExecution(executionId);
         if (execution == null) {
             throw new IllegalArgumentException("Execution not found: " + executionId);
         }
@@ -253,7 +254,9 @@ public class RetryCompensationService {
     }
 
     private String generateCompensationNo() {
-        return "CP-" + LocalDate.now().format(COMPENSATION_NO_DATE) + "-"
+        return "CP-"
+                + LocalDate.now().format(COMPENSATION_NO_DATE)
+                + "-"
                 + UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase();
     }
 

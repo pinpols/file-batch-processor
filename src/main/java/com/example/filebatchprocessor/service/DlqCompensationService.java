@@ -16,16 +16,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.JobExecution;
 import org.springframework.batch.core.job.parameters.JobParametersBuilder;
-import org.springframework.batch.core.launch.JobLauncher;
+import org.springframework.batch.core.launch.JobOperator;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * 死信补偿服务：支持按记录重放和按任务重触发。
- */
+/** 死信补偿服务：支持按记录重放和按任务重触发。 */
 @Slf4j
 @Service
 public class DlqCompensationService {
@@ -34,7 +32,7 @@ public class DlqCompensationService {
 
     private final DlqRecordRepository dlqRecordRepository;
     private final PartitionedImportService partitionedImportService;
-    private final JobLauncher jobLauncher;
+    private final JobOperator jobOperator;
     private final Job fileImportJob;
     private final BatchJobResolver batchJobResolver;
     private final TaskConfigService taskConfigService;
@@ -46,7 +44,7 @@ public class DlqCompensationService {
     public DlqCompensationService(
             DlqRecordRepository dlqRecordRepository,
             PartitionedImportService partitionedImportService,
-            @Qualifier("asyncJobLauncher") JobLauncher jobLauncher,
+            JobOperator jobOperator,
             @Qualifier(BatchJobNames.FILE_IMPORT_JOB) Job fileImportJob,
             BatchJobResolver batchJobResolver,
             TaskConfigService taskConfigService,
@@ -56,7 +54,7 @@ public class DlqCompensationService {
             @Value("${batch.dlq.retry-delay-ms:60000}") long retryDelayMs) {
         this.dlqRecordRepository = dlqRecordRepository;
         this.partitionedImportService = partitionedImportService;
-        this.jobLauncher = jobLauncher;
+        this.jobOperator = jobOperator;
         this.fileImportJob = fileImportJob;
         this.batchJobResolver = batchJobResolver;
         this.taskConfigService = taskConfigService;
@@ -215,7 +213,7 @@ public class DlqCompensationService {
                 builder.addString(key, value);
             });
 
-            JobExecution execution = jobLauncher.run(replayJob, builder.toJobParameters());
+            JobExecution execution = jobOperator.run(replayJob, builder.toJobParameters());
             return new ReplayOutcome(
                     businessInstance.getId(),
                     execution.getId(),

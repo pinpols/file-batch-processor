@@ -5,7 +5,7 @@ services:
   # PostgreSQL 数据库 (开发环境)
   # ================================
   postgres:
-    image: postgres:17-alpine
+    image: postgres:17
     container_name: file-batch-postgres-dev
     restart: unless-stopped
     environment:

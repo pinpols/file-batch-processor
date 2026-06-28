@@ -20,6 +20,7 @@ import org.springframework.batch.test.MetaDataInstanceFactory;
 class ExportRecordTraceWriterTest {
 
     @Test
+    @SuppressWarnings({"unchecked", "rawtypes"})
     void shouldDelegateWriteAndPersistExportTraces() throws Exception {
         @SuppressWarnings("unchecked")
         ItemWriter<ExportRecord> delegate = mock(ItemWriter.class);

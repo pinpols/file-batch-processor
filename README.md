@@ -60,10 +60,10 @@ input=/data/input.csv&batchDate=2025-01-01&runMode=backfill&rerunId=bf-20250101&
 
 ### 测试执行（分层）
 - 单元测试：`mvn test -Punit-test`（200+ tests）
-- 集成测试：`mvn test -Pintegration-test`（默认使用 Testcontainers PostgreSQL；如需本地 PG，需显式设置 `TEST_POSTGRES_URL` 或 `-Dtest.postgres.url=...`）
-- E2E 测试：`mvn test -Pe2e-test`（需要 PostgreSQL test 数据库）
+- 集成测试：`mvn test -Pintegration-test`（使用 Testcontainers PostgreSQL，需要本机 Docker 可用）
+- E2E 测试：`mvn test -Pe2e-test`（使用 Testcontainers PostgreSQL，需要本机 Docker 可用）
 
-### 数据库准备
+### 本地运行数据库准备
 1. 创建测试数据库：`CREATE DATABASE test;`
 2. 运行 Flyway 迁移：`mvn flyway:migrate -Dflyway.url=jdbc:postgresql://localhost:5432/test`
 

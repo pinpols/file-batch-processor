@@ -21,7 +21,7 @@ import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.JobExecution;
 import org.springframework.batch.core.job.parameters.JobParameters;
 import org.springframework.batch.core.job.parameters.JobParametersBuilder;
-import org.springframework.batch.core.launch.JobLauncher;
+import org.springframework.batch.core.launch.JobOperator;
 
 public class LaunchExecutor {
     private static final Logger log = LoggerFactory.getLogger(LaunchExecutor.class);
@@ -38,7 +38,7 @@ public class LaunchExecutor {
             JobInstanceParameters.TRIGGERED_BY,
             JobInstanceParameters.RELATED_FILE_ID);
 
-    private final JobLauncher jobLauncher;
+    private final JobOperator jobOperator;
     private final BatchJobResolver jobResolver;
     private final JobInstanceService jobInstanceService;
     private final Semaphore launchPermits;
@@ -47,13 +47,13 @@ public class LaunchExecutor {
     private final long defaultLaunchWarnThresholdMs;
 
     public LaunchExecutor(
-            JobLauncher jobLauncher,
+            JobOperator jobOperator,
             BatchJobResolver jobResolver,
             JobInstanceService jobInstanceService,
             Semaphore launchPermits,
             int defaultDynamicShardMax,
             long defaultLaunchWarnThresholdMs) {
-        this.jobLauncher = jobLauncher;
+        this.jobOperator = jobOperator;
         this.jobResolver = jobResolver;
         this.jobInstanceService = jobInstanceService;
         this.launchPermits = launchPermits;
@@ -93,11 +93,16 @@ public class LaunchExecutor {
         int failedShards = 0;
         Throwable lastFailureCause = null;
         for (Integer shardIndex : shardIndexes) {
-            String executionId = def.getId() + "-" + batchDate
+            String executionId = def.getId()
+                    + "-"
+                    + batchDate
                     + (rerunId.isEmpty() ? "" : "-" + rerunId)
-                    + "-s" + shardIndex
-                    + "-of" + shardTotal
-                    + "-" + System.nanoTime();
+                    + "-s"
+                    + shardIndex
+                    + "-of"
+                    + shardTotal
+                    + "-"
+                    + System.nanoTime();
 
             boolean permitAcquired = false;
             boolean jobLockAcquired = false;
@@ -198,12 +203,13 @@ public class LaunchExecutor {
     private JobExecution runAndWarnIfSlow(Job job, JobParameters parameters, long launchWarnThresholdMs)
             throws Exception {
         long startedAtMs = System.currentTimeMillis();
-        JobExecution execution = jobLauncher.run(job, parameters);
+        JobExecution execution = jobOperator.run(job, parameters);
         if (launchWarnThresholdMs > 0) {
             long elapsedMs = System.currentTimeMillis() - startedAtMs;
             if (elapsedMs > launchWarnThresholdMs) {
                 log.warn(
-                        "Job launcher call exceeded slow-launch warning threshold: jobName={} elapsedMs={} thresholdMs={}",
+                        "Job launcher call exceeded slow-launch warning threshold: jobName={} elapsedMs={}"
+                                + " thresholdMs={}",
                         job.getName(),
                         elapsedMs,
                         launchWarnThresholdMs);
