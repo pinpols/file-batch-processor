@@ -63,6 +63,10 @@ public class ImportedRecordPartitioned {
     @Column(name = "source_file_name")
     private String sourceFileName;
 
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
+    @Column(name = "attributes", columnDefinition = "jsonb")
+    private java.util.Map<String, Object> attributes;
+
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
@@ -148,5 +152,13 @@ public class ImportedRecordPartitioned {
 
     public void setSourceFileName(String sourceFileName) {
         this.sourceFileName = sourceFileName;
+    }
+
+    public java.util.Map<String, Object> getAttributes() {
+        return attributes;
+    }
+
+    public void setAttributes(java.util.Map<String, Object> attributes) {
+        this.attributes = attributes;
     }
 }

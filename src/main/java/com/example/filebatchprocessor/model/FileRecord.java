@@ -10,6 +10,10 @@ public class FileRecord {
 
     private Long lineNo;
 
+    private java.util.Map<String, Object> rawValues;
+
+    private java.util.Map<String, Object> attributes;
+
     // Explicit getters and setters as workaround for Lombok annotation processing issue
 
     public Long getId() {
@@ -42,6 +46,22 @@ public class FileRecord {
 
     public void setLineNo(Long lineNo) {
         this.lineNo = lineNo;
+    }
+
+    public java.util.Map<String, Object> getRawValues() {
+        return rawValues;
+    }
+
+    public void setRawValues(java.util.Map<String, Object> rawValues) {
+        this.rawValues = rawValues;
+    }
+
+    public java.util.Map<String, Object> getAttributes() {
+        return attributes;
+    }
+
+    public void setAttributes(java.util.Map<String, Object> attributes) {
+        this.attributes = attributes;
     }
 
     // You can add more fields as per your CSV structure
