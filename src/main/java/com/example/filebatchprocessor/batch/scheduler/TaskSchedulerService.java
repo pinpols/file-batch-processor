@@ -482,7 +482,9 @@ public class TaskSchedulerService {
                             batchMetrics.counter(
                                     "scheduler_launch_failed_total", "job", String.valueOf(task.getJobName()));
                             int attempt = getCurrentAttempt(task);
-                            RetryPolicy.FailureClass failureClass = retryPolicy.classify(launchResult.getReason());
+                            RetryPolicy.FailureClass failureClass = launchResult.getFailureCause() != null
+                                    ? retryPolicy.classify(launchResult.getFailureCause())
+                                    : retryPolicy.classify(launchResult.getReason());
                             recordFixedDelayOutcome(task, false);
                             if (failureClass == RetryPolicy.FailureClass.SKIPPABLE) {
                                 upsertState(
@@ -498,7 +500,7 @@ public class TaskSchedulerService {
                                         TaskExecutionStatus.SKIPPED.name(),
                                         launchResult.getReason(),
                                         task.getParameters());
-                            } else if (retryPolicy.allowRetry(task, attempt, launchResult.getReason())) {
+                            } else if (retryPolicy.allowRetry(task, attempt, failureClass)) {
                                 scheduleRetry(task, launchResult.getReason());
                                 taskExecutionAuditService.log(
                                         task.getId(),
