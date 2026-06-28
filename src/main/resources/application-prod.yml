@@ -41,15 +41,21 @@ batch:
       url: ${BATCH_ALERT_WEBHOOK_URL:}
 
 management:
+  # 独立管理端口(网络层隔离运维面);默认回落到主端口(server.port)=与主端口同(向后兼容,探针可达),
+  # prod 建议显式设 BATCH_MANAGEMENT_PORT 为独立端口。注意:别用 -1,那会禁用 actuator HTTP 导致探针失联。
+  server:
+    port: ${BATCH_MANAGEMENT_PORT:${server.port:8011}}
   endpoints:
     web:
       exposure:
-        include: health,info,prometheus,metrics
+        # 去掉 metrics(prometheus 已覆盖且暴露更少内部细节)
+        include: health,info,prometheus
   endpoint:
     health:
       probes:
         enabled: true
-      show-details: always
+      # prod 不对匿名暴露组件级 health 详情
+      show-details: when_authorized
   metrics:
     tags:
       application: ${spring.application.name:file-batch-processor}

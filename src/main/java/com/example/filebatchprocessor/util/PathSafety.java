@@ -36,6 +36,21 @@ public final class PathSafety {
                 throw new IllegalArgumentException(
                         "path escapes allowed base dir: " + candidate + " (base=" + baseDir + ")");
             }
+            // 符号链接硬化:对已存在的路径解析真实路径(消解 symlink),再次校验仍在 base 内。
+            // 不存在的路径(如待写出的输出文件)无法 toRealPath,保留上面的 normalize 校验即可。
+            try {
+                if (java.nio.file.Files.exists(resolved)) {
+                    Path realResolved = resolved.toRealPath();
+                    Path realBase = java.nio.file.Files.exists(base) ? base.toRealPath() : base;
+                    if (!realResolved.startsWith(realBase)) {
+                        throw new IllegalArgumentException(
+                                "path escapes allowed base dir via symlink: " + candidate + " (base=" + baseDir + ")");
+                    }
+                    return realResolved.toString();
+                }
+            } catch (java.io.IOException e) {
+                throw new IllegalArgumentException("failed to resolve real path: " + candidate, e);
+            }
             return resolved.toString();
         }
 
