@@ -60,7 +60,7 @@ input=/data/input.csv&batchDate=2025-01-01&runMode=backfill&rerunId=bf-20250101&
 
 ### 测试执行（分层）
 - 单元测试：`mvn test -Punit-test`（200+ tests）
-- 集成测试：`mvn test -Pintegration-test`（需要 PostgreSQL test 数据库，Testcontainers 自动起容器或回落 localhost:5432）
+- 集成测试：`mvn test -Pintegration-test`（默认使用 Testcontainers PostgreSQL；如需本地 PG，需显式设置 `TEST_POSTGRES_URL` 或 `-Dtest.postgres.url=...`）
 - E2E 测试：`mvn test -Pe2e-test`（需要 PostgreSQL test 数据库）
 
 ### 数据库准备
