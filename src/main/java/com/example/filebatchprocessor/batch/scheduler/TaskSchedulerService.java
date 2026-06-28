@@ -354,10 +354,23 @@ public class TaskSchedulerService {
         batchTaskExecutor.submit(this::drainQueue);
     }
 
+    // #3:周期性 drain tick——drainQueue 原本只在 enqueue 时触发,WAITING 任务靠忙旋自我重查。
+    // 改为:WAITING 任务暂存出队、轮末一次性重入队(本 pass 不再自旋),由本 tick 每隔几秒重新 drain
+    // 触发重查,把"CPU+DB 忙旋最长 10 分钟"降为"每 tick 重查一次"。
+    @org.springframework.scheduling.annotation.Scheduled(
+            fixedDelayString = "${orchestration.scheduler.drain-tick-ms:3000}")
+    public void scheduledDrainTick() {
+        if (schedulerLeaderService.isLeader() && queueManager.size() > 0) {
+            batchTaskExecutor.submit(this::drainQueue);
+        }
+    }
+
     private void drainQueue() {
         if (!schedulerLeaderService.isLeader()) {
             return;
         }
+        // 本轮被判定为依赖未就绪(WAITING)的任务暂存于此,轮末统一重入队,避免在同一 pass 内立即重 poll 自旋。
+        List<OrchestrationTaskDefinition> heldWaiting = new java.util.ArrayList<>();
         OrchestrationTaskDefinition def;
         while ((def = queueManager.poll()) != null) {
             String runKey = taskRunKey(def);
@@ -408,7 +421,8 @@ public class TaskSchedulerService {
                     continue;
                 }
                 upsertState(def, TaskExecutionStatus.BLOCKED.name(), null, false, null);
-                queueManager.requeue(def);
+                // #3:暂存出队,本轮不再立即重 poll;轮末统一重入队,靠周期 drain tick 重查依赖
+                heldWaiting.add(def);
                 continue;
             }
 
@@ -550,7 +564,23 @@ public class TaskSchedulerService {
                     permit.release();
                 }
             }
-            completeRun(def, runKey);
+            // #9 修复:合并出的每个 sibling 有各自的 runKey,需逐个清理其队列行/enqueuedAt,
+            // 否则只清 def 的 runKey 会让 sibling 的 DB queue 行残留(后续被错误复用或永不出队)。
+            java.util.Set<String> completedKeys = new java.util.HashSet<>();
+            for (OrchestrationTaskDefinition mergedTask : merged) {
+                String mergedKey = taskRunKey(mergedTask);
+                if (completedKeys.add(mergedKey)) {
+                    completeRun(mergedTask, mergedKey);
+                }
+            }
+            if (completedKeys.add(runKey)) {
+                completeRun(def, runKey);
+            }
+        }
+        // #3:本轮暂存的 WAITING 任务统一重入队(enqueuedAt 由 putIfAbsent 保留,依赖超时仍正确计时),
+        // 由周期 drain tick 在下一轮重查依赖,避免在本 pass 内忙旋。
+        for (OrchestrationTaskDefinition held : heldWaiting) {
+            queueManager.requeue(held);
         }
     }
 
@@ -608,7 +638,13 @@ public class TaskSchedulerService {
     }
 
     private void scheduleRetry(OrchestrationTaskDefinition def, String reason) {
-        Instant when = retryPolicy.nextRetryAt(def);
+        // #25:按已发生的重试次数做指数退避
+        String rerunId = def.getParameters().getOrDefault("rerunId", "");
+        int attempt = taskExecutionStateRepository
+                .findByTaskIdAndBatchDateAndRerunId(def.getId(), resolveBatchDate(def), rerunId)
+                .map(s -> s.getAttempt() == null ? 0 : s.getAttempt())
+                .orElse(0);
+        Instant when = retryPolicy.nextRetryAt(def, attempt);
         upsertState(def, TaskExecutionStatus.READY.name(), reason, true, when);
         scheduleOneShotEnqueue(def, when, "retry");
     }
@@ -648,7 +684,7 @@ public class TaskSchedulerService {
             baseAt = Instant.now().plusMillis(baseDelayMs);
         }
 
-        FixedDelayBackoffState state = fixedDelayState.computeIfAbsent(def.getId(), _k -> new FixedDelayBackoffState());
+        FixedDelayBackoffState state = fixedDelayState.computeIfAbsent(def.getId(), this::loadFixedDelayState);
         long minIntervalMs = fixedDelayMinIntervalMs;
         if (fixedDelayMaxRequeuePerMinute > 0) {
             long perMinuteInterval = Math.max(1000L, 60000L / fixedDelayMaxRequeuePerMinute);
@@ -676,6 +712,7 @@ public class TaskSchedulerService {
 
         if (scheduleOneShotEnqueue(def, candidate, "fixed-delay")) {
             state.lastScheduledAt = candidate;
+            persistFixedDelayState(def.getId(), state);
         }
     }
 
@@ -715,17 +752,62 @@ public class TaskSchedulerService {
         if (def.getTrigger() == null || def.getTrigger().getType() != TriggerType.FIXED_DELAY) {
             return;
         }
-        FixedDelayBackoffState state = fixedDelayState.computeIfAbsent(def.getId(), _k -> new FixedDelayBackoffState());
+        FixedDelayBackoffState state = fixedDelayState.computeIfAbsent(def.getId(), this::loadFixedDelayState);
         if (success) {
             state.failureStreak = 0;
-            return;
+        } else {
+            state.failureStreak = Math.min(state.failureStreak + 1, 10);
         }
-        state.failureStreak = Math.min(state.failureStreak + 1, 10);
+        persistFixedDelayState(def.getId(), state);
     }
 
     private static class FixedDelayBackoffState {
         private int failureStreak;
         private Instant lastScheduledAt;
+    }
+
+    /**
+     * 从 scheduler_fixed_delay_state 表回填退避状态（应用重启后首次访问该任务时触发），
+     * 使 fixedDelayState 内存 map 成为「写穿缓存」而非易失内存。读失败时退回全新状态，
+     * 保证调度可用性优先于退避精度（亦兼容单测中 mock 的 JdbcTemplate）。
+     */
+    private FixedDelayBackoffState loadFixedDelayState(String taskId) {
+        FixedDelayBackoffState state = new FixedDelayBackoffState();
+        try {
+            jdbcTemplate
+                    .query(
+                            "SELECT failure_streak, last_scheduled_at FROM scheduler_fixed_delay_state WHERE task_id = ?",
+                            rs -> {
+                                state.failureStreak = Math.max(0, Math.min(rs.getInt("failure_streak"), 10));
+                                java.sql.Timestamp ts = rs.getTimestamp("last_scheduled_at");
+                                state.lastScheduledAt = ts == null ? null : ts.toInstant();
+                            },
+                            taskId);
+        } catch (Exception e) {
+            log.warn("Failed to load fixed-delay backoff state for task={}, starting fresh", taskId, e);
+        }
+        return state;
+    }
+
+    private void persistFixedDelayState(String taskId, FixedDelayBackoffState state) {
+        try {
+            java.sql.Timestamp lastScheduled =
+                    state.lastScheduledAt == null ? null : java.sql.Timestamp.from(state.lastScheduledAt);
+            jdbcTemplate.update(
+                    """
+                    INSERT INTO scheduler_fixed_delay_state(task_id, failure_streak, last_scheduled_at, updated_at)
+                    VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+                    ON CONFLICT (task_id) DO UPDATE
+                    SET failure_streak = EXCLUDED.failure_streak,
+                        last_scheduled_at = EXCLUDED.last_scheduled_at,
+                        updated_at = CURRENT_TIMESTAMP
+                    """,
+                    taskId,
+                    state.failureStreak,
+                    lastScheduled);
+        } catch (Exception e) {
+            log.warn("Failed to persist fixed-delay backoff state for task={}", taskId, e);
+        }
     }
 
     private void persistSchedulerDlq(OrchestrationTaskDefinition def, String reason) {

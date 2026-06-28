@@ -10,6 +10,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Locale;
 import java.util.Map;
+import java.util.regex.Pattern;
 import javax.sql.DataSource;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.job.Job;
@@ -42,6 +43,9 @@ public class DataExportJobConfig {
     private final PlatformTransactionManager transactionManager;
     private final DataSource dataSource;
 
+    @Value("${batch.io.output-base-dir:}")
+    private String outputBaseDir;
+
     @Autowired
     public DataExportJobConfig(
             JobRepository jobRepository, PlatformTransactionManager transactionManager, DataSource dataSource) {
@@ -68,6 +72,21 @@ public class DataExportJobConfig {
                 .build();
     }
 
+    // DML/DDL 关键字(词边界匹配,避免 " insert " 这种带空格的形态被 insert( 等绕过)
+    private static final Pattern FORBIDDEN_KEYWORDS = Pattern.compile(
+            "\\b(insert|update|delete|drop|alter|truncate|create|grant|revoke|merge|call|do|copy|"
+                    + "vacuum|analyze|comment|reindex|cluster|lock|listen|notify|set|reset|begin|commit|rollback)\\b",
+            Pattern.CASE_INSENSITIVE);
+
+    // 危险函数 / 系统对象:文件读写(pg_read_file/pg_ls_dir/lo_import...)、外部连接(dblink)、
+    // 阻塞(pg_sleep)、配置读写(current_setting/set_config)、系统目录(pg_catalog/information_schema)。
+    private static final Pattern FORBIDDEN_FUNCTIONS = Pattern.compile(
+            "\\b(pg_read_file|pg_read_binary_file|pg_ls_dir|pg_stat_file|pg_logdir_ls|lo_import|lo_export|"
+                    + "lo_get|lo_put|dblink|dblink_exec|pg_sleep|pg_terminate_backend|pg_cancel_backend|"
+                    + "current_setting|set_config|pg_read_server_files|pg_execute_server_program|"
+                    + "pg_catalog|information_schema|pg_authid|pg_shadow|pg_user|pg_roles)\\b",
+            Pattern.CASE_INSENSITIVE);
+
     private String resolveSafeExportSql(String exportSql) {
         if (exportSql == null || exportSql.trim().isEmpty()) {
             return DEFAULT_EXPORT_SQL;
@@ -76,20 +95,20 @@ public class DataExportJobConfig {
         String normalized = exportSql.trim();
         String lower = normalized.toLowerCase(Locale.ROOT);
 
-        boolean startsWithSelect = lower.startsWith("select ");
-        boolean singleStatement = !lower.contains(";");
-        boolean noDmlKeywords = !(lower.contains(" insert ")
-                || lower.contains(" update ")
-                || lower.contains(" delete ")
-                || lower.contains(" drop ")
-                || lower.contains(" alter ")
-                || lower.contains(" truncate "));
+        boolean startsWithSelect = lower.startsWith("select ") || lower.startsWith("with ");
+        boolean singleStatement = normalized.indexOf(';') < 0;
+        boolean noForbiddenKeyword = !FORBIDDEN_KEYWORDS.matcher(normalized).find();
+        boolean noForbiddenFunction = !FORBIDDEN_FUNCTIONS.matcher(normalized).find();
+        // 禁止注释(常用于绕过 token 检测:-- 与 /* */)
+        boolean noComment = !lower.contains("--") && !normalized.contains("/*");
 
-        if (startsWithSelect && singleStatement && noDmlKeywords) {
+        if (startsWithSelect && singleStatement && noForbiddenKeyword && noForbiddenFunction && noComment) {
             return normalized;
         }
 
-        throw new IllegalArgumentException("Unsupported export.sql: only a single SELECT statement is allowed");
+        throw new IllegalArgumentException(
+                "Unsupported export.sql: only a single read-only SELECT (no DML/DDL, no system functions, "
+                        + "no comments/semicolons) is allowed");
     }
 
     private static ExportRecord mapRow(ResultSet rs, int rowNum) throws SQLException {
@@ -110,6 +129,8 @@ public class DataExportJobConfig {
                         || params.getOutputFileName().isEmpty())
                 ? "export/output.csv"
                 : params.getOutputFileName();
+        // 路径穿越防护:限定在 batch.io.output-base-dir 之内(未配置则至少拒绝 .. 逃逸)
+        fileName = com.example.filebatchprocessor.util.PathSafety.confine(outputBaseDir, fileName);
 
         FieldExtractor<ExportRecord> fieldExtractor = item -> new Object[] {
             item.getId(), item.getBusinessKey(), item.getName(), item.getDescription(), item.getBatchDate()

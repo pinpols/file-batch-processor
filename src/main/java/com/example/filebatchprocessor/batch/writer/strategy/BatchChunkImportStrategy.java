@@ -26,11 +26,19 @@ public class BatchChunkImportStrategy implements ChunkImportStrategy {
 
     private final PartitionedImportService partitionedImportService;
     private final RecordTraceRepository recordTraceRepository;
+    // #13/#14:用 REQUIRES_NEW 把批量写与 trace 写各自隔离,失败只回滚各自的独立事务,
+    // 不把外层 Spring Batch chunk 事务标记 rollback-only,保证降级路径能干净执行。
+    private final org.springframework.transaction.support.TransactionTemplate requiresNewTx;
 
     public BatchChunkImportStrategy(
-            PartitionedImportService partitionedImportService, RecordTraceRepository recordTraceRepository) {
+            PartitionedImportService partitionedImportService,
+            RecordTraceRepository recordTraceRepository,
+            org.springframework.transaction.PlatformTransactionManager transactionManager) {
         this.partitionedImportService = partitionedImportService;
         this.recordTraceRepository = recordTraceRepository;
+        this.requiresNewTx = new org.springframework.transaction.support.TransactionTemplate(transactionManager);
+        this.requiresNewTx.setPropagationBehavior(
+                org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
 
     @Override
@@ -50,7 +58,9 @@ public class BatchChunkImportStrategy implements ChunkImportStrategy {
             entities.add(entity);
         }
 
-        partitionedImportService.batchImportIdempotent(entities);
+        // 批量写在独立事务中执行:失败只回滚本事务,异常上抛由 Writer 降级到逐条路径,
+        // 而不会把外层 chunk 事务标记成 rollback-only(否则降级写也会在 chunk 提交时整体回滚)。
+        requiresNewTx.executeWithoutResult(s -> partitionedImportService.batchImportIdempotent(entities));
 
         // 批量回查 id,关联 trace(回查失败或缺失则 trace 的 partitionId 置空,不阻断导入)
         Map<String, Long> idByKey = partitionedImportService.findIdsByBatchDate(businessKeys, context.batchDate());
@@ -60,7 +70,8 @@ public class BatchChunkImportStrategy implements ChunkImportStrategy {
             traces.add(buildTrace(bizKey, item.getLineNo(), idByKey.get(bizKey), context));
         }
         try {
-            recordTraceRepository.saveAll(traces);
+            // trace 同样在独立事务中写,失败不波及已提交的业务数据,也不污染外层 chunk 事务
+            requiresNewTx.executeWithoutResult(s -> recordTraceRepository.saveAll(traces));
         } catch (Exception ex) {
             // trace 是辅助审计,失败不应回滚已写入的业务数据
             log.warn("Failed to persist {} record traces in batch path", traces.size(), ex);

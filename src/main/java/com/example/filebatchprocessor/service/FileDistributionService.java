@@ -29,7 +29,6 @@ import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import net.schmizz.sshj.SSHClient;
 import net.schmizz.sshj.sftp.SFTPClient;
-import net.schmizz.sshj.transport.verification.PromiscuousVerifier;
 import net.schmizz.sshj.xfer.FileSystemFile;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -53,6 +52,12 @@ public class FileDistributionService {
     private final FileProcessLogService fileProcessLogService;
     private final RetryCompensationService retryCompensationService;
     private final HttpClient httpClient = HttpClient.newBuilder().build();
+
+    @org.springframework.beans.factory.annotation.Value("${sftp.known-hosts-path:}")
+    private String sftpKnownHostsPath;
+
+    @org.springframework.beans.factory.annotation.Value("${sftp.insecure-skip-host-key-check:false}")
+    private boolean sftpInsecureSkipHostKeyCheck;
 
     @Autowired
     public FileDistributionService(
@@ -313,7 +318,8 @@ public class FileDistributionService {
                 throw new BusinessException(ErrorCode.NOT_FOUND, "Local file not found: " + taskFile.getFilePath());
             }
 
-            sshClient.addHostKeyVerifier(new PromiscuousVerifier());
+            com.example.filebatchprocessor.service.distribution.SftpHostKeyVerification.apply(
+                    sshClient, sftpKnownHostsPath, sftpInsecureSkipHostKeyCheck);
             sshClient.connect(host, port);
             sshClient.authPassword(username, password);
             try (SFTPClient sftpClient = sshClient.newSFTPClient()) {
@@ -638,16 +644,28 @@ public class FileDistributionService {
                 : fileDispatchRecordService.markAckTimeout(
                         taskId, jobInstanceId, message, ackTimeoutPayload(taskId, jobInstanceId));
 
-        task.setStatus("RETRY");
+        // #1 修复:ACK 超时必须计入 retryCount,超上限即落 FAILED 终态,杜绝目标长期不回 ACK 时的无限重发
+        task.setRetryCount(task.getRetryCount() + 1);
+        boolean exhausted = task.getRetryCount() >= task.getMaxRetries();
+        task.setStatus(exhausted ? "FAILED" : "RETRY");
         task.setCompletedTime(null);
         task.setErrorMessage(message);
         task.setUpdatedAt(LocalDateTime.now());
         fileDistributionTaskRepository.save(task);
+        if (exhausted) {
+            log.warn(
+                    "ACK timeout retries exhausted: taskId={}, retryCount={}/{} -> FAILED",
+                    task.getId(),
+                    task.getRetryCount(),
+                    task.getMaxRetries());
+        }
 
         FileAssetStateMachineService.TransitionResult transition = null;
         if (task.getFileRecordId() != null && fileAssetService != null) {
-            transition = fileAssetService.resetToProcessed(
-                    task.getFileRecordId(), ackMetadata(message, "SYSTEM", false, updatedRecord.orElse(null)));
+            transition = exhausted
+                    ? fileAssetService.markFailed(task.getFileRecordId(), message)
+                    : fileAssetService.resetToProcessed(
+                            task.getFileRecordId(), ackMetadata(message, "SYSTEM", false, updatedRecord.orElse(null)));
         }
         logFileProcess(
                 task.getFileRecordId(),
@@ -700,17 +718,31 @@ public class FileDistributionService {
                                 retryCompensationPayload(task)))
                         .getId();
 
-        task.setStatus("RETRY");
+        // #1 修复:重发同样计入 retryCount,超上限即落 FAILED 终态,避免无界重发
+        task.setRetryCount(task.getRetryCount() + 1);
+        boolean exhausted = task.getRetryCount() >= task.getMaxRetries();
+        task.setStatus(exhausted ? "FAILED" : "RETRY");
         task.setCompletedTime(null);
         task.setUpdatedAt(LocalDateTime.now());
         task.setErrorMessage(reason);
         fileDistributionTaskRepository.save(task);
-        if (fileDispatchRecordService != null) {
+        if (exhausted) {
+            log.warn(
+                    "Resend retries exhausted: taskId={}, retryCount={}/{} -> FAILED",
+                    task.getId(),
+                    task.getRetryCount(),
+                    task.getMaxRetries());
+        }
+        if (!exhausted && fileDispatchRecordService != null) {
             fileDispatchRecordService.markPendingForRetry(taskId, jobInstanceId, true);
         }
         if (task.getFileRecordId() != null && fileAssetService != null) {
-            fileAssetService.resetToProcessed(
-                    task.getFileRecordId(), retryMetadata(reason, task.getRetryCount(), true));
+            if (exhausted) {
+                fileAssetService.markFailed(task.getFileRecordId(), reason);
+            } else {
+                fileAssetService.resetToProcessed(
+                        task.getFileRecordId(), retryMetadata(reason, task.getRetryCount(), true));
+            }
         }
         logFileProcess(
                 task.getFileRecordId(),

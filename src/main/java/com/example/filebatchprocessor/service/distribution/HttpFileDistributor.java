@@ -18,10 +18,13 @@ import org.springframework.stereotype.Component;
 public class HttpFileDistributor implements FileDistributor {
 
     private final FileDistributionService fileDistributionService;
+    private final DistributionTargetValidator targetValidator;
     private final HttpClient httpClient = HttpClient.newBuilder().build();
 
-    public HttpFileDistributor(FileDistributionService fileDistributionService) {
+    public HttpFileDistributor(
+            FileDistributionService fileDistributionService, DistributionTargetValidator targetValidator) {
         this.fileDistributionService = fileDistributionService;
+        this.targetValidator = targetValidator;
     }
 
     @Override
@@ -50,6 +53,8 @@ public class HttpFileDistributor implements FileDistributor {
             if (url == null || url.isBlank()) {
                 throw new BusinessException(ErrorCode.INVALID_ARGUMENT, "HTTP target URL is required");
             }
+            // SSRF 防护:校验目标地址(白名单 + 拦内网/环回/元数据)
+            targetValidator.validate(url);
 
             String method = "POST";
             String normalizedMethod = method.toUpperCase(Locale.ROOT);

@@ -38,8 +38,15 @@ public class FileMetricsService {
         this.dlqRecordRepository = dlqRecordRepository;
     }
 
+    // #8:快照写库只让 leader 跑,避免多副本写重复快照行
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private SchedulerLeaderService schedulerLeaderService;
+
     @Scheduled(cron = "${file.metrics.cron:0 0 * * * *}")
     public void captureMetrics() {
+        if (schedulerLeaderService != null && !schedulerLeaderService.isLeader()) {
+            return;
+        }
         if (!enabled) {
             return;
         }

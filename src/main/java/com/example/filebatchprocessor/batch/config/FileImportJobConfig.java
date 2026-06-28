@@ -68,6 +68,9 @@ public class FileImportJobConfig {
     @Value("${batch.input.file:}")
     private String inputFile;
 
+    @Value("${batch.io.input-base-dir:}")
+    private String inputBaseDir;
+
     @Value("${batch.import.retry-limit:3}")
     private int retryLimit;
 
@@ -88,11 +91,12 @@ public class FileImportJobConfig {
 
         Resource resource;
         if (StringUtils.hasText(params.getInputFileName())) {
+            // 先做路径穿越防护(限定在 batch.io.input-base-dir 之内),再对受限路径做预处理(解密/解压)
+            String confinedInput =
+                    com.example.filebatchprocessor.util.PathSafety.confine(inputBaseDir, params.getInputFileName());
             try {
                 PreprocessResult pr = filePreprocessor.prepare(
-                        params.getInputFileName(),
-                        params.getInputFileEncrypted(),
-                        params.getInputFileCompression());
+                        confinedInput, params.getInputFileEncrypted(), params.getInputFileCompression());
                 tempFileHolder.set(pr.tempFileOrNull());
                 resource = new FileSystemResource(pr.plaintextPath().toFile());
             } catch (Exception e) {
@@ -128,7 +132,7 @@ public class FileImportJobConfig {
         params.validateForWriter();
         // Strategy 模式:批量快路径 + 逐条降级路径,由 writer 作为 Context 选择
         ChunkImportStrategy batchStrategy =
-                new BatchChunkImportStrategy(partitionedImportService, recordTraceRepository);
+                new BatchChunkImportStrategy(partitionedImportService, recordTraceRepository, transactionManager);
         ChunkImportStrategy fallbackStrategy = new PerRecordChunkImportStrategy(
                 partitionedImportService, dlqRecordRepository, recordTraceRepository, transactionManager);
         return new FileImportRecordWriter(params.getBatchDate(), batchStrategy, fallbackStrategy, maxDedupKeys);

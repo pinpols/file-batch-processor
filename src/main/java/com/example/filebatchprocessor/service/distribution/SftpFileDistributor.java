@@ -10,7 +10,6 @@ import java.util.concurrent.Semaphore;
 import lombok.extern.slf4j.Slf4j;
 import net.schmizz.sshj.SSHClient;
 import net.schmizz.sshj.sftp.SFTPClient;
-import net.schmizz.sshj.transport.verification.PromiscuousVerifier;
 import net.schmizz.sshj.xfer.FileSystemFile;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -36,6 +35,12 @@ public class SftpFileDistributor implements FileDistributor {
 
     @Value("${sftp.remoteDir:/upload}")
     private String sftpRemoteDir;
+
+    @Value("${sftp.known-hosts-path:}")
+    private String sftpKnownHostsPath;
+
+    @Value("${sftp.insecure-skip-host-key-check:false}")
+    private boolean sftpInsecureSkipHostKeyCheck;
 
     public SftpFileDistributor(FileDistributionService fileDistributionService, SftpConcurrencyLimiter limiter) {
         this.fileDistributionService = fileDistributionService;
@@ -86,7 +91,7 @@ public class SftpFileDistributor implements FileDistributor {
                 throw new BusinessException(ErrorCode.NOT_FOUND, "Local file not found: " + task.getFilePath());
             }
 
-            sshClient.addHostKeyVerifier(new PromiscuousVerifier());
+            SftpHostKeyVerification.apply(sshClient, sftpKnownHostsPath, sftpInsecureSkipHostKeyCheck);
             sshClient.connect(sftpHost, sftpPort);
             sshClient.authPassword(sftpUsername, sftpPassword);
             try (SFTPClient sftpClient = sshClient.newSFTPClient()) {
