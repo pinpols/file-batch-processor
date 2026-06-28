@@ -213,18 +213,17 @@ public class ReconcileJobConfig {
         int page = 0;
         int size = 500;
         while (true) {
-            Page<?> p = importedRecordPartitionedRepository.findByBatchDateOrderByBusinessKeyAsc(
-                    batchDate, PageRequest.of(page, size));
-            p.forEach(r -> {
-                try {
-                    var rec = (com.example.filebatchprocessor.model.ImportedRecordPartitioned) r;
-                    String line = rec.getBusinessKey() + "," + (rec.getName() == null ? "" : rec.getName()) + ","
-                            + (rec.getDescription() == null ? "" : rec.getDescription());
-                    md.update(line.getBytes(StandardCharsets.UTF_8));
-                    md.update((byte) '\n');
-                } catch (Exception ignored) {
-                }
-            });
+            Page<com.example.filebatchprocessor.model.ImportedRecordPartitioned> p =
+                    importedRecordPartitionedRepository.findByBatchDateOrderByBusinessKeyAsc(
+                            batchDate, PageRequest.of(page, size));
+            // 不吞异常:单条拼接失败若被静默跳过,会让目标哈希少算记录却仍"完整"返回,
+            // 把它本该保护的完整性校验悄悄掏空。任何失败应让对账可见地失败(方法已 throws Exception)。
+            for (com.example.filebatchprocessor.model.ImportedRecordPartitioned rec : p) {
+                String line = rec.getBusinessKey() + "," + (rec.getName() == null ? "" : rec.getName()) + ","
+                        + (rec.getDescription() == null ? "" : rec.getDescription());
+                md.update(line.getBytes(StandardCharsets.UTF_8));
+                md.update((byte) '\n');
+            }
             if (!p.hasNext()) {
                 break;
             }
