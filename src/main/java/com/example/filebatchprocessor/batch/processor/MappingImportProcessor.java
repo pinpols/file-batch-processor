@@ -23,9 +23,7 @@ public class MappingImportProcessor implements ItemProcessor<FileRecord, FileRec
     private final List<MappingEngine.MappingRule> rules;
 
     public MappingImportProcessor(
-            FileImportRecordProcessor delegate,
-            MappingEngine mappingEngine,
-            List<MappingEngine.MappingRule> rules) {
+            FileImportRecordProcessor delegate, MappingEngine mappingEngine, List<MappingEngine.MappingRule> rules) {
         this.delegate = delegate;
         this.mappingEngine = mappingEngine;
         this.rules = rules;

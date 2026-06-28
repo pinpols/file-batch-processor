@@ -35,14 +35,12 @@ public class BouncyCastlePgpDecryptor implements PgpDecryptor {
         JcaPGPObjectFactory factory = new JcaPGPObjectFactory(decoded);
 
         Object first = factory.nextObject();
-        PGPEncryptedDataList encList =
-                (first instanceof PGPEncryptedDataList) ? (PGPEncryptedDataList) first
-                        : (PGPEncryptedDataList) factory.nextObject();
+        PGPEncryptedDataList encList = (first instanceof PGPEncryptedDataList)
+                ? (PGPEncryptedDataList) first
+                : (PGPEncryptedDataList) factory.nextObject();
 
-        PGPSecretKeyRingCollection secretKeys =
-                new PGPSecretKeyRingCollection(
-                        org.bouncycastle.openpgp.PGPUtil.getDecoderStream(secretKeyRing),
-                        new JcaKeyFingerprintCalculator());
+        PGPSecretKeyRingCollection secretKeys = new PGPSecretKeyRingCollection(
+                org.bouncycastle.openpgp.PGPUtil.getDecoderStream(secretKeyRing), new JcaKeyFingerprintCalculator());
 
         PGPPrivateKey privateKey = null;
         PGPPublicKeyEncryptedData encData = null;
@@ -60,8 +58,8 @@ public class BouncyCastlePgpDecryptor implements PgpDecryptor {
             throw new IllegalArgumentException("no matching secret key for PGP message");
         }
 
-        try (InputStream clear =
-                encData.getDataStream(new JcePublicKeyDataDecryptorFactoryBuilder().setProvider("BC").build(privateKey))) {
+        try (InputStream clear = encData.getDataStream(
+                new JcePublicKeyDataDecryptorFactoryBuilder().setProvider("BC").build(privateKey))) {
             JcaPGPObjectFactory plainFactory = new JcaPGPObjectFactory(clear);
             // 循环剥离嵌套包(压缩 / 签名)直到 literal data;遇签名包跳过。
             boolean foundLiteral = false;

@@ -35,10 +35,10 @@ import com.example.filebatchprocessor.service.PartitionedImportService;
 import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.batch.core.ExitStatus;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.builder.JobBuilder;
-import org.springframework.batch.core.ExitStatus;
 import org.springframework.batch.core.job.parameters.RunIdIncrementer;
 import org.springframework.batch.core.listener.StepExecutionListener;
 import org.springframework.batch.core.repository.JobRepository;
@@ -125,8 +125,7 @@ public class FileImportJobConfig {
                     .orElseThrow(() -> new IllegalArgumentException("unknown or disabled feedId: " + feedId));
             String fmt = feed.getFormat() == null ? "CSV" : feed.getFormat().toUpperCase();
             if (!"CSV".equals(fmt)) {
-                throw new IllegalArgumentException(
-                        "feed 模式当前仅支持 CSV: feedId=" + feedId + " format=" + fmt);
+                throw new IllegalArgumentException("feed 模式当前仅支持 CSV: feedId=" + feedId + " format=" + fmt);
             }
             String feedDelimiter = StringUtils.hasText(feed.getDelimiter()) ? feed.getDelimiter() : ",";
             // feed 模式:用 9 参构造器,feedHeaderColumns 传空 list(自动探测文件首行表头)

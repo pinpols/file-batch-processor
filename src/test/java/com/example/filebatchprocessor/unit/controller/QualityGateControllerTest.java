@@ -30,7 +30,8 @@ class QualityGateControllerTest {
         QualityGateResult r = new QualityGateResult();
         r.setId(2L);
         r.setJobName("fileImportJob");
-        when(repository.findTop200ByJobNameOrderByCreatedAtDesc("fileImportJob")).thenReturn(List.of(r));
+        when(repository.findTop200ByJobNameOrderByCreatedAtDesc("fileImportJob"))
+                .thenReturn(List.of(r));
 
         QualityGateController controller = new QualityGateController(repository);
         List<QualityGateResult> out = controller.byJob("fileImportJob");

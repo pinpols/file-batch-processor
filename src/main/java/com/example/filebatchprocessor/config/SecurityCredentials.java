@@ -11,8 +11,17 @@ public final class SecurityCredentials {
 
     // 归一化(去非字母数字 + 小写)后,命中任一前缀即判占位/弱口令。
     private static final Set<String> PLACEHOLDER_TOKENS = Set.of(
-            "changeme", "change", "placeholder", "todo", "secret", "yoursecret",
-            "replacewithstrong", "yoursecure", "yoursecurepassword", "example", "password");
+            "changeme",
+            "change",
+            "placeholder",
+            "todo",
+            "secret",
+            "yoursecret",
+            "replacewithstrong",
+            "yoursecure",
+            "yoursecurepassword",
+            "example",
+            "password");
 
     public static boolean isWeak(String raw) {
         if (raw == null || raw.isBlank()) {

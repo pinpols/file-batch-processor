@@ -6,8 +6,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.example.filebatchprocessor.model.FileAssetRecord;
 import com.example.filebatchprocessor.model.FileDispatchRecord;
+import com.example.filebatchprocessor.model.FileDistributionTask;
 import com.example.filebatchprocessor.repository.FileAssetRecordRepository;
 import com.example.filebatchprocessor.repository.FileDispatchRecordRepository;
+import com.example.filebatchprocessor.repository.FileDistributionTaskRepository;
 import com.example.filebatchprocessor.support.PostgresContainerSupport;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.Test;
@@ -33,15 +35,20 @@ class FileDispatchRecordRepositoryIT extends PostgresContainerSupport {
     @Autowired
     private FileDispatchRecordRepository fileDispatchRecordRepository;
 
+    @Autowired
+    private FileDistributionTaskRepository fileDistributionTaskRepository;
+
     @Test
     void shouldFindByDispatchKeyAndLegacyTaskId() {
         FileAssetRecord fileRecord = fileAssetRecordRepository.saveAndFlush(baseFileRecord("FR-100-A"));
+        FileDistributionTask legacyTask = fileDistributionTaskRepository.saveAndFlush(
+                baseDistributionTask(fileRecord, "dispatch-a.csv", "http://target"));
 
         FileDispatchRecord dispatchRecord = new FileDispatchRecord();
         dispatchRecord.setDispatchNo("FD-0001");
         dispatchRecord.setDispatchKey(fileRecord.getFileNo() + "|1|HTTP|http://target");
         dispatchRecord.setFileRecordId(fileRecord.getId());
-        dispatchRecord.setLegacyDistributionTaskId(9001L);
+        dispatchRecord.setLegacyDistributionTaskId(legacyTask.getId());
         dispatchRecord.setTargetSystem("HTTP");
         dispatchRecord.setDispatchChannel("HTTP");
         dispatchRecord.setTargetAddress("http://target");
@@ -54,7 +61,7 @@ class FileDispatchRecordRepositoryIT extends PostgresContainerSupport {
 
         var byDispatchKey =
                 fileDispatchRecordRepository.findByDispatchKey(fileRecord.getFileNo() + "|1|HTTP|http://target");
-        var byLegacyTaskId = fileDispatchRecordRepository.findByLegacyDistributionTaskId(9001L);
+        var byLegacyTaskId = fileDispatchRecordRepository.findByLegacyDistributionTaskId(legacyTask.getId());
 
         assertTrue(byDispatchKey.isPresent());
         assertEquals("FD-0001", byDispatchKey.get().getDispatchNo());
@@ -65,12 +72,14 @@ class FileDispatchRecordRepositoryIT extends PostgresContainerSupport {
     @Test
     void shouldEnforceUniqueDispatchKey() {
         FileAssetRecord fileRecord = fileAssetRecordRepository.saveAndFlush(baseFileRecord("FR-100-B"));
+        FileDistributionTask legacyTask = fileDistributionTaskRepository.saveAndFlush(
+                baseDistributionTask(fileRecord, "dispatch-b.csv", "http://dup"));
 
         FileDispatchRecord first = new FileDispatchRecord();
         first.setDispatchNo("FD-0002");
         first.setDispatchKey(fileRecord.getFileNo() + "|1|HTTP|dup");
         first.setFileRecordId(fileRecord.getId());
-        first.setLegacyDistributionTaskId(9002L);
+        first.setLegacyDistributionTaskId(legacyTask.getId());
         first.setTargetSystem("HTTP");
         first.setDispatchChannel("HTTP");
         first.setTargetAddress("http://dup");
@@ -81,7 +90,7 @@ class FileDispatchRecordRepositoryIT extends PostgresContainerSupport {
         duplicate.setDispatchNo("FD-0003");
         duplicate.setDispatchKey(fileRecord.getFileNo() + "|1|HTTP|dup");
         duplicate.setFileRecordId(fileRecord.getId());
-        duplicate.setLegacyDistributionTaskId(9003L);
+        duplicate.setLegacyDistributionTaskId(legacyTask.getId());
         duplicate.setTargetSystem("HTTP");
         duplicate.setDispatchChannel("HTTP");
         duplicate.setTargetAddress("http://dup");
@@ -93,12 +102,14 @@ class FileDispatchRecordRepositoryIT extends PostgresContainerSupport {
     @Test
     void shouldFindAckTimeoutCandidatesByStatusAndDispatchNo() {
         FileAssetRecord fileRecord = fileAssetRecordRepository.saveAndFlush(baseFileRecord("FR-100-C"));
+        FileDistributionTask legacyTask = fileDistributionTaskRepository.saveAndFlush(
+                baseDistributionTask(fileRecord, "dispatch-c.csv", "http://ack"));
 
         FileDispatchRecord dispatchRecord = new FileDispatchRecord();
         dispatchRecord.setDispatchNo("FD-ACK-9004");
         dispatchRecord.setDispatchKey(fileRecord.getFileNo() + "|1|HTTP|ack");
         dispatchRecord.setFileRecordId(fileRecord.getId());
-        dispatchRecord.setLegacyDistributionTaskId(9004L);
+        dispatchRecord.setLegacyDistributionTaskId(legacyTask.getId());
         dispatchRecord.setTargetSystem("HTTP");
         dispatchRecord.setDispatchChannel("HTTP");
         dispatchRecord.setTargetAddress("http://ack");
@@ -115,9 +126,25 @@ class FileDispatchRecordRepositoryIT extends PostgresContainerSupport {
         var ackPending = fileDispatchRecordRepository.findByAckRequiredTrueAndAckStatus("PENDING");
 
         assertTrue(byDispatchNo.isPresent());
-        assertEquals(9004L, byDispatchNo.get().getLegacyDistributionTaskId());
+        assertEquals(legacyTask.getId(), byDispatchNo.get().getLegacyDistributionTaskId());
         assertEquals(1, ackPending.size());
         assertEquals("FD-ACK-9004", ackPending.get(0).getDispatchNo());
+    }
+
+    private FileDistributionTask baseDistributionTask(
+            FileAssetRecord fileRecord, String fileName, String targetAddress) {
+        FileDistributionTask task = new FileDistributionTask();
+        task.setFileRecordId(fileRecord.getId());
+        task.setFileName(fileName);
+        task.setFilePath(fileRecord.getStoredPath());
+        task.setFileSize(fileRecord.getFileSize());
+        task.setFileHash(fileRecord.getFileHash());
+        task.setTargetSystem("HTTP");
+        task.setTargetAddress(targetAddress);
+        task.setStatus("PENDING");
+        task.setCreatedAt(LocalDateTime.now());
+        task.setUpdatedAt(LocalDateTime.now());
+        return task;
     }
 
     private FileAssetRecord baseFileRecord(String fileNo) {

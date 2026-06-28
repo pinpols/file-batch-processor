@@ -35,8 +35,7 @@ public class SchedulerHealthIndicator implements HealthIndicator {
         long dlqBacklog = dlqRecordRepository.countByHandledFalse();
         long manualBacklog = dlqRecordRepository.countByHandledFalseAndManualRequiredTrue();
 
-        Health.Builder builder =
-                manualBacklog > manualBacklogThreshold ? Health.outOfService() : Health.up();
+        Health.Builder builder = manualBacklog > manualBacklogThreshold ? Health.outOfService() : Health.up();
         return builder.withDetail("leader", leader)
                 .withDetail("dlqBacklog", dlqBacklog)
                 .withDetail("dlqManualBacklog", manualBacklog)

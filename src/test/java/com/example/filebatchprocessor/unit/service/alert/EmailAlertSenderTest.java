@@ -55,4 +55,15 @@ class EmailAlertSenderTest {
 
         assertFalse(sender.isEnabled());
     }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void disabledWhenMailSenderResolutionFails() {
+        ObjectProvider<JavaMailSender> provider = mock(ObjectProvider.class);
+        when(provider.getIfAvailable()).thenThrow(new IllegalStateException("mail config broken"));
+
+        EmailAlertSender sender = new EmailAlertSender(provider, "f", "ops@to.local");
+
+        assertFalse(sender.isEnabled());
+    }
 }

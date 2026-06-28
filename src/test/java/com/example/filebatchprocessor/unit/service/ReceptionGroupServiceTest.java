@@ -15,7 +15,6 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 import org.springframework.test.util.ReflectionTestUtils;
 
 class ReceptionGroupServiceTest {
@@ -47,15 +46,13 @@ class ReceptionGroupServiceTest {
     @Test
     void registerCreatesGroupAndMembers() {
         when(groupRepo.findByManifestId("MF-001")).thenReturn(Optional.empty());
-        when(groupRepo.save(any(ReceptionGroup.class)))
-                .thenAnswer(
-                        invocation -> {
-                            ReceptionGroup g = invocation.getArgument(0);
-                            if (g.getId() == null) {
-                                g.setId(1L);
-                            }
-                            return g;
-                        });
+        when(groupRepo.save(any(ReceptionGroup.class))).thenAnswer(invocation -> {
+            ReceptionGroup g = invocation.getArgument(0);
+            if (g.getId() == null) {
+                g.setId(1L);
+            }
+            return g;
+        });
         when(queueRepo.findByFileName(anyString())).thenReturn(Optional.empty());
 
         ReceptionGroup result = service.registerFromManifest(twoFileManifest());

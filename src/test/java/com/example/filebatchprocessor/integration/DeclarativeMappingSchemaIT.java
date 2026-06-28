@@ -85,8 +85,7 @@ class DeclarativeMappingSchemaIT extends PostgresContainerSupport {
         assertEquals("Test Feed", foundFeed.get().getFeedName());
         assertEquals("acct_no,trade_date", foundFeed.get().getBusinessKeyFields());
 
-        List<FieldMapping> mappings =
-                fieldMappingRepository.findByFeedIdAndEnabledTrueOrderByOrderNoAsc(feedId);
+        List<FieldMapping> mappings = fieldMappingRepository.findByFeedIdAndEnabledTrueOrderByOrderNoAsc(feedId);
         assertEquals(2, mappings.size(), "two enabled mappings expected");
         assertEquals(0, mappings.get(0).getOrderNo());
         assertEquals(TransformOp.TRIM, mappings.get(0).getTransformOp());

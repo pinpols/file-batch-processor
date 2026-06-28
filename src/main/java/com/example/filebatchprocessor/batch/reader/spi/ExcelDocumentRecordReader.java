@@ -25,7 +25,9 @@ public class ExcelDocumentRecordReader implements DocumentRecordReader {
     public Iterator<FileRecord> open(Resource resource) throws Exception {
         this.in = resource.getInputStream();
         int sheetIndex = options != null && options.sheetIndex() != null ? options.sheetIndex() : 0;
-        this.excelReader = (options != null && options.sheetName() != null && !options.sheetName().isBlank())
+        this.excelReader = (options != null
+                        && options.sheetName() != null
+                        && !options.sheetName().isBlank())
                 ? ExcelUtil.getReader(in, options.sheetName())
                 : ExcelUtil.getReader(in, sheetIndex);
         List<Map<String, Object>> rows = excelReader.readAll();

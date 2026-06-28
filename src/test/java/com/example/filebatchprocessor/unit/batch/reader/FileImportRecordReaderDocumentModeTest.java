@@ -23,8 +23,13 @@ class FileImportRecordReaderDocumentModeTest {
     private FileImportRecordReader reader(String json, Integer shardIndex, Integer shardTotal) {
         return new FileImportRecordReader(
                 new ByteArrayResource(json.getBytes()),
-                shardIndex, shardTotal, "JSON", null, null,
-                jsonFactory(), new DocumentReadOptions(null, null));
+                shardIndex,
+                shardTotal,
+                "JSON",
+                null,
+                null,
+                jsonFactory(),
+                new DocumentReadOptions(null, null));
     }
 
     @Test
@@ -39,7 +44,8 @@ class FileImportRecordReaderDocumentModeTest {
 
     @Test
     void shardingByRecordSeq() throws Exception {
-        FileImportRecordReader r = reader("[{\"name\":\"a\"},{\"name\":\"b\"},{\"name\":\"c\"},{\"name\":\"d\"}]", 0, 2);
+        FileImportRecordReader r =
+                reader("[{\"name\":\"a\"},{\"name\":\"b\"},{\"name\":\"c\"},{\"name\":\"d\"}]", 0, 2);
         r.open(new ExecutionContext());
         FileRecord first = r.read();
         FileRecord second = r.read();

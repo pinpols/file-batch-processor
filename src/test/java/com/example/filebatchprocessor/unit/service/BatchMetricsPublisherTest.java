@@ -80,33 +80,18 @@ class BatchMetricsPublisherTest {
 
         // 断言 refresh 后每个 gauge 的实际数值与 mock 输入一致(而非仅断言 gauge 存在)
         assertEquals(
-                2.0,
-                meterRegistry.find("batch_recent_failure_count").gauge().value(),
-                "FAILED 计数应等于 repository 返回的 2");
+                2.0, meterRegistry.find("batch_recent_failure_count").gauge().value(), "FAILED 计数应等于 repository 返回的 2");
         assertEquals(
                 8.0,
                 meterRegistry.find("batch_recent_completed_count").gauge().value(),
                 "COMPLETED 计数应等于 repository 返回的 8");
-        assertEquals(
-                3.0, meterRegistry.find("batch_dlq_backlog").gauge().value(), "DLQ 积压应等于 3");
-        assertEquals(
-                1.0,
-                meterRegistry.find("batch_dlq_manual_backlog").gauge().value(),
-                "需人工处理的 DLQ 积压应等于 1");
-        assertEquals(
-                2.0,
-                meterRegistry.find("batch_dlq_retry_pending").gauge().value(),
-                "待重试 DLQ 应等于 2");
-        assertEquals(
-                4.0,
-                meterRegistry.find("batch_blocked_task_count").gauge().value(),
-                "阻塞/就绪/运行中任务计数应等于 4");
+        assertEquals(3.0, meterRegistry.find("batch_dlq_backlog").gauge().value(), "DLQ 积压应等于 3");
+        assertEquals(1.0, meterRegistry.find("batch_dlq_manual_backlog").gauge().value(), "需人工处理的 DLQ 积压应等于 1");
+        assertEquals(2.0, meterRegistry.find("batch_dlq_retry_pending").gauge().value(), "待重试 DLQ 应等于 2");
+        assertEquals(4.0, meterRegistry.find("batch_blocked_task_count").gauge().value(), "阻塞/就绪/运行中任务计数应等于 4");
         // recent run throughputRps = 6.5,均值即 6.5(以 milli 精度还原)
         assertEquals(
-                6.5,
-                meterRegistry.find("batch_avg_throughput_rps").gauge().value(),
-                0.0005,
-                "平均吞吐应等于唯一一条记录的 6.5 rps");
+                6.5, meterRegistry.find("batch_avg_throughput_rps").gauge().value(), 0.0005, "平均吞吐应等于唯一一条记录的 6.5 rps");
         // fileImportJob 实际耗时 2500ms > SLA 2000ms → 恰好 1 次 SLA 违约
         assertEquals(
                 1.0,

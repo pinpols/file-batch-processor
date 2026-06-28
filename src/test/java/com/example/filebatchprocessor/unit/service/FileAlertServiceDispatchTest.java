@@ -39,15 +39,7 @@ class FileAlertServiceDispatchTest {
         AlertDispatcher dispatcher = mock(AlertDispatcher.class);
         FileAlertService svc = newService(dispatcher);
         svc.createAlert(
-                "FILE_UNPROCESSED_LONG",
-                "FILE_UNPROCESSED",
-                "CRITICAL",
-                "msg",
-                null,
-                null,
-                null,
-                null,
-                Map.of());
+                "FILE_UNPROCESSED_LONG", "FILE_UNPROCESSED", "CRITICAL", "msg", null, null, null, null, Map.of());
         verify(dispatcher, times(1)).dispatch(any(AlertEvent.class));
     }
 
@@ -55,16 +47,7 @@ class FileAlertServiceDispatchTest {
     void warningIsNotExternalized() {
         AlertDispatcher dispatcher = mock(AlertDispatcher.class);
         FileAlertService svc = newService(dispatcher);
-        svc.createAlert(
-                "FILE_TIMEOUT",
-                "FILE_UNPROCESSED",
-                "WARNING",
-                "msg",
-                null,
-                null,
-                null,
-                null,
-                Map.of());
+        svc.createAlert("FILE_TIMEOUT", "FILE_UNPROCESSED", "WARNING", "msg", null, null, null, null, Map.of());
         verify(dispatcher, never()).dispatch(any(AlertEvent.class));
     }
 }

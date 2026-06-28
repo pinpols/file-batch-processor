@@ -17,14 +17,12 @@ class DistributionTargetValidatorIpv6Test {
 
     @Test
     void blocksUlaIpv6() {
-        assertThatThrownBy(() -> validator.validate("http://[fc00::1]/x"))
-                .isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> validator.validate("http://[fc00::1]/x")).isInstanceOf(BusinessException.class);
     }
 
     @Test
     void blocksLinkLocalIpv6() {
-        assertThatThrownBy(() -> validator.validate("http://[fe80::1]/x"))
-                .isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> validator.validate("http://[fe80::1]/x")).isInstanceOf(BusinessException.class);
     }
 
     @Test
@@ -48,14 +46,12 @@ class DistributionTargetValidatorIpv6Test {
 
     @Test
     void blocksPrivateIpv4Regression() {
-        assertThatThrownBy(() -> validator.validate("http://10.1.2.3/x"))
-                .isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> validator.validate("http://10.1.2.3/x")).isInstanceOf(BusinessException.class);
     }
 
     @Test
     void allowsPublicIpv4Regression() {
         // example.com 的公网 IP,放行
-        assertThatCode(() -> validator.validate("http://93.184.216.34/x"))
-                .doesNotThrowAnyException();
+        assertThatCode(() -> validator.validate("http://93.184.216.34/x")).doesNotThrowAnyException();
     }
 }

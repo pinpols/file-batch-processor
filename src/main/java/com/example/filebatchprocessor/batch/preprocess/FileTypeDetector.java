@@ -10,9 +10,8 @@ public class FileTypeDetector {
     public DetectedType detect(String fileName, Boolean explicitEncrypted, String explicitCompression) {
         String lower = fileName == null ? "" : fileName.toLowerCase(Locale.ROOT);
 
-        boolean encrypted = explicitEncrypted != null
-                ? explicitEncrypted
-                : (lower.endsWith(".pgp") || lower.endsWith(".gpg"));
+        boolean encrypted =
+                explicitEncrypted != null ? explicitEncrypted : (lower.endsWith(".pgp") || lower.endsWith(".gpg"));
 
         String afterDecrypt = lower;
         if (afterDecrypt.endsWith(".pgp")) {

@@ -55,8 +55,8 @@ class BouncyCastlePgpDecryptorTest {
         // 2. 用公钥加密一段明文
         byte[] plain = "id,name\n1,alice\n".getBytes();
         ByteArrayOutputStream encOut = new ByteArrayOutputStream();
-        PGPEncryptedDataGenerator encGen = new PGPEncryptedDataGenerator(
-                new JcePGPDataEncryptorBuilder(PGPEncryptedData.AES_256)
+        PGPEncryptedDataGenerator encGen =
+                new PGPEncryptedDataGenerator(new JcePGPDataEncryptorBuilder(PGPEncryptedData.AES_256)
                         .setWithIntegrityPacket(true)
                         .setSecureRandom(new SecureRandom())
                         .setProvider("BC"));
@@ -64,8 +64,7 @@ class BouncyCastlePgpDecryptorTest {
         try (OutputStream armored = new ArmoredOutputStream(encOut);
                 OutputStream encrypted = encGen.open(armored, new byte[4096])) {
             PGPLiteralDataGenerator lit = new PGPLiteralDataGenerator();
-            try (OutputStream litOut =
-                    lit.open(encrypted, PGPLiteralData.BINARY, "data", plain.length, new Date())) {
+            try (OutputStream litOut = lit.open(encrypted, PGPLiteralData.BINARY, "data", plain.length, new Date())) {
                 litOut.write(plain);
             }
         }

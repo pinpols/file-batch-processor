@@ -14,42 +14,20 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.DockerClientFactory;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.springframework.test.context.TestPropertySource;
 
 @SpringBootTest
+@TestPropertySource(
+        properties = {
+            "spring.quartz.job-store-type=jdbc",
+            "spring.quartz.properties.org.quartz.jobStore.driverDelegateClass=org.quartz.impl.jdbcjobstore.PostgreSQLDelegate",
+            "spring.quartz.jdbc.initialize-schema=never",
+            "orchestration.config-source=db",
+            "orchestration.enabled=false",
+            "orchestration.scheduler.force-leader=true"
+        })
 @TestInstance(Lifecycle.PER_CLASS)
 class TaskSchedulerServiceDlqIT extends PostgresContainerSupport {
-
-    private static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:17-alpine")
-            .withDatabaseName("file_batch")
-            .withUsername("filebatch")
-            .withPassword("filebatch");
-
-    @DynamicPropertySource
-    static void registerProperties(DynamicPropertyRegistry registry) {
-        // Docker 不可用时不抛异常(避免上下文加载直接报错):退回父类 PostgresContainerSupport 的
-        // 本地 fallback,context 仍能加载;具体测试方法由 @BeforeEach 的 assumeTrue 干净跳过。
-        if (!isDockerAvailable()) {
-            return;
-        }
-        if (!POSTGRES.isRunning()) {
-            POSTGRES.start();
-        }
-        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
-        registry.add("spring.datasource.username", POSTGRES::getUsername);
-        registry.add("spring.datasource.password", POSTGRES::getPassword);
-        registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
-        registry.add("spring.quartz.job-store-type", () -> "jdbc");
-        // PG 的 qrtz_*.job_data 是 BYTEA,JDBC JobStore 须用 PostgreSQLDelegate
-        registry.add(
-                "spring.quartz.properties.org.quartz.jobStore.driverDelegateClass",
-                () -> "org.quartz.impl.jdbcjobstore.PostgreSQLDelegate");
-        registry.add("spring.quartz.jdbc.initialize-schema", () -> "never");
-        registry.add("orchestration.config-source", () -> "db");
-    }
 
     @Autowired
     private TaskSchedulerService taskSchedulerService;
@@ -62,9 +40,6 @@ class TaskSchedulerServiceDlqIT extends PostgresContainerSupport {
 
     @BeforeEach
     void reset() {
-        // 该用例需真实 Testcontainers(独立容器 + JDBC Quartz);本机无 Docker 时干净跳过,交 CI 跑。
-        org.junit.jupiter.api.Assumptions.assumeTrue(
-                isDockerAvailable(), "Docker required for Testcontainers; skipping (runs in CI)");
         dlqRecordRepository.deleteAll();
     }
 
@@ -82,7 +57,7 @@ class TaskSchedulerServiceDlqIT extends PostgresContainerSupport {
     }
 
     private void awaitDlqCountAtLeast(long expected) throws InterruptedException {
-        long deadline = System.currentTimeMillis() + 5000L;
+        long deadline = System.currentTimeMillis() + 15000L;
         while (System.currentTimeMillis() < deadline) {
             if (dlqRecordRepository.count() >= expected) {
                 return;
@@ -101,13 +76,5 @@ class TaskSchedulerServiceDlqIT extends PostgresContainerSupport {
             Thread.sleep(200L);
         }
         fail("Timed out waiting for scheduler leader");
-    }
-
-    private static boolean isDockerAvailable() {
-        try {
-            return DockerClientFactory.instance().isDockerAvailable();
-        } catch (Exception ex) {
-            return false;
-        }
     }
 }

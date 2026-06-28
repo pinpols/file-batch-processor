@@ -17,14 +17,13 @@ import com.example.filebatchprocessor.model.ReceptionGroupMember;
 import com.example.filebatchprocessor.repository.FileReceptionQueueRepository;
 import com.example.filebatchprocessor.repository.ReceptionGroupMemberRepository;
 import com.example.filebatchprocessor.repository.ReceptionGroupRepository;
+import com.example.filebatchprocessor.service.FileAlertService;
 import com.example.filebatchprocessor.service.ManifestReconcileService;
 import com.example.filebatchprocessor.service.ManifestReconcileService.ReconcileResult;
 import com.example.filebatchprocessor.service.ReceptionGroupCompletionService;
 import com.example.filebatchprocessor.service.ReceptionImportTrigger;
-import com.example.filebatchprocessor.service.FileAlertService;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
@@ -37,9 +36,8 @@ class ReceptionGroupCompletionServiceTest {
     private final FileAlertService fileAlertService = mock(FileAlertService.class);
     private final ReceptionImportTrigger importTrigger = mock(ReceptionImportTrigger.class);
 
-    private final ReceptionGroupCompletionService service =
-            new ReceptionGroupCompletionService(
-                    groupRepo, memberRepo, queueRepo, reconcileService, fileAlertService, importTrigger);
+    private final ReceptionGroupCompletionService service = new ReceptionGroupCompletionService(
+            groupRepo, memberRepo, queueRepo, reconcileService, fileAlertService, importTrigger);
 
     private ReceptionGroup group(Long id) {
         ReceptionGroup g = new ReceptionGroup();
@@ -73,8 +71,7 @@ class ReceptionGroupCompletionServiceTest {
         when(memberRepo.findByGroupId(1L)).thenReturn(List.of(m1, m2));
         when(queueRepo.findById(101L)).thenReturn(Optional.of(new FileReceptionQueue()));
         when(queueRepo.findById(102L)).thenReturn(Optional.of(new FileReceptionQueue()));
-        when(reconcileService.reconcile(any(), any()))
-                .thenReturn(new ReconcileResult(true, List.of()));
+        when(reconcileService.reconcile(any(), any())).thenReturn(new ReconcileResult(true, List.of()));
 
         service.evaluate(1L);
 
@@ -83,8 +80,7 @@ class ReceptionGroupCompletionServiceTest {
         verify(importTrigger).triggerImport(102L);
         verify(importTrigger, times(2)).triggerImport(anyLong());
         verify(fileAlertService, never())
-                .createAlert(
-                        anyString(), anyString(), anyString(), anyString(), any(), any(), any(), any(), any());
+                .createAlert(anyString(), anyString(), anyString(), anyString(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -124,8 +120,7 @@ class ReceptionGroupCompletionServiceTest {
         when(memberRepo.findByGroupId(3L)).thenReturn(List.of(m1, m2));
         when(queueRepo.findById(301L)).thenReturn(Optional.of(new FileReceptionQueue()));
         when(queueRepo.findById(302L)).thenReturn(Optional.of(new FileReceptionQueue()));
-        when(reconcileService.reconcile(eq(m1), any()))
-                .thenReturn(new ReconcileResult(true, List.of()));
+        when(reconcileService.reconcile(eq(m1), any())).thenReturn(new ReconcileResult(true, List.of()));
         when(reconcileService.reconcile(eq(m2), any()))
                 .thenReturn(new ReconcileResult(false, List.of("checksum mismatch")));
 

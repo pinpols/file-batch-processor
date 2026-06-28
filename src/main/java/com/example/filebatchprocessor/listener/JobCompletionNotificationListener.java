@@ -100,8 +100,7 @@ public class JobCompletionNotificationListener implements JobExecutionListener {
             // 可选硬闸门：opt-in (quality.enforce=true) 时，任一质量门 FAIL 即把作业判为 FAILED，
             // 复用既有失败/补偿/告警路径；默认 false 保持原「软降级 PARTIAL」行为不变。
             if (gateFailed && isQualityEnforced(jobExecution)) {
-                log.error(
-                        "Job [{}] failed quality gate enforcement (quality.enforce=true) -> marking FAILED", jobName);
+                log.error("Job [{}] failed quality gate enforcement (quality.enforce=true) -> marking FAILED", jobName);
                 jobExecution.setStatus(BatchStatus.FAILED);
                 jobExecution.setExitStatus(
                         ExitStatus.FAILED.and(new ExitStatus("QUALITY_GATE_FAILED", "quality gate failed")));

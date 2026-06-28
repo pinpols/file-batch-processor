@@ -3,7 +3,6 @@ package com.example.filebatchprocessor.unit.batch.preprocess;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
-
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -71,9 +70,7 @@ class FilePreprocessorTest {
 
         try (Stream<Path> files = Files.list(tmpDir)) {
             List<Path> residue = files.toList();
-            assertTrue(
-                    residue.isEmpty(),
-                    "temp dir should have no .dec/.plain residue but found: " + residue);
+            assertTrue(residue.isEmpty(), "temp dir should have no .dec/.plain residue but found: " + residue);
         }
     }
 }

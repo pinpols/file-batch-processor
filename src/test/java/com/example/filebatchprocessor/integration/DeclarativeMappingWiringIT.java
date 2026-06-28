@@ -61,8 +61,8 @@ class DeclarativeMappingWiringIT extends PostgresContainerSupport {
 
     @AfterEach
     void cleanupTestFeed() {
-        fieldMappingRepository.deleteAll(fieldMappingRepository.findByFeedIdAndEnabledTrueOrderByOrderNoAsc(
-                ATTRS_FEED_ID));
+        fieldMappingRepository.deleteAll(
+                fieldMappingRepository.findByFeedIdAndEnabledTrueOrderByOrderNoAsc(ATTRS_FEED_ID));
         feedDefinitionRepository.findById(ATTRS_FEED_ID).ifPresent(feedDefinitionRepository::delete);
     }
 
@@ -125,12 +125,8 @@ class DeclarativeMappingWiringIT extends PostgresContainerSupport {
         // 附加断言:行数相等且 = 3,name 已大写
         assertEquals(3, setA.size(), "默认路径应导入 3 行");
         assertEquals(3, setB.size(), "feed 路径应导入 3 行");
-        assertTrue(
-                setA.stream().anyMatch(t -> t.get(0).equals("ALICE")),
-                "name 应已转大写(默认路径包含 ALICE)");
-        assertTrue(
-                setB.stream().anyMatch(t -> t.get(0).equals("ALICE")),
-                "name 应已转大写(feed 路径包含 ALICE)");
+        assertTrue(setA.stream().anyMatch(t -> t.get(0).equals("ALICE")), "name 应已转大写(默认路径包含 ALICE)");
+        assertTrue(setB.stream().anyMatch(t -> t.get(0).equals("ALICE")), "name 应已转大写(feed 路径包含 ALICE)");
     }
 
     @Test

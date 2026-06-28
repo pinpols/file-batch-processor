@@ -45,7 +45,6 @@ class SecurityCredentialsTest {
 
     @Test
     void bcryptHashIsNotWeak() {
-        assertFalse(SecurityCredentials.isWeak(
-                "{bcrypt}$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy"));
+        assertFalse(SecurityCredentials.isWeak("{bcrypt}$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy"));
     }
 }
