@@ -49,7 +49,8 @@ public class PerRecordChunkImportStrategy implements ChunkImportStrategy {
     public int persist(List<? extends FileRecord> records, ImportContext context) {
         int written = 0;
         for (FileRecord item : records) {
-            String bizKey = context.buildBusinessKey(item.getName());
+            // 与批量路径逐字一致的 business_key 口径(默认退回 name:batchDate)。
+            String bizKey = BatchChunkImportStrategy.businessKeyOf(item, context);
             try {
                 ImportedRecordPartitioned saved = txTemplate.execute(status -> partitionedImportService.importRecord(
                         bizKey,
@@ -57,7 +58,8 @@ public class PerRecordChunkImportStrategy implements ChunkImportStrategy {
                         item.getDescription(),
                         context.batchDate(),
                         context.inputFileName(),
-                        null));
+                        null,
+                        item.getAttributes()));
                 persistTrace(bizKey, item.getLineNo(), saved == null ? null : saved.getId(), context);
                 written++;
             } catch (TransientImportException e) {
