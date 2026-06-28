@@ -9,6 +9,9 @@ import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.annotation.PostConstruct;
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -71,8 +74,7 @@ public class BatchMetricsPublisher {
         dlqBacklog.set(dlqRecordRepository.countByHandledFalse());
         dlqManualBacklog.set(dlqRecordRepository.countByHandledFalseAndManualRequiredTrue());
         dlqRetryPending.set(dlqRecordRepository.countByHandledFalseAndCompensationStatus("RETRY_PENDING"));
-        blockedTaskCount.set(
-                taskExecutionStateRepository.countByStatusIn(java.util.List.of("BLOCKED", "READY", "RUNNING")));
+        blockedTaskCount.set(taskExecutionStateRepository.countByStatusIn(List.of("BLOCKED", "READY", "RUNNING")));
 
         var recent = batchRunRecordRepository.findTop200ByOrderByCreatedAtDesc();
         double avg = recent.stream()
@@ -82,7 +84,7 @@ public class BatchMetricsPublisher {
         avgThroughputMilli.set((long) (avg * 1000));
 
         var taskDefs = taskDefinitionRepository.findByEnabledTrue();
-        java.util.Map<String, Long> jobSlaMap = new java.util.HashMap<>();
+        Map<String, Long> jobSlaMap = new HashMap<>();
         for (TaskDefinition def : taskDefs) {
             if (def.getJobName() == null || def.getSlaMaxDurationMs() == null) {
                 continue;

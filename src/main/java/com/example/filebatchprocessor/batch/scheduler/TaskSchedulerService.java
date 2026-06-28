@@ -1,5 +1,6 @@
 package com.example.filebatchprocessor.batch.scheduler;
 
+import com.example.filebatchprocessor.config.BatchTimezoneProvider;
 import com.example.filebatchprocessor.exception.ErrorCodeClassifier;
 import com.example.filebatchprocessor.model.DlqRecord;
 import com.example.filebatchprocessor.model.TaskExecutionState;
@@ -18,12 +19,20 @@ import com.example.filebatchprocessor.service.SchedulerQueueService;
 import com.example.filebatchprocessor.service.TaskExecutionAuditService;
 import com.example.filebatchprocessor.service.TaskExecutionStateService;
 import com.example.filebatchprocessor.util.IdempotencyKeyBuilder;
-import java.time.*;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Semaphore;
@@ -62,6 +71,7 @@ public class TaskSchedulerService {
     private final RetryPolicy retryPolicy;
     private final LaunchExecutor launchExecutor;
     private final JdbcTemplate jdbcTemplate;
+    private final ZoneId zoneId;
 
     private final SchedulerConcurrencyLimiter schedulerConcurrencyLimiter;
     private final TargetSystemCircuitBreaker circuitBreaker;
@@ -123,7 +133,8 @@ public class TaskSchedulerService {
             @Value("${orchestration.scheduler.fixed-delay.failure-backoff-multiplier:2.0}")
                     double fixedDelayFailureBackoffMultiplier,
             @Value("${orchestration.scheduler.fixed-delay.max-backoff-ms:300000}") long fixedDelayMaxBackoffMs,
-            @Value("${batch.dedup.window.seconds:60}") long dedupWindowSeconds) {
+            @Value("${batch.dedup.window.seconds:60}") long dedupWindowSeconds,
+            BatchTimezoneProvider timezoneProvider) {
         this.taskGraphManager = taskGraphManager;
         this.taskMergeService = taskMergeService;
         this.executionDedupService = executionDedupService;
@@ -163,6 +174,7 @@ public class TaskSchedulerService {
                 launchPermits,
                 defaultDynamicShardMax,
                 defaultLaunchWarnThresholdMs);
+        this.zoneId = timezoneProvider.zoneId();
     }
 
     public void register(OrchestrationTaskDefinition definition) {
@@ -239,7 +251,7 @@ public class TaskSchedulerService {
                     Trigger oneTimeTrigger = TriggerBuilder.newTrigger()
                             .withIdentity(triggerKey(definition, "one-time"))
                             .forJob(jobDetail)
-                            .startAt(java.util.Date.from(at))
+                            .startAt(Date.from(at))
                             .build();
                     upsertTrigger(oneTimeTrigger);
                     break;
@@ -292,7 +304,7 @@ public class TaskSchedulerService {
 
     private Trigger buildFixedRateTrigger(
             OrchestrationTaskDefinition definition, JobDetail jobDetail, long fixedRateMs) {
-        java.util.Date firstFireAt = java.util.Date.from(Instant.now().plusMillis(2000L));
+        Date firstFireAt = Date.from(Instant.now().plusMillis(2000L));
         return TriggerBuilder.newTrigger()
                 .withIdentity(triggerKey(definition, "fixed-rate"))
                 .forJob(jobDetail)
@@ -308,7 +320,6 @@ public class TaskSchedulerService {
             return;
         }
 
-        // Check if task is enabled
         if (!Boolean.TRUE.equals(definition.getEnabled())) {
             log.info("Task is disabled, skip enqueue: taskId={}", definition.getId());
             return;
@@ -355,7 +366,7 @@ public class TaskSchedulerService {
         batchTaskExecutor.submit(this::drainQueue);
     }
 
-    // #3:周期性 drain tick——drainQueue 原本只在 enqueue 时触发,WAITING 任务靠忙旋自我重查。
+    // 周期性 drain tick:drainQueue 原本只在 enqueue 时触发,WAITING 任务靠忙旋自我重查。
     // 改为:WAITING 任务暂存出队、轮末一次性重入队(本 pass 不再自旋),由本 tick 每隔几秒重新 drain
     // 触发重查,把"CPU+DB 忙旋最长 10 分钟"降为"每 tick 重查一次"。
     @org.springframework.scheduling.annotation.Scheduled(
@@ -371,9 +382,9 @@ public class TaskSchedulerService {
             return;
         }
         // 本轮被判定为依赖未就绪(WAITING)的任务暂存于此,轮末统一重入队,避免在同一 pass 内立即重 poll 自旋。
-        List<OrchestrationTaskDefinition> heldWaiting = new java.util.ArrayList<>();
-        List<OrchestrationTaskDefinition> heldThrottled = new java.util.ArrayList<>();
-        java.util.Set<String> heldRunKeys = new java.util.HashSet<>();
+        List<OrchestrationTaskDefinition> heldWaiting = new ArrayList<>();
+        List<OrchestrationTaskDefinition> heldThrottled = new ArrayList<>();
+        Set<String> heldRunKeys = new HashSet<>();
         OrchestrationTaskDefinition def;
         while ((def = queueManager.poll()) != null) {
             String runKey = taskRunKey(def);
@@ -424,7 +435,7 @@ public class TaskSchedulerService {
                     continue;
                 }
                 upsertState(def, TaskExecutionStatus.BLOCKED.name(), null, false, null);
-                // #3:暂存出队,本轮不再立即重 poll;轮末统一重入队,靠周期 drain tick 重查依赖
+                // 暂存出队,本轮不再立即重 poll;轮末统一重入队,靠周期 drain tick 重查依赖。
                 heldWaiting.add(def);
                 continue;
             }
@@ -571,9 +582,9 @@ public class TaskSchedulerService {
                     permit.release();
                 }
             }
-            // #9 修复:合并出的每个 sibling 有各自的 runKey,需逐个清理其队列行/enqueuedAt,
+            // 合并出的每个 sibling 有各自的 runKey,需逐个清理其队列行/enqueuedAt,
             // 否则只清 def 的 runKey 会让 sibling 的 DB queue 行残留(后续被错误复用或永不出队)。
-            java.util.Set<String> completedKeys = new java.util.HashSet<>();
+            Set<String> completedKeys = new HashSet<>();
             for (OrchestrationTaskDefinition mergedTask : merged) {
                 String mergedKey = taskRunKey(mergedTask);
                 if (!heldRunKeys.contains(mergedKey) && completedKeys.add(mergedKey)) {
@@ -584,7 +595,7 @@ public class TaskSchedulerService {
                 completeRun(def, runKey);
             }
         }
-        // #3:本轮暂存的 WAITING 任务统一重入队(enqueuedAt 由 putIfAbsent 保留,依赖超时仍正确计时),
+        // 本轮暂存的 WAITING 任务统一重入队(enqueuedAt 由 putIfAbsent 保留,依赖超时仍正确计时),
         // 由周期 drain tick 在下一轮重查依赖,避免在本 pass 内忙旋。
         for (OrchestrationTaskDefinition held : heldWaiting) {
             queueManager.requeue(held);
@@ -656,7 +667,7 @@ public class TaskSchedulerService {
     }
 
     private void scheduleRetry(OrchestrationTaskDefinition def, String reason) {
-        // #25:按已发生的重试次数做指数退避
+        // 按已发生的重试次数计算指数退避时间。
         String rerunId = def.getParameters().getOrDefault("rerunId", "");
         int attempt = taskExecutionStateRepository
                 .findByTaskIdAndBatchDateAndRerunId(def.getId(), resolveBatchDate(def), rerunId)
@@ -683,7 +694,7 @@ public class TaskSchedulerService {
             Trigger trigger = TriggerBuilder.newTrigger()
                     .withIdentity(triggerKey(def, suffix + "-" + System.nanoTime()))
                     .forJob(detail)
-                    .startAt(java.util.Date.from(when))
+                    .startAt(Date.from(when))
                     .build();
             quartzScheduler.scheduleJob(trigger);
             return true;
@@ -876,12 +887,12 @@ public class TaskSchedulerService {
                 rerunId,
                 status,
                 maxAttempts,
-                LocalDateTime.ofInstant(start, ZoneId.systemDefault()),
-                LocalDateTime.ofInstant(start.plusMillis(rerunWindow), ZoneId.systemDefault()),
+                LocalDateTime.ofInstant(start, zoneId),
+                LocalDateTime.ofInstant(start.plusMillis(rerunWindow), zoneId),
                 error,
                 errorCode,
                 increaseAttempt,
-                nextRetryAt == null ? null : LocalDateTime.ofInstant(nextRetryAt, ZoneId.systemDefault()));
+                nextRetryAt == null ? null : LocalDateTime.ofInstant(nextRetryAt, zoneId));
     }
 
     private void resetPersistedSchedules(String schedName) {

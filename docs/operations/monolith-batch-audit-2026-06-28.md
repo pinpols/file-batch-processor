@@ -78,7 +78,7 @@
 
 证据:
 
-- 设计文档 `docs/superpowers/specs/2026-06-27-pgp-decrypt-decompress-design.md:39-55` 要求“0700 专用目录、UUID 名、afterStep 必删、启动清扫”。
+- 运维文档 `docs/operations/encrypted-compressed-intake.md` 要求临时明文使用专用目录、UUID 文件名、step 结束清理和启动清扫。
 - `src/main/java/com/example/filebatchprocessor/batch/preprocess/TempFileManager.java:20-28` 仅创建目录并返回 UUID 文件名,未设置 POSIX 0700/0600 权限。
 - `src/main/java/com/example/filebatchprocessor/batch/preprocess/FilePreprocessor.java:59`、`:67` 将解密/解压后的明文写入临时文件。
 - `src/main/java/com/example/filebatchprocessor/batch/preprocess/TempFileManager.java:36` 有单文件删除,但未看到启动时清扫残留临时明文。

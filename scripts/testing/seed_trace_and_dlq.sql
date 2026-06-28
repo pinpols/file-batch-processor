@@ -1,4 +1,4 @@
--- Seed trace and DLQ records for Trace API manual demo.
+-- Trace API 本地验证用 trace 与 DLQ 种子数据。
 
 insert into record_trace (business_key, batch_date, job_name, job_execution_id, event_type, status, message, created_at)
 values

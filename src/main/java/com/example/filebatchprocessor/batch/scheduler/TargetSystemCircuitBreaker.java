@@ -30,7 +30,7 @@ public class TargetSystemCircuitBreaker {
     /**
      * Returns true if request is allowed (circuit closed or half-open), false if rejected (circuit open).
      */
-    // #2 修复:改为可写事务(原 readOnly 下 save 不落库),OPEN→HALF_OPEN 用原子条件 UPDATE 保证单探测者。
+    // OPEN→HALF_OPEN 用原子条件 UPDATE 保证同一时间只有一个探测请求。
     @Transactional
     public boolean tryAcquire(String targetSystem) {
         Optional<TargetSystemCircuitState> opt = repository.findByTargetSystem(targetSystem);
@@ -59,9 +59,7 @@ public class TargetSystemCircuitBreaker {
         return false;
     }
 
-    /**
-     * Record a task result for the target system.
-     */
+    /** 记录目标系统调用结果，并根据滑动窗口状态推进断路器。 */
     @Transactional
     public void recordResult(String targetSystem, boolean success) {
         TargetSystemCircuitState state = repository
@@ -79,7 +77,7 @@ public class TargetSystemCircuitBreaker {
         boolean wasOpen = "OPEN".equals(state.getStatus());
 
         if (success) {
-            // #12 修复:失败计数持久化在 windowFailureCount(跨重启/多实例),成功即清零
+            // 失败计数持久化在 windowFailureCount,跨重启和多实例保持同一窗口口径。
             state.setWindowFailureCount(0L);
             state.setUpdatedAt(LocalDateTime.now());
             if ("HALF_OPEN".equals(state.getStatus())) {

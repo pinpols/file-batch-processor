@@ -1,7 +1,16 @@
 package com.example.filebatchprocessor.batch.scheduler;
 
 import com.example.filebatchprocessor.scheduler.OrchestrationTaskDefinition;
-import java.util.*;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Queue;
+import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -49,7 +58,7 @@ public class TaskGraphManager {
         StringBuilder sb = new StringBuilder();
         sb.append("flowchart TD\n");
 
-        // Define nodes with style based on enabled status
+        // 节点样式按启用状态区分，便于在运维页面快速定位停用任务。
         for (OrchestrationTaskDefinition def : taskDefinitions.values()) {
             String status = Boolean.TRUE.equals(def.getEnabled()) ? "enabled" : "disabled";
             sb.append("    ")
@@ -62,7 +71,7 @@ public class TaskGraphManager {
                     .append("\n");
         }
 
-        // Define edges
+        // 依赖边从上游任务指向当前任务。
         for (OrchestrationTaskDefinition def : taskDefinitions.values()) {
             for (String dep : def.getDependencies()) {
                 sb.append("    ")
@@ -73,7 +82,7 @@ public class TaskGraphManager {
             }
         }
 
-        // Define styles
+        // Mermaid 样式只在生成文本中使用，不影响调度逻辑。
         sb.append("    classDef enabled fill:#90EE90,stroke:#333,stroke-width:2px\n");
         sb.append("    classDef disabled fill:#FFB6C1,stroke:#333,stroke-width:2px,stroke-dasharray:5 5\n");
 

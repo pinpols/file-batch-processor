@@ -11,6 +11,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.Locale;
+import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -24,7 +25,6 @@ public class HttpFileDistributor implements FileDistributor {
     private final HttpClient httpClient;
     private final Duration requestTimeout;
 
-    @org.springframework.beans.factory.annotation.Autowired
     public HttpFileDistributor(
             FileDistributionService fileDistributionService,
             DistributionTargetValidator targetValidator,
@@ -37,11 +37,6 @@ public class HttpFileDistributor implements FileDistributor {
                 .followRedirects(HttpClient.Redirect.NEVER)
                 .build();
         this.requestTimeout = Duration.ofMillis(Math.max(1000L, requestTimeoutMs));
-    }
-
-    public HttpFileDistributor(
-            FileDistributionService fileDistributionService, DistributionTargetValidator targetValidator) {
-        this(fileDistributionService, targetValidator, 5000L, 30000L);
     }
 
     @Override
@@ -86,11 +81,7 @@ public class HttpFileDistributor implements FileDistributor {
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() >= 200 && response.statusCode() < 300) {
                 fileDistributionService.markAsSuccess(
-                        task.getId(),
-                        jobInstanceId,
-                        false,
-                        null,
-                        java.util.Map.of("httpStatus", response.statusCode()));
+                        task.getId(), jobInstanceId, false, null, Map.of("httpStatus", response.statusCode()));
             } else {
                 fileDistributionService.markAsFailed(
                         task.getId(), "HTTP transfer failed with status " + response.statusCode(), jobInstanceId);

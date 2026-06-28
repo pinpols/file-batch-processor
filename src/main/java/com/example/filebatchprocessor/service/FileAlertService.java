@@ -11,6 +11,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -27,6 +28,7 @@ public class FileAlertService {
     private final FileDispatchRecordRepository dispatchRecordRepository;
     private final ObjectMapper objectMapper;
     private final AlertDispatcher alertDispatcher;
+    private final SchedulerLeaderService schedulerLeaderService;
 
     @Value("${file.alert.enabled:true}")
     private boolean enabled = true;
@@ -48,17 +50,15 @@ public class FileAlertService {
             FileAssetRecordRepository fileAssetRepository,
             FileDispatchRecordRepository dispatchRecordRepository,
             ObjectMapper objectMapper,
-            AlertDispatcher alertDispatcher) {
+            AlertDispatcher alertDispatcher,
+            Optional<SchedulerLeaderService> schedulerLeaderService) {
         this.alertLogRepository = alertLogRepository;
         this.fileAssetRepository = fileAssetRepository;
         this.dispatchRecordRepository = dispatchRecordRepository;
         this.objectMapper = objectMapper;
         this.alertDispatcher = alertDispatcher;
+        this.schedulerLeaderService = schedulerLeaderService == null ? null : schedulerLeaderService.orElse(null);
     }
-
-    // #8:告警 + ACK 超时处理(会改状态)只让 leader 跑,避免多副本重复
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    private SchedulerLeaderService schedulerLeaderService;
 
     @Scheduled(fixedDelayString = "${file.alert.evaluate-ms:300000}")
     public void evaluateAlerts() {

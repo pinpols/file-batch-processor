@@ -6,6 +6,7 @@ import com.example.filebatchprocessor.repository.ExecutionDedupRecordRepository;
 import com.example.filebatchprocessor.repository.TaskExecutionStateRepository;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -23,6 +24,7 @@ public class BatchDataRetentionService {
     private final TaskExecutionStateRepository taskExecutionStateRepository;
     private final DlqRecordRepository dlqRecordRepository;
     private final BatchRunRecordRepository batchRunRecordRepository;
+    private final SchedulerLeaderService schedulerLeaderService;
 
     @Value("${batch.retention.enabled:true}")
     private boolean retentionEnabled;
@@ -43,16 +45,14 @@ public class BatchDataRetentionService {
             ExecutionDedupRecordRepository dedupRecordRepository,
             TaskExecutionStateRepository taskExecutionStateRepository,
             DlqRecordRepository dlqRecordRepository,
-            BatchRunRecordRepository batchRunRecordRepository) {
+            BatchRunRecordRepository batchRunRecordRepository,
+            Optional<SchedulerLeaderService> schedulerLeaderService) {
         this.dedupRecordRepository = dedupRecordRepository;
         this.taskExecutionStateRepository = taskExecutionStateRepository;
         this.dlqRecordRepository = dlqRecordRepository;
         this.batchRunRecordRepository = batchRunRecordRepository;
+        this.schedulerLeaderService = schedulerLeaderService == null ? null : schedulerLeaderService.orElse(null);
     }
-
-    // #8:删除类清理只让 leader 跑,避免多副本并发全表删
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    private SchedulerLeaderService schedulerLeaderService;
 
     @Transactional
     @Scheduled(cron = "${batch.retention.cron:0 30 3 * * ?}")

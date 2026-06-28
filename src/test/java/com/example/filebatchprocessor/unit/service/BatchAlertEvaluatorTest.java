@@ -13,6 +13,7 @@ import com.example.filebatchprocessor.service.BatchAlertEvaluator;
 import com.example.filebatchprocessor.service.alert.AlertDispatcher;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -36,7 +37,8 @@ class BatchAlertEvaluatorTest {
 
     @BeforeEach
     void setUp() {
-        evaluator = new BatchAlertEvaluator(batchRunRecordRepository, dlqRecordRepository, alertDispatcher);
+        evaluator = new BatchAlertEvaluator(
+                batchRunRecordRepository, dlqRecordRepository, alertDispatcher, Optional.empty());
         ReflectionTestUtils.setField(evaluator, "enabled", true);
         ReflectionTestUtils.setField(evaluator, "failureRateThreshold", 0.2d);
         ReflectionTestUtils.setField(evaluator, "dlqBacklogThreshold", 100L);

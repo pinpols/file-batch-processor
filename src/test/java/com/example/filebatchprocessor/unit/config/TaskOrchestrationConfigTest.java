@@ -1,18 +1,15 @@
 package com.example.filebatchprocessor.unit.config;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.*;
 
 import com.example.filebatchprocessor.batch.scheduler.TaskSchedulerService;
+import com.example.filebatchprocessor.config.BatchTimezoneProvider;
 import com.example.filebatchprocessor.config.TaskDefinitionProperties;
 import com.example.filebatchprocessor.config.TaskOrchestrationConfig;
-import com.example.filebatchprocessor.model.TaskDefinition;
-import com.example.filebatchprocessor.model.TaskTrigger;
 import com.example.filebatchprocessor.scheduler.OrchestrationTaskDefinition;
-import com.example.filebatchprocessor.service.TaskConfigService;
+import com.example.filebatchprocessor.service.TaskOrchestrationRegistry;
 import java.util.List;
-import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.quartz.Scheduler;
 import org.springframework.boot.CommandLineRunner;
@@ -30,14 +27,19 @@ class TaskOrchestrationConfigTest {
 
         TaskDefinitionProperties properties = new TaskDefinitionProperties();
         TaskSchedulerService schedulerService = mock(TaskSchedulerService.class);
-        TaskConfigService taskConfigService = mock(TaskConfigService.class);
+        TaskOrchestrationRegistry taskOrchestrationRegistry = mock(TaskOrchestrationRegistry.class);
         Scheduler quartzScheduler = mock(Scheduler.class);
         Environment env = mock(Environment.class);
 
-        when(taskConfigService.getAllEnabledTasks()).thenReturn(List.of());
         when(quartzScheduler.isStarted()).thenReturn(false);
 
-        config.registerConfiguredTasks(properties, schedulerService, taskConfigService, quartzScheduler, env)
+        config.registerConfiguredTasks(
+                        properties,
+                        schedulerService,
+                        taskOrchestrationRegistry,
+                        quartzScheduler,
+                        env,
+                        new BatchTimezoneProvider("Asia/Shanghai"))
                 .run();
 
         verify(schedulerService, never()).resetPersistedSchedules();
@@ -52,14 +54,19 @@ class TaskOrchestrationConfigTest {
 
         TaskDefinitionProperties properties = new TaskDefinitionProperties();
         TaskSchedulerService schedulerService = mock(TaskSchedulerService.class);
-        TaskConfigService taskConfigService = mock(TaskConfigService.class);
+        TaskOrchestrationRegistry taskOrchestrationRegistry = mock(TaskOrchestrationRegistry.class);
         Scheduler quartzScheduler = mock(Scheduler.class);
         Environment env = mock(Environment.class);
 
-        when(taskConfigService.getAllEnabledTasks()).thenReturn(List.of());
         when(quartzScheduler.isStarted()).thenReturn(false);
 
-        config.registerConfiguredTasks(properties, schedulerService, taskConfigService, quartzScheduler, env)
+        config.registerConfiguredTasks(
+                        properties,
+                        schedulerService,
+                        taskOrchestrationRegistry,
+                        quartzScheduler,
+                        env,
+                        new BatchTimezoneProvider("Asia/Shanghai"))
                 .run();
 
         verify(schedulerService, times(1)).resetPersistedSchedules();
@@ -74,31 +81,21 @@ class TaskOrchestrationConfigTest {
 
         TaskDefinitionProperties properties = new TaskDefinitionProperties();
         TaskSchedulerService schedulerService = mock(TaskSchedulerService.class);
-        TaskConfigService taskConfigService = mock(TaskConfigService.class);
+        TaskOrchestrationRegistry taskOrchestrationRegistry = mock(TaskOrchestrationRegistry.class);
         Scheduler quartzScheduler = mock(Scheduler.class);
         Environment env = mock(Environment.class);
 
-        TaskDefinition definition = new TaskDefinition();
-        definition.setTaskId("t1");
-        definition.setJobName("fileImportJob");
-        definition.setPriority("HIGH");
-        definition.setAllowParallel(true);
-
-        TaskTrigger trigger = new TaskTrigger();
-        trigger.setTriggerType("FIXED_RATE");
-        trigger.setFixedRateMs(1000L);
-
-        when(taskConfigService.getAllEnabledTasks()).thenReturn(List.of(definition));
-        when(taskConfigService.getTaskTrigger("t1")).thenReturn(trigger);
-        when(taskConfigService.getTaskParametersAsMap("t1")).thenReturn(Map.of("k", "v"));
-        when(taskConfigService.getTaskDependencyConfigs("t1")).thenReturn(List.of());
-
         when(quartzScheduler.isStarted()).thenReturn(false);
-        CommandLineRunner runner =
-                config.registerConfiguredTasks(properties, schedulerService, taskConfigService, quartzScheduler, env);
+        CommandLineRunner runner = config.registerConfiguredTasks(
+                properties,
+                schedulerService,
+                taskOrchestrationRegistry,
+                quartzScheduler,
+                env,
+                new BatchTimezoneProvider("Asia/Shanghai"));
         runner.run();
 
-        verify(schedulerService, times(1)).register(any(OrchestrationTaskDefinition.class));
+        verify(taskOrchestrationRegistry, times(1)).registerEnabledDbTasks();
     }
 
     @Test
@@ -111,20 +108,26 @@ class TaskOrchestrationConfigTest {
         TaskDefinitionProperties properties = new TaskDefinitionProperties();
         properties.setTasks(List.of(new OrchestrationTaskDefinition()));
         TaskSchedulerService schedulerService = mock(TaskSchedulerService.class);
-        TaskConfigService taskConfigService = mock(TaskConfigService.class);
+        TaskOrchestrationRegistry taskOrchestrationRegistry = mock(TaskOrchestrationRegistry.class);
         Scheduler quartzScheduler = mock(Scheduler.class);
         Environment env = mock(Environment.class);
         when(env.getActiveProfiles()).thenReturn(new String[] {"prod"});
         when(quartzScheduler.isStarted()).thenReturn(false);
 
         assertThrows(IllegalStateException.class, () -> {
-            config.registerConfiguredTasks(properties, schedulerService, taskConfigService, quartzScheduler, env)
+            config.registerConfiguredTasks(
+                            properties,
+                            schedulerService,
+                            taskOrchestrationRegistry,
+                            quartzScheduler,
+                            env,
+                            new BatchTimezoneProvider("Asia/Shanghai"))
                     .run();
         });
     }
 
     @Test
-    void shouldMapFixedDelayTriggerFromDb() throws Exception {
+    void shouldUseRegistryForDbSource() throws Exception {
         TaskOrchestrationConfig config = new TaskOrchestrationConfig();
         ReflectionTestUtils.setField(config, "orchestrationEnabled", true);
         ReflectionTestUtils.setField(config, "configSource", "db");
@@ -132,32 +135,20 @@ class TaskOrchestrationConfigTest {
 
         TaskDefinitionProperties properties = new TaskDefinitionProperties();
         TaskSchedulerService schedulerService = mock(TaskSchedulerService.class);
-        TaskConfigService taskConfigService = mock(TaskConfigService.class);
+        TaskOrchestrationRegistry taskOrchestrationRegistry = mock(TaskOrchestrationRegistry.class);
         Scheduler quartzScheduler = mock(Scheduler.class);
         Environment env = mock(Environment.class);
 
-        TaskDefinition definition = new TaskDefinition();
-        definition.setTaskId("t-delay");
-        definition.setJobName("fileReceptionJob");
-        definition.setPriority("NORMAL");
-        definition.setAllowParallel(true);
-
-        TaskTrigger trigger = new TaskTrigger();
-        trigger.setTriggerType("FIXED_DELAY");
-        trigger.setFixedDelayMs(2000L);
-
-        when(taskConfigService.getAllEnabledTasks()).thenReturn(List.of(definition));
-        when(taskConfigService.getTaskTrigger("t-delay")).thenReturn(trigger);
-        when(taskConfigService.getTaskParametersAsMap("t-delay")).thenReturn(Map.of());
-        when(taskConfigService.getTaskDependencyConfigs("t-delay")).thenReturn(List.of());
-
         when(quartzScheduler.isStarted()).thenReturn(false);
-        CommandLineRunner runner =
-                config.registerConfiguredTasks(properties, schedulerService, taskConfigService, quartzScheduler, env);
+        CommandLineRunner runner = config.registerConfiguredTasks(
+                properties,
+                schedulerService,
+                taskOrchestrationRegistry,
+                quartzScheduler,
+                env,
+                new BatchTimezoneProvider("Asia/Shanghai"));
         runner.run();
 
-        var captor = org.mockito.ArgumentCaptor.forClass(OrchestrationTaskDefinition.class);
-        verify(schedulerService, times(1)).register(captor.capture());
-        assertEquals(2000L, captor.getValue().getTrigger().getFixedDelayMs());
+        verify(taskOrchestrationRegistry, times(1)).registerEnabledDbTasks();
     }
 }

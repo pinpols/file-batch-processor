@@ -38,7 +38,7 @@ class FileProcessingServiceTest {
         when(repository.save(any(FileData.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         MockMultipartFile file =
-                new MockMultipartFile("file", "demo.csv", "text/csv", "k1,name1,desc1\nk2,name2,desc2\n".getBytes());
+                new MockMultipartFile("file", "sample.csv", "text/csv", "k1,name1,desc1\nk2,name2,desc2\n".getBytes());
 
         FileData saved = service.saveFile(file);
 

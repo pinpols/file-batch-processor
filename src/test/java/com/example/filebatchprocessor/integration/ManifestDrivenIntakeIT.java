@@ -30,7 +30,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 
 /**
- * 清单驱动入库(#3+#6)端到端 IT:建组 -> 绑定到达 -> 到齐判定 + 对账 -> 状态机 + 告警。
+ * 清单驱动入库端到端 IT:建组 -> 绑定到达 -> 到齐判定 + 对账 -> 状态机 + 告警。
  *
  * <p>三场景:齐且对账通过(DISPATCHED 无告警)、缺文件超时(EXPIRED + GROUP_INCOMPLETE)、
  * 条数不符(FAILED + GROUP_RECONCILE_FAIL)。

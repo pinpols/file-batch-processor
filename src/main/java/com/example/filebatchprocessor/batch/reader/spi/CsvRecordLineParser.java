@@ -3,7 +3,7 @@ package com.example.filebatchprocessor.batch.reader.spi;
 import com.example.filebatchprocessor.model.FileRecord;
 
 /**
- * 简单 CSV 行解析实现，按分隔符拆分字段。
+ * 默认 CSV 行解析器，处理兼容旧导入链路的三列结构：id、name、description。
  */
 public class CsvRecordLineParser implements RecordLineParser {
 

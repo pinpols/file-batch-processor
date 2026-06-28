@@ -53,7 +53,7 @@
 ## 9) 多环境治理
 - 推荐：`dev=internal/scheduler`，`prod=scheduler`
 - 配置真源：`orchestration.config-source=db`
-- 流程文档：`docs/release-process.md`、`docs/ops/deploy-checklist.md`
+- 流程文档：`docs/operations/release-process.md`、`docs/operations/deploy-checklist.md`
 
 ## 10) 变更治理与审批
 - 变更单：`ops_change_request`（支持 window_start/window_end、risk_level、impact_summary、rollback_plan）

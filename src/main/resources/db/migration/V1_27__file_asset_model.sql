@@ -1,7 +1,7 @@
--- Phase 2: file asset domain model
--- 1. Introduce business-facing managed file tables
--- 2. Keep legacy file_reception_queue / file_distribution_task in place
--- 3. Add bridge columns for gradual dual-write and read cutover
+-- 第二阶段：文件资产领域模型
+-- 1. 新增面向业务的受管文件表
+-- 2. 保留旧 file_reception_queue / file_distribution_task 表，支持灰度迁移
+-- 3. 增加桥接列，用于双写和读路径切换
 
 CREATE TABLE IF NOT EXISTS file_record (
     id BIGSERIAL PRIMARY KEY,

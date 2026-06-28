@@ -4,12 +4,15 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
+import com.example.filebatchprocessor.manifest.JsonManifestParser;
 import com.example.filebatchprocessor.model.FileAssetRecord;
 import com.example.filebatchprocessor.model.FileReceptionQueue;
 import com.example.filebatchprocessor.repository.FileReceptionQueueRepository;
 import com.example.filebatchprocessor.service.FileAssetService;
 import com.example.filebatchprocessor.service.FileProcessLogService;
+import com.example.filebatchprocessor.service.FileReceptionGuardService;
 import com.example.filebatchprocessor.service.FileReceptionService;
+import com.example.filebatchprocessor.service.ReceptionGroupService;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
@@ -25,7 +28,15 @@ class FileReceptionServiceTest {
         FileReceptionQueueRepository repository = mock(FileReceptionQueueRepository.class);
         FileAssetService fileAssetService = mock(FileAssetService.class);
         FileProcessLogService fileProcessLogService = mock(FileProcessLogService.class);
-        FileReceptionService service = new FileReceptionService(repository, fileAssetService, fileProcessLogService);
+        FileReceptionService service = new FileReceptionService(
+                repository,
+                fileAssetService,
+                fileProcessLogService,
+                FileReceptionGuardService.testingDefaults(),
+                mock(JsonManifestParser.class),
+                mock(ReceptionGroupService.class),
+                ".manifest.json",
+                false);
 
         Path source = tempDir.resolve("incoming.csv");
         Files.writeString(source, "id,name\n1,Alice\n");

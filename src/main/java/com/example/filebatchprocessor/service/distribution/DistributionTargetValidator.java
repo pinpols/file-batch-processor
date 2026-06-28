@@ -29,7 +29,6 @@ public class DistributionTargetValidator {
     private final List<String> allowedHosts;
     private final boolean blockInternal;
 
-    @org.springframework.beans.factory.annotation.Autowired
     public DistributionTargetValidator(
             @Value("${distribution.allowed-hosts:}") String allowedHostsCsv,
             @Value("${distribution.block-internal-targets:true}") boolean blockInternal) {
@@ -41,11 +40,6 @@ public class DistributionTargetValidator {
                         .toList()
                 : List.of();
         this.blockInternal = blockInternal;
-    }
-
-    /** 便捷构造:仅白名单,默认拦截内网/元数据地址。 */
-    public DistributionTargetValidator(String allowedHostsCsv) {
-        this(allowedHostsCsv, true);
     }
 
     /** 校验 URL/地址,不通过则抛 BusinessException(INVALID_ARGUMENT)。 */

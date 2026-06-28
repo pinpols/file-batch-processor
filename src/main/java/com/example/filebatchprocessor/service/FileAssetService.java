@@ -17,7 +17,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,7 +31,6 @@ public class FileAssetService {
     private final ObjectMapper objectMapper;
     private final FileAssetStateMachineService stateMachineService;
 
-    @Autowired
     public FileAssetService(
             FileAssetRecordRepository repository,
             ObjectMapper objectMapper,

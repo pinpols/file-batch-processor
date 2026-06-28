@@ -1,4 +1,4 @@
--- 清单驱动入库:到达组 + 成员 + 控制文件对账(#3+#6)
+-- 清单驱动入库:到达组 + 成员 + 控制文件对账。
 
 CREATE TABLE IF NOT EXISTS reception_group (
     id BIGSERIAL PRIMARY KEY,

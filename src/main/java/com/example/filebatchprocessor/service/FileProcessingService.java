@@ -50,7 +50,7 @@ public class FileProcessingService {
             Files.copy(input, filePath);
         }
 
-        // Save file metadata to database
+        // 只落文件元数据，原始内容保留在受控上传目录。
         FileData fileData = new FileData();
         fileData.setFileName(originalFilename);
         fileData.setFilePath(filePath.toString());

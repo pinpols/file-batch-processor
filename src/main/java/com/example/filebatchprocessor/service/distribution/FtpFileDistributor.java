@@ -24,7 +24,6 @@ public class FtpFileDistributor implements FileDistributor {
     private final long connectTimeoutMs;
     private final long socketTimeoutMs;
 
-    @org.springframework.beans.factory.annotation.Autowired
     public FtpFileDistributor(
             FileDistributionService fileDistributionService,
             DistributionTargetValidator targetValidator,
@@ -34,11 +33,6 @@ public class FtpFileDistributor implements FileDistributor {
         this.targetValidator = targetValidator;
         this.connectTimeoutMs = Math.max(1000L, connectTimeoutMs);
         this.socketTimeoutMs = Math.max(1000L, socketTimeoutMs);
-    }
-
-    public FtpFileDistributor(
-            FileDistributionService fileDistributionService, DistributionTargetValidator targetValidator) {
-        this(fileDistributionService, targetValidator, 5000L, 30000L);
     }
 
     @Override

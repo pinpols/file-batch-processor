@@ -11,6 +11,7 @@ import com.example.filebatchprocessor.repository.MigrationStatusRepository;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -28,6 +29,7 @@ public class MigrationService {
     private final FileReceptionQueueRepository receptionQueueRepository;
     private final FileDistributionTaskRepository distributionTaskRepository;
     private final FileAssetStateMachineService stateMachineService;
+    private final SchedulerLeaderService schedulerLeaderService;
 
     @Value("${migration.enabled:false}")
     private boolean enabled;
@@ -41,13 +43,15 @@ public class MigrationService {
             FileDispatchRecordRepository dispatchRecordRepository,
             FileReceptionQueueRepository receptionQueueRepository,
             FileDistributionTaskRepository distributionTaskRepository,
-            FileAssetStateMachineService stateMachineService) {
+            FileAssetStateMachineService stateMachineService,
+            Optional<SchedulerLeaderService> schedulerLeaderService) {
         this.migrationStatusRepository = migrationStatusRepository;
         this.fileAssetRepository = fileAssetRepository;
         this.dispatchRecordRepository = dispatchRecordRepository;
         this.receptionQueueRepository = receptionQueueRepository;
         this.distributionTaskRepository = distributionTaskRepository;
         this.stateMachineService = stateMachineService;
+        this.schedulerLeaderService = schedulerLeaderService == null ? null : schedulerLeaderService.orElse(null);
     }
 
     public Map<String, Object> getMigrationStatus(String migrationName) {
@@ -85,10 +89,6 @@ public class MigrationService {
                 })
                 .toList();
     }
-
-    // #8:自动迁移只让 leader 跑,避免多副本并发迁移
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    private SchedulerLeaderService schedulerLeaderService;
 
     @Scheduled(fixedDelayString = "${migration.check-interval-ms:3600000}")
     public void runScheduledMigration() {
@@ -211,12 +211,12 @@ public class MigrationService {
         migration.complete();
         migrationStatusRepository.save(migration);
 
-        log.info("Deprecated legacy table: {}", tableName);
+        log.info("旧表已标记为退役: {}", tableName);
 
         Map<String, Object> result = new HashMap<>();
         result.put("table", tableName);
         result.put("status", "DEPRECATED");
-        result.put("message", "Table marked as deprecated, read-only");
+        result.put("message", "旧表已标记为退役，只读保留");
         return result;
     }
 

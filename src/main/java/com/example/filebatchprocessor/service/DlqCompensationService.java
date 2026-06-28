@@ -64,14 +64,14 @@ public class DlqCompensationService {
         this.retryDelayMs = Math.max(1000L, retryDelayMs);
     }
 
-    // Suspend the tasklet transaction before launching a nested Spring Batch job.
+    // 重放会启动嵌套 Spring Batch 作业,需先挂起外层 tasklet 事务。
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public int replayPending(int limit) {
         List<DlqRecord> records =
                 dlqRecordRepository
                         .findTop100ByHandledFalseAndManualRequiredFalseAndRetryableTrueAndNextRetryAtBeforeOrderByCreatedAtAsc(
                                 LocalDateTime.now());
-        // #26:limit 用"本次实际处理过的记录数(含转人工/失败)"来卡,避免一批里多数失败时超额处理;
+        // limit 用"本次实际处理过的记录数(含转人工/失败)"来卡,避免一批里多数失败时超额处理;
         // 返回值 processed 仍只数"真正重放成功"的条数(转人工/失败不算重放)。
         int processed = 0;
         int attempts = 0;

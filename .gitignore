@@ -36,6 +36,9 @@ build/
 *.log
 logs/
 
+### Runtime outputs ###
+export/
+
 ### Local env ###
 .env
 backup/
@@ -50,8 +53,8 @@ build/
 out/
 
 ### Documentation ###
-docs/ops/dag-*-graph.generated.md
-docs/ops/dag-complex-template.sql
+docs/operations/dag-*-graph.generated.md
+docs/operations/dag-complex-template.sql
 
 ### OS ###
 .DS_Store
@@ -68,4 +71,3 @@ Thumbs.db
 tools/scheduler/*.jar
 !tools/scheduler/.gitkeep
 /.local/*
-

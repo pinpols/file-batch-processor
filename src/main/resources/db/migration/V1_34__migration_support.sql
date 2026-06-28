@@ -45,7 +45,7 @@ BEGIN
     END IF;
 END $$;
 
-COMMENT ON TABLE migration_status IS 'Migration progress tracking for phased rollout';
+COMMENT ON TABLE migration_status IS '分阶段迁移进度记录';
 
 ALTER TABLE file_reception_queue
     ADD COLUMN IF NOT EXISTS legacy_status VARCHAR(32) DEFAULT 'ACTIVE';
@@ -53,5 +53,5 @@ ALTER TABLE file_reception_queue
 ALTER TABLE file_distribution_task
     ADD COLUMN IF NOT EXISTS legacy_status VARCHAR(32) DEFAULT 'ACTIVE';
 
-COMMENT ON COLUMN file_reception_queue.legacy_status IS 'MIGRATING or DEPRECATED - for gradual old table retirement';
-COMMENT ON COLUMN file_distribution_task.legacy_status IS 'MIGRATING or DEPRECATED - for gradual old table retirement';
+COMMENT ON COLUMN file_reception_queue.legacy_status IS '旧表迁移状态：MIGRATING 或 DEPRECATED，用于灰度退役';
+COMMENT ON COLUMN file_distribution_task.legacy_status IS '旧表迁移状态：MIGRATING 或 DEPRECATED，用于灰度退役';

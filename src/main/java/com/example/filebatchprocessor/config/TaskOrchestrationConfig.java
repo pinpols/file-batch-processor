@@ -8,8 +8,11 @@ import com.example.filebatchprocessor.model.TaskDependency;
 import com.example.filebatchprocessor.model.TaskTrigger;
 import com.example.filebatchprocessor.scheduler.OrchestrationTaskDefinition;
 import com.example.filebatchprocessor.scheduler.OrchestrationTaskTrigger;
-import com.example.filebatchprocessor.service.TaskConfigService;
+import com.example.filebatchprocessor.service.TaskOrchestrationRegistry;
 import java.time.ZoneId;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
@@ -58,9 +61,10 @@ public class TaskOrchestrationConfig {
     public CommandLineRunner registerConfiguredTasks(
             TaskDefinitionProperties properties,
             TaskSchedulerService schedulerService,
-            TaskConfigService taskConfigService,
+            TaskOrchestrationRegistry taskOrchestrationRegistry,
             Scheduler quartzScheduler,
-            Environment environment) {
+            Environment environment,
+            BatchTimezoneProvider timezoneProvider) {
         return args -> {
             boolean startQuartzAfterRegistration = false;
             try {
@@ -95,7 +99,7 @@ public class TaskOrchestrationConfig {
                 String source =
                         configSource == null ? "db" : configSource.trim().toLowerCase(Locale.ROOT);
                 if ("yaml".equals(source)) {
-                    boolean localProfile = java.util.Arrays.stream(environment.getActiveProfiles())
+                    boolean localProfile = Arrays.stream(environment.getActiveProfiles())
                             .anyMatch(p -> "local".equalsIgnoreCase(p) || "dev".equalsIgnoreCase(p));
                     if (!localProfile) {
                         throw new IllegalStateException(
@@ -110,22 +114,8 @@ public class TaskOrchestrationConfig {
                         log.warn("Unknown orchestration.config-source={}, fallback to db", configSource);
                     }
                     log.info("Registering orchestration tasks from database");
-                    for (TaskDefinition taskDefinition : taskConfigService.getAllEnabledTasks()) {
-                        try {
-                            TaskTrigger taskTrigger = taskConfigService.getTaskTrigger(taskDefinition.getTaskId());
-                            Map<String, String> parameters = resolveTaskParameters(
-                                    taskConfigService.getTaskParametersAsMap(taskDefinition.getTaskId()), environment);
-                            var dependencyConfigs =
-                                    taskConfigService.getTaskDependencyConfigs(taskDefinition.getTaskId());
-                            schedulerService.register(
-                                    toOrchestrationTask(taskDefinition, taskTrigger, parameters, dependencyConfigs));
-                        } catch (Exception ex) {
-                            log.error(
-                                    "Skip task registration due to invalid config: taskId={}",
-                                    taskDefinition.getTaskId(),
-                                    ex);
-                        }
-                    }
+                    int registered = taskOrchestrationRegistry.registerEnabledDbTasks();
+                    log.info("Registered orchestration tasks from database: count={}", registered);
                 }
             } finally {
                 resumeQuartzIfNecessary(quartzScheduler, startQuartzAfterRegistration);
@@ -161,7 +151,7 @@ public class TaskOrchestrationConfig {
     }
 
     private Map<String, String> resolveTaskParameters(Map<String, String> rawParameters, Environment environment) {
-        java.util.Map<String, String> resolved = new java.util.HashMap<>();
+        Map<String, String> resolved = new HashMap<>();
         if (rawParameters == null || rawParameters.isEmpty()) {
             return resolved;
         }
@@ -170,7 +160,7 @@ public class TaskOrchestrationConfig {
                 resolved.put(k, null);
                 return;
             }
-            // Allow task parameters like ${user.dir}/... configured in DB.
+            // 支持数据库配置 ${user.dir}/... 这类占位符，避免把环境路径写死。
             resolved.put(k, environment.resolvePlaceholders(v));
         });
         return resolved;
@@ -180,7 +170,8 @@ public class TaskOrchestrationConfig {
             TaskDefinition taskDefinition,
             TaskTrigger trigger,
             Map<String, String> parameters,
-            java.util.List<TaskDependency> dependencyConfigs) {
+            List<TaskDependency> dependencyConfigs,
+            ZoneId zoneId) {
         OrchestrationTaskTrigger mappedTrigger = OrchestrationTaskTrigger.builder()
                 .type(TriggerType.valueOf(trigger.getTriggerType().toUpperCase(Locale.ROOT)))
                 .cron(trigger.getCronExpression())
@@ -189,9 +180,7 @@ public class TaskOrchestrationConfig {
                 .oneTimeAt(
                         trigger.getOneTimeAt() == null
                                 ? null
-                                : trigger.getOneTimeAt()
-                                        .atZone(ZoneId.systemDefault())
-                                        .toInstant())
+                                : trigger.getOneTimeAt().atZone(zoneId).toInstant())
                 .build();
         TaskPriority priority = TaskPriority.NORMAL;
         if (taskDefinition.getPriority() != null
@@ -220,11 +209,11 @@ public class TaskOrchestrationConfig {
         orchestrationTaskDefinition.setDynamicShardMax(taskDefinition.getDynamicShardMax());
         orchestrationTaskDefinition.setTrigger(mappedTrigger);
         orchestrationTaskDefinition.setParameters(parameters);
-        java.util.List<String> dependencies = dependencyConfigs.stream()
+        List<String> dependencies = dependencyConfigs.stream()
                 .map(TaskDependency::getDependsOnTaskId)
                 .toList();
-        java.util.Map<String, Long> depTimeouts = new java.util.HashMap<>();
-        java.util.Map<String, String> depFailureActions = new java.util.HashMap<>();
+        Map<String, Long> depTimeouts = new HashMap<>();
+        Map<String, String> depFailureActions = new HashMap<>();
         for (TaskDependency dep : dependencyConfigs) {
             depTimeouts.put(dep.getDependsOnTaskId(), dep.getDependencyTimeoutMs());
             depFailureActions.put(dep.getDependsOnTaskId(), dep.getOnFailureAction());

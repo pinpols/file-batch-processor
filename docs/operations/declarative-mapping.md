@@ -101,12 +101,12 @@ VALUES ('default-csv', 'name',        'name',        'UPPER', TRUE,  1, TRUE),
 ```sql
 INSERT INTO feed_definition (feed_id, feed_name, format, delimiter, has_header,
                              target_table, business_key_fields, enabled)
-VALUES ('demo-attrs', 'Demo attrs feed', 'CSV', ',', TRUE,
+VALUES ('sample-attrs', 'Attributes sample feed', 'CSV', ',', TRUE,
         'imported_records_partition', NULL, TRUE);
 
 INSERT INTO field_mapping (feed_id, source_column, target_field, transform_op, required, order_no, enabled)
-VALUES ('demo-attrs', 'c_name', 'name',     'UPPER', TRUE,  1, TRUE),
-       ('demo-attrs', 'c_cat',  'category', 'NONE',  FALSE, 2, TRUE);
+VALUES ('sample-attrs', 'c_name', 'name',     'UPPER', TRUE,  1, TRUE),
+       ('sample-attrs', 'c_cat',  'category', 'NONE',  FALSE, 2, TRUE);
 ```
 
 `business_key_fields=NULL` 时退回 `name:batchDate`（name 已经过 transform）。

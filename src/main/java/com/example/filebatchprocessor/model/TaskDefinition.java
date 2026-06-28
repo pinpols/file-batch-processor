@@ -74,7 +74,7 @@ public class TaskDefinition {
     private Long slaMaxQueueDelayMs;
 
     /**
-     * 每分钟允许的最大启动次数（简单速率限制配置）
+     * 每分钟允许的最大启动次数，用于调度侧基础限流。
      */
     @Column(name = "rate_limit_per_minute")
     private Integer rateLimitPerMinute;

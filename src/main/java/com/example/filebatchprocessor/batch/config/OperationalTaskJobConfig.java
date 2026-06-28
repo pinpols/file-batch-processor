@@ -19,7 +19,9 @@ import com.example.filebatchprocessor.service.PartitionedImportService;
 import com.example.filebatchprocessor.service.ReceptionGroupCompletionService;
 import com.example.filebatchprocessor.service.distribution.FileDistributorDispatcher;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import lombok.extern.slf4j.Slf4j;
@@ -48,7 +50,7 @@ public class OperationalTaskJobConfig {
     private final JobRepository jobRepository;
     private final PlatformTransactionManager transactionManager;
 
-    // #19:tasklet 式文件导出一次性物化进内存的行数上界,超过应改用流式 dataExportJob
+    // tasklet 式文件导出会一次性物化结果,超过上界时应改用流式 dataExportJob。
     @org.springframework.beans.factory.annotation.Value("${batch.file-export.max-rows:500000}")
     private int fileExportMaxRows;
 
@@ -64,9 +66,9 @@ public class OperationalTaskJobConfig {
             String batchDate = resolveBatchDate(
                     chunkContext.getStepContext().getJobParameters().get("batchDate"));
             List<ImportedRecord> records = importedRecordRepository.findByBatchDateOrderByIdAsc(batchDate);
-            // #15:逐条 importRecord(每行 2 次往返)改为分批幂等批量写,N+1 → ~N/1000 次往返
+            // 旧分区导入按行写入会产生大量往返,这里按批幂等写入降低数据库压力。
             int imported = 0;
-            List<ImportedRecordPartitioned> buffer = new java.util.ArrayList<>(1000);
+            List<ImportedRecordPartitioned> buffer = new ArrayList<>(1000);
             for (ImportedRecord record : records) {
                 ImportedRecordPartitioned e = new ImportedRecordPartitioned();
                 e.setBusinessKey(record.getBusinessKey());
@@ -76,8 +78,9 @@ public class OperationalTaskJobConfig {
                 // 显式补全 partition_key/时间戳(与 importRecord 一致):派生在实体上完成,
                 // 不依赖底层 INSERT 的 setter,生产与测试行为一致。
                 e.setPartitionKey(partitionedImportService.generatePartitionKey(batchDate));
-                e.setCreatedAt(java.time.LocalDateTime.now());
-                e.setUpdatedAt(java.time.LocalDateTime.now());
+                LocalDateTime now = LocalDateTime.now();
+                e.setCreatedAt(now);
+                e.setUpdatedAt(now);
                 buffer.add(e);
                 if (buffer.size() >= 1000) {
                     imported += partitionedImportService.batchImportIdempotent(buffer);
@@ -129,7 +132,7 @@ public class OperationalTaskJobConfig {
             String fileName = "file_export_" + sanitizeBatchDate(batchDate) + "." + extension;
 
             List<ImportedRecordPartitioned> records = importedRecordPartitionedRepository.findByBatchDate(batchDate);
-            // #19:该 tasklet 把整批结果一次性物化进内存数组,大批量会 OOM。设置上界保护;
+            // 该 tasklet 把整批结果一次性物化进内存数组,大批量会 OOM。设置上界保护;
             // 超过上界应改用流式的 dataExportJob(JdbcCursorItemReader + fetchSize)。
             if (fileExportMaxRows > 0 && records.size() > fileExportMaxRows) {
                 throw new IllegalStateException("file export rows " + records.size() + " exceed cap "

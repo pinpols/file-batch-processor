@@ -28,7 +28,5 @@ public class FileData {
     private LocalDateTime processTime;
 
     @Column(length = 5000)
-    private String content; // In real scenario, this would be processed data
-
-    // Add any additional fields needed for your specific file processing
+    private String content;
 }

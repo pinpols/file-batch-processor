@@ -6,7 +6,6 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -20,7 +19,6 @@ public class FileReceptionGuardService {
     private final int stableSizeCheckRounds;
     private final long stableSizeCheckIntervalMs;
 
-    @Autowired
     public FileReceptionGuardService(
             @Value("${batch.file.reception.partial.temp-suffixes:.part,.tmp,.upload}") String temporarySuffixes,
             @Value("${batch.file.reception.partial.require-done-marker:false}") boolean requireDoneMarker,
@@ -42,23 +40,8 @@ public class FileReceptionGuardService {
         this.stableSizeCheckIntervalMs = Math.max(0L, stableSizeCheckIntervalMs);
     }
 
-    FileReceptionGuardService(
-            List<String> temporarySuffixes,
-            boolean requireDoneMarker,
-            String doneMarkerSuffix,
-            boolean stableSizeCheckEnabled,
-            int stableSizeCheckRounds,
-            long stableSizeCheckIntervalMs) {
-        this.temporarySuffixes = temporarySuffixes;
-        this.requireDoneMarker = requireDoneMarker;
-        this.doneMarkerSuffix = doneMarkerSuffix;
-        this.stableSizeCheckEnabled = stableSizeCheckEnabled;
-        this.stableSizeCheckRounds = stableSizeCheckRounds;
-        this.stableSizeCheckIntervalMs = stableSizeCheckIntervalMs;
-    }
-
     public static FileReceptionGuardService testingDefaults() {
-        return new FileReceptionGuardService(List.of(".part", ".tmp", ".upload"), false, ".done", false, 1, 0);
+        return new FileReceptionGuardService(".part,.tmp,.upload", false, ".done", false, 1, 0);
     }
 
     public void assertReceivable(String fileName, String filePath) {

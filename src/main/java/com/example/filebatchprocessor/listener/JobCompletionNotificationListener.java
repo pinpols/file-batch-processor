@@ -43,7 +43,6 @@ public class JobCompletionNotificationListener implements JobExecutionListener {
     private final long defaultDuplicateMinLines;
     private final boolean qualityEnforceDefault;
 
-    @org.springframework.beans.factory.annotation.Autowired
     public JobCompletionNotificationListener(
             BatchRunRecordRepository batchRunRecordRepository,
             ImportedRecordRepository importedRecordRepository,
@@ -70,29 +69,6 @@ public class JobCompletionNotificationListener implements JobExecutionListener {
         this.qualityEnforceDefault = qualityEnforceDefault;
     }
 
-    public JobCompletionNotificationListener(
-            BatchRunRecordRepository batchRunRecordRepository,
-            ImportedRecordRepository importedRecordRepository,
-            QualityGateResultRepository qualityGateResultRepository,
-            FileAssetService fileAssetService,
-            FileProcessLogService fileProcessLogService,
-            JobInstanceService jobInstanceService,
-            double defaultDuplicateMaxRate,
-            long defaultDuplicateMinLines,
-            boolean qualityEnforceDefault) {
-        this(
-                batchRunRecordRepository,
-                importedRecordRepository,
-                qualityGateResultRepository,
-                fileAssetService,
-                fileProcessLogService,
-                jobInstanceService,
-                null,
-                defaultDuplicateMaxRate,
-                defaultDuplicateMinLines,
-                qualityEnforceDefault);
-    }
-
     @Override
     public void beforeJob(JobExecution jobExecution) {
         log.info("Starting job: {}", jobExecution.getJobInstance().getJobName());
@@ -102,7 +78,7 @@ public class JobCompletionNotificationListener implements JobExecutionListener {
         upsertBatchRun(jobExecution, "RUNNING");
     }
 
-    // #28:把 afterJob 内的两处持久化(completeFromBatch + upsertBatchRun)纳入同一事务,
+    // 把 afterJob 内的两处持久化(completeFromBatch + upsertBatchRun)纳入同一事务,
     // 避免中途 crash 留下 BusinessJobInstance 与 BatchRunRecord 状态不一致。
     @Override
     @Transactional
@@ -113,7 +89,7 @@ public class JobCompletionNotificationListener implements JobExecutionListener {
                 jobExecution.getStartTime().toInstant(ZoneOffset.UTC),
                 jobExecution.getEndTime() != null
                         ? jobExecution.getEndTime().toInstant(ZoneOffset.UTC)
-                        : java.time.Instant.now());
+                        : Instant.now());
 
         log.info("Job [{}] completed with status: {}", jobName, status);
         log.info("Job [{}] execution time: {} seconds", jobName, duration.getSeconds());
@@ -151,7 +127,7 @@ public class JobCompletionNotificationListener implements JobExecutionListener {
     }
 
     /**
-     * 质量门是否强制阻断。opt-in：job 参数 {@code quality.enforce=true} 时开启，
+     * 质量门是否强制阻断。通过 Job 参数 {@code quality.enforce=true} 显式开启，
      * 缺省（含全局默认 {@code quality.enforce-default})关闭，行为与改造前一致。
      */
     private boolean isQualityEnforced(JobExecution jobExecution) {

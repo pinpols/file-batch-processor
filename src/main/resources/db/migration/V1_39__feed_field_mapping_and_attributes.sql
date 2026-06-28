@@ -1,4 +1,4 @@
--- 声明式映射地基:feed 定义 + 字段映射 + imported_records_partition 加 attributes(#2 Phase 1)
+-- 声明式映射地基:feed 定义 + 字段映射 + imported_records_partition 加 attributes。
 
 CREATE TABLE IF NOT EXISTS feed_definition (
     feed_id VARCHAR(100) PRIMARY KEY,

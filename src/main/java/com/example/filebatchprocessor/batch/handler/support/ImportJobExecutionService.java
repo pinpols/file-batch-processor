@@ -40,7 +40,7 @@ public class ImportJobExecutionService {
                 }
             } catch (Exception ex) {
                 if (attempt <= maxRetries) {
-                    // Expected retry path: keep logs concise to avoid noisy stack traces.
+                    // 预期内重试只记录摘要，最后一次失败再输出完整堆栈。
                     log.warn("Attempt {} failed: {}", attempt, ex.getMessage());
                 } else {
                     log.error("Attempt {} failed: {}", attempt, ex.getMessage(), ex);

@@ -7,6 +7,7 @@ import com.example.filebatchprocessor.service.alert.AlertEvent;
 import com.example.filebatchprocessor.service.alert.AlertSeverity;
 import java.time.LocalDateTime;
 import java.util.Map;
+import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -19,6 +20,7 @@ public class BatchAlertEvaluator {
     private final BatchRunRecordRepository batchRunRecordRepository;
     private final DlqRecordRepository dlqRecordRepository;
     private final AlertDispatcher alertDispatcher;
+    private final SchedulerLeaderService schedulerLeaderService;
 
     @Value("${batch.alert.enabled:true}")
     private boolean enabled;
@@ -38,15 +40,13 @@ public class BatchAlertEvaluator {
     public BatchAlertEvaluator(
             BatchRunRecordRepository batchRunRecordRepository,
             DlqRecordRepository dlqRecordRepository,
-            AlertDispatcher alertDispatcher) {
+            AlertDispatcher alertDispatcher,
+            Optional<SchedulerLeaderService> schedulerLeaderService) {
         this.batchRunRecordRepository = batchRunRecordRepository;
         this.dlqRecordRepository = dlqRecordRepository;
         this.alertDispatcher = alertDispatcher;
+        this.schedulerLeaderService = schedulerLeaderService == null ? null : schedulerLeaderService.orElse(null);
     }
-
-    // #8:多副本下只让 leader 跑,避免重复告警(required=false → 单机/单测无此 bean 时不门控)
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    private SchedulerLeaderService schedulerLeaderService;
 
     @Scheduled(fixedDelayString = "${batch.alert.evaluate-ms:60000}")
     public void evaluate() {

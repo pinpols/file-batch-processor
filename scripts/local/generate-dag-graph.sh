@@ -3,13 +3,16 @@ set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
-DAG_ID="${DAG_ID:-dag-complex-demo}"
-OUTPUT_FILE="${OUTPUT_FILE:-${PROJECT_DIR}/docs/ops/dag-${DAG_ID}-graph.generated.md}"
+# shellcheck source=../lib/env-common.sh
+source "${PROJECT_DIR}/scripts/lib/env-common.sh"
 
-DB_URL="${SPRING_DATASOURCE_URL:-jdbc:postgresql://localhost:5432/postgres}"
+DAG_ID="${DAG_ID:-dag-complex-sample}"
+OUTPUT_FILE="${OUTPUT_FILE:-${PROJECT_DIR}/docs/operations/dag-${DAG_ID}-graph.generated.md}"
+
+DB_URL="${SPRING_DATASOURCE_URL}"
 DB_USER="${SPRING_DATASOURCE_USERNAME:-postgres}"
 DB_PASSWORD="${SPRING_DATASOURCE_PASSWORD:-postgres}"
-POSTGRES_JAR="${POSTGRES_JAR:-$HOME/.m2/repository/org/postgresql/postgresql/42.7.8/postgresql-42.7.8.jar}"
+POSTGRES_JAR="${POSTGRES_JAR:-$HOME/.m2/repository/org/postgresql/postgresql/42.7.11/postgresql-42.7.11.jar}"
 
 if [[ ! -f "${POSTGRES_JAR}" ]]; then
   echo "[ERROR] PostgreSQL JDBC jar not found: ${POSTGRES_JAR}" >&2
@@ -24,9 +27,9 @@ import java.sql.*;
 import java.nio.file.*;
 import java.util.*;
 
-String dagId = System.getenv().getOrDefault("DAG_ID", "dag-complex-demo");
+String dagId = System.getenv().getOrDefault("DAG_ID", "dag-complex-sample");
 String outFile = System.getenv().get("OUTPUT_FILE");
-String dbUrl = System.getenv().getOrDefault("SPRING_DATASOURCE_URL", "jdbc:postgresql://localhost:5432/postgres");
+String dbUrl = System.getenv().getOrDefault("SPRING_DATASOURCE_URL", "jdbc:postgresql://localhost:5432/file_batch");
 String dbUser = System.getenv().getOrDefault("SPRING_DATASOURCE_USERNAME", "postgres");
 String dbPassword = System.getenv().getOrDefault("SPRING_DATASOURCE_PASSWORD", "postgres");
 
@@ -68,8 +71,8 @@ try (Connection c = DriverManager.getConnection(dbUrl, dbUser, dbPassword)) {
 }
 
 StringBuilder md = new StringBuilder();
-md.append("# DAG Dependency Graph (Generated)\n");
-md.append("> 中文名：DAG 任务依赖图（自动生成）\n\n");
+md.append("# DAG 任务依赖图\n");
+md.append("> 本文件由 scripts/local/generate-dag-graph.sh 生成，不应提交到仓库。\n\n");
 md.append("DAG ID: `").append(dagId).append("`\n\n");
 md.append("```mermaid\n");
 md.append("flowchart TD\n");

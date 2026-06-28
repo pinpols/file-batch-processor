@@ -5,7 +5,9 @@ import com.example.filebatchprocessor.model.ExportRecord;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Locale;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.batch.infrastructure.item.ItemProcessor;
@@ -145,7 +147,7 @@ public class ExportRecordProcessor implements ItemProcessor<ExportRecord, Export
         // 合并多个空格
         formatted = formatted.replaceAll("\\s+", " ");
 
-        formatted = formatted.toUpperCase(java.util.Locale.ROOT);
+        formatted = formatted.toUpperCase(Locale.ROOT);
 
         // 限制长度
         if (formatted.length() > 100) {
@@ -194,7 +196,7 @@ public class ExportRecordProcessor implements ItemProcessor<ExportRecord, Export
         } catch (Exception e) {
             try {
                 // 兼容 ISO 日期时间（如 2026-03-06T10:15:30）
-                return java.time.LocalDateTime.parse(batchDate).toLocalDate().format(EXPORT_DATE_FORMATTER);
+                return LocalDateTime.parse(batchDate).toLocalDate().format(EXPORT_DATE_FORMATTER);
             } catch (Exception ignored) {
                 // 如果解析失败，返回原始值
                 return batchDate;

@@ -91,6 +91,10 @@ public class SecurityConfig {
             }
             org.slf4j.LoggerFactory.getLogger(SecurityConfig.class).warn("[弱口令] {}", msg);
         }
-        return User.withUsername(u.getUsername()).password(password).roles(role).build();
+        String encodedPassword = password != null && password.startsWith("{") ? password : "{noop}" + password;
+        return User.withUsername(u.getUsername())
+                .password(encodedPassword)
+                .roles(role)
+                .build();
     }
 }

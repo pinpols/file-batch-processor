@@ -51,7 +51,7 @@ class DistributionTargetValidatorIpv6Test {
 
     @Test
     void defaultPolicyBlocksCloudMetadataAddress() {
-        DistributionTargetValidator defaultValidator = new DistributionTargetValidator("");
+        DistributionTargetValidator defaultValidator = new DistributionTargetValidator("", true);
 
         assertThatThrownBy(() -> defaultValidator.validate("http://169.254.169.254/latest/meta-data"))
                 .isInstanceOf(BusinessException.class);

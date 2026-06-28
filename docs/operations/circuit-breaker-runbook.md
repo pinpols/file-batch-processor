@@ -58,5 +58,5 @@ WHERE target_system = '<YOUR_TARGET>';
 - 持续拒绝：`scheduler_circuit_rejected_total` 持续增长
 
 ## 相关文档
-- 配置矩阵：`docs/configuration-matrix.md`
-- 全局运维手册：`docs/ops/runbook.md`
+- 配置矩阵：`docs/architecture/configuration-matrix.md`
+- 全局运维手册：`docs/operations/runbook.md`

@@ -20,7 +20,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,7 +42,6 @@ public class FileDistributionService {
     private final RetryCompensationService retryCompensationService;
     private final BatchMetrics batchMetrics;
 
-    @Autowired
     public FileDistributionService(
             FileDistributionTaskRepository fileDistributionTaskRepository,
             RecordTraceRepository recordTraceRepository,
@@ -59,29 +57,6 @@ public class FileDistributionService {
         this.fileProcessLogService = fileProcessLogService;
         this.retryCompensationService = retryCompensationService;
         this.batchMetrics = batchMetrics;
-    }
-
-    public FileDistributionService(
-            FileDistributionTaskRepository fileDistributionTaskRepository,
-            RecordTraceRepository recordTraceRepository) {
-        this(fileDistributionTaskRepository, recordTraceRepository, null, null, null, null, null);
-    }
-
-    public FileDistributionService(
-            FileDistributionTaskRepository fileDistributionTaskRepository,
-            RecordTraceRepository recordTraceRepository,
-            FileAssetService fileAssetService,
-            FileDispatchRecordService fileDispatchRecordService,
-            FileProcessLogService fileProcessLogService,
-            RetryCompensationService retryCompensationService) {
-        this(
-                fileDistributionTaskRepository,
-                recordTraceRepository,
-                fileAssetService,
-                fileDispatchRecordService,
-                fileProcessLogService,
-                retryCompensationService,
-                null);
     }
 
     public FileDistributionTask createDistributionTask(
@@ -483,7 +458,7 @@ public class FileDistributionService {
                 : fileDispatchRecordService.markAckTimeout(
                         taskId, jobInstanceId, message, ackTimeoutPayload(taskId, jobInstanceId));
 
-        // #1 修复:ACK 超时必须计入 retryCount,超上限即落 FAILED 终态,杜绝目标长期不回 ACK 时的无限重发
+        // ACK 超时必须计入 retryCount,超上限即落 FAILED 终态,避免目标长期不回 ACK 时无限重发。
         task.setRetryCount(task.getRetryCount() + 1);
         boolean exhausted = task.getRetryCount() >= task.getMaxRetries();
         task.setStatus(exhausted ? "FAILED" : "RETRY");
@@ -557,7 +532,7 @@ public class FileDistributionService {
                                 retryCompensationPayload(task)))
                         .getId();
 
-        // #1 修复:重发同样计入 retryCount,超上限即落 FAILED 终态,避免无界重发
+        // 手工重发同样计入 retryCount,超上限即落 FAILED 终态,避免无界重发。
         task.setRetryCount(task.getRetryCount() + 1);
         boolean exhausted = task.getRetryCount() >= task.getMaxRetries();
         task.setStatus(exhausted ? "FAILED" : "RETRY");

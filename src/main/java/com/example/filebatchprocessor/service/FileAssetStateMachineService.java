@@ -12,7 +12,6 @@ import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,7 +25,6 @@ public class FileAssetStateMachineService {
     private final FileProcessLogService processLogService;
     private final ObjectMapper objectMapper;
 
-    @Autowired
     public FileAssetStateMachineService(
             FileAssetRecordRepository repository, FileProcessLogService processLogService, ObjectMapper objectMapper) {
         this.repository = repository;

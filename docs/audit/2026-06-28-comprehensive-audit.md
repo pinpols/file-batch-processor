@@ -1,4 +1,4 @@
-# file-batch-processor Comprehensive Audit Remediation
+# file-batch-processor 综合审计整改记录
 
 日期: 2026-06-28
 范围: 单体 `file-batch-processor` 当前 main 工作区修复状态。

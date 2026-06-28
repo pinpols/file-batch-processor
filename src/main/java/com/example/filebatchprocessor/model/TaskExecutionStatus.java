@@ -2,9 +2,7 @@ package com.example.filebatchprocessor.model;
 
 import java.util.Locale;
 
-/**
- * Unified task execution states for orchestration governance.
- */
+/** 编排治理统一使用的任务执行状态。 */
 public enum TaskExecutionStatus {
     READY,
     RUNNING,

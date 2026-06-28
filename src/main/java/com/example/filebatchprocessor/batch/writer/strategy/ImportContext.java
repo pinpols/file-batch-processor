@@ -1,10 +1,13 @@
 package com.example.filebatchprocessor.batch.writer.strategy;
 
+import java.util.List;
+import java.util.Map;
+
 /**
  * 一次导入 step 内不变的上下文,随 chunk 透传给各 {@link ChunkImportStrategy}。
  */
 public record ImportContext(
-        String batchDate, Long jobExecutionId, String inputFileName, java.util.List<String> businessKeyFields) {
+        String batchDate, Long jobExecutionId, String inputFileName, List<String> businessKeyFields) {
 
     /** 业务键 = name:batchDate,与历史口径一致。 */
     public String buildBusinessKey(String name) {
@@ -18,7 +21,7 @@ public record ImportContext(
      * {@link #buildBusinessKey(String)} 字节级一致;配置时按字段顺序用 {@code |} 连接,
      * 再附加 {@code :batchDate}。
      */
-    public String buildBusinessKeyFromFields(java.util.Map<String, Object> mappedRow) {
+    public String buildBusinessKeyFromFields(Map<String, Object> mappedRow) {
         if (businessKeyFields == null || businessKeyFields.isEmpty()) {
             Object n = mappedRow == null ? null : mappedRow.get("name");
             return buildBusinessKey(n == null ? null : String.valueOf(n));

@@ -10,20 +10,28 @@ import static org.mockito.Mockito.when;
 
 import com.example.filebatchprocessor.batch.config.OperationalTaskJobConfig;
 import com.example.filebatchprocessor.listener.JobCompletionNotificationListener;
+import com.example.filebatchprocessor.manifest.JsonManifestParser;
 import com.example.filebatchprocessor.model.FileDistributionTask;
 import com.example.filebatchprocessor.model.FileReceptionQueue;
 import com.example.filebatchprocessor.model.ImportedRecord;
 import com.example.filebatchprocessor.model.ImportedRecordPartitioned;
 import com.example.filebatchprocessor.model.RecordTrace;
+import com.example.filebatchprocessor.observability.BatchMetrics;
 import com.example.filebatchprocessor.repository.FileDistributionTaskRepository;
 import com.example.filebatchprocessor.repository.FileReceptionQueueRepository;
 import com.example.filebatchprocessor.repository.ImportedRecordPartitionedRepository;
 import com.example.filebatchprocessor.repository.ImportedRecordRepository;
 import com.example.filebatchprocessor.repository.RecordTraceRepository;
+import com.example.filebatchprocessor.service.FileAssetService;
+import com.example.filebatchprocessor.service.FileDispatchRecordService;
 import com.example.filebatchprocessor.service.FileDistributionService;
 import com.example.filebatchprocessor.service.FileExportService;
+import com.example.filebatchprocessor.service.FileProcessLogService;
+import com.example.filebatchprocessor.service.FileReceptionGuardService;
 import com.example.filebatchprocessor.service.FileReceptionService;
 import com.example.filebatchprocessor.service.PartitionedImportService;
+import com.example.filebatchprocessor.service.ReceptionGroupService;
+import com.example.filebatchprocessor.service.RetryCompensationService;
 import com.example.filebatchprocessor.service.distribution.FileDistributorDispatcher;
 import com.example.filebatchprocessor.service.distribution.HttpFileDistributor;
 import com.sun.net.httpserver.HttpServer;
@@ -88,8 +96,23 @@ class OperationalTaskJobConfigIT {
         importedRecordPartitionedRepository = importedRecordPartitionedRepository();
         RecordTraceRepository recordTraceRepository = recordTraceRepository();
 
-        fileReceptionService = new FileReceptionService(fileReceptionQueueRepository);
-        fileDistributionService = new FileDistributionService(fileDistributionTaskRepository, recordTraceRepository);
+        fileReceptionService = new FileReceptionService(
+                fileReceptionQueueRepository,
+                mock(FileAssetService.class),
+                mock(FileProcessLogService.class),
+                FileReceptionGuardService.testingDefaults(),
+                mock(JsonManifestParser.class),
+                mock(ReceptionGroupService.class),
+                ".manifest.json",
+                false);
+        fileDistributionService = new FileDistributionService(
+                fileDistributionTaskRepository,
+                recordTraceRepository,
+                mock(FileAssetService.class),
+                mock(FileDispatchRecordService.class),
+                mock(FileProcessLogService.class),
+                mock(RetryCompensationService.class),
+                mock(BatchMetrics.class));
         // importRecord 现走 jdbcTemplate 的 INSERT ... ON CONFLICT(并发安全),
         // 此处用 fake batchUpdate 把记录落到内存 partitionedStore,模拟真实落库
         org.springframework.jdbc.core.JdbcTemplate jdbcTemplate =
@@ -119,12 +142,17 @@ class OperationalTaskJobConfigIT {
                 });
         PartitionedImportService partitionedImportService =
                 new PartitionedImportService(importedRecordPartitionedRepository, jdbcTemplate);
-        FileExportService fileExportService = new FileExportService();
+        FileExportService fileExportService = new FileExportService(
+                new com.fasterxml.jackson.databind.ObjectMapper(),
+                mock(FileAssetService.class),
+                mock(FileProcessLogService.class));
         FileDistributorDispatcher fileDistributorDispatcher =
                 new FileDistributorDispatcher(List.of(new HttpFileDistributor(
                         fileDistributionService,
                         new com.example.filebatchprocessor.service.distribution.DistributionTargetValidator(
-                                "127.0.0.1", false))));
+                                "127.0.0.1", false),
+                        5000L,
+                        30000L)));
 
         JobRepository jobRepository = new ResourcelessJobRepository();
         PlatformTransactionManager transactionManager = new ResourcelessTransactionManager();

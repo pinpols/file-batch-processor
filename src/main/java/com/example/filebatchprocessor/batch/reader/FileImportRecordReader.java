@@ -13,6 +13,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.regex.Pattern;
 import java.util.zip.Adler32;
 import java.util.zip.Checksum;
 import org.slf4j.Logger;
@@ -26,7 +31,7 @@ import org.springframework.batch.infrastructure.item.ItemStreamReader;
 import org.springframework.core.io.Resource;
 
 /**
- * 导入文件读取器，支持自定义分隔符的 CSV 和简单定长格式，并支持任务分片。
+ * 导入文件读取器，支持 CSV、定长、文档类输入和任务分片。
  */
 public class FileImportRecordReader implements ItemStreamReader<FileRecord>, StepExecutionListener {
 
@@ -46,14 +51,14 @@ public class FileImportRecordReader implements ItemStreamReader<FileRecord>, Ste
     private final RecordLineParser lineParser;
     // 文档模式 reader(非 null 时走文档分支,行模式字段不参与)
     private final DocumentRecordReader documentReader;
-    private java.util.Iterator<FileRecord> documentIterator;
+    private Iterator<FileRecord> documentIterator;
     private long recordSeq = 0;
     // feed 模式:非 null 即开启(空 list=用文件首行探测列名,非空=用注入列名并跳过文件首行)
-    private final java.util.List<String> feedHeaderColumns;
+    private final List<String> feedHeaderColumns;
     // feed 模式自用的分隔符(默认模式不读取)
     private final String feedDelimiter;
     // feed 模式解析后缓存的表头列名
-    private java.util.List<String> resolvedHeader;
+    private List<String> resolvedHeader;
 
     public FileImportRecordReader(Resource resource) {
         this(resource, 0, 1, "CSV", ",", null);
@@ -104,7 +109,7 @@ public class FileImportRecordReader implements ItemStreamReader<FileRecord>, Ste
             RecordLineParserFactory parserFactory,
             DocumentRecordReaderFactory documentReaderFactory,
             DocumentReadOptions documentReadOptions,
-            java.util.List<String> feedHeaderColumns) {
+            List<String> feedHeaderColumns) {
         this.resource = resource;
         this.feedHeaderColumns = feedHeaderColumns;
         this.feedDelimiter = (delimiter == null || delimiter.isEmpty()) ? "," : delimiter;
@@ -122,7 +127,7 @@ public class FileImportRecordReader implements ItemStreamReader<FileRecord>, Ste
             if (parserFactory != null) {
                 this.lineParser = parserFactory.create(format, delimiter);
             } else {
-                // Backward-compatible fallback (used in tests/legacy wiring)
+                // 兼容旧测试和未注册 SPI 的本地构造路径。
                 String resolvedFormat = (format == null || format.isEmpty()) ? "CSV" : format.toUpperCase();
                 if ("FIXED".equals(resolvedFormat)) {
                     this.lineParser = new FixedRecordLineParser();
@@ -205,8 +210,8 @@ public class FileImportRecordReader implements ItemStreamReader<FileRecord>, Ste
 
             if (lineCount == 1) {
                 if (feedHeaderColumns.isEmpty()) {
-                    String[] cols = line.split(java.util.regex.Pattern.quote(feedDelimiter), -1);
-                    java.util.List<String> header = new java.util.ArrayList<>(cols.length);
+                    String[] cols = line.split(Pattern.quote(feedDelimiter), -1);
+                    List<String> header = new ArrayList<>(cols.length);
                     for (String c : cols) {
                         header.add(c.trim());
                     }
@@ -222,8 +227,8 @@ public class FileImportRecordReader implements ItemStreamReader<FileRecord>, Ste
                 continue;
             }
 
-            String[] vals = line.split(java.util.regex.Pattern.quote(feedDelimiter), -1);
-            java.util.LinkedHashMap<String, Object> raw = new java.util.LinkedHashMap<>();
+            String[] vals = line.split(Pattern.quote(feedDelimiter), -1);
+            LinkedHashMap<String, Object> raw = new LinkedHashMap<>();
             for (int i = 0; i < resolvedHeader.size(); i++) {
                 raw.put(resolvedHeader.get(i), i < vals.length ? vals[i] : null);
             }

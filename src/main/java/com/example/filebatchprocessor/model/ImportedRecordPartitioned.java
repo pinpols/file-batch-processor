@@ -2,6 +2,7 @@ package com.example.filebatchprocessor.model;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import java.util.Map;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -65,7 +66,7 @@ public class ImportedRecordPartitioned {
 
     @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
     @Column(name = "attributes", columnDefinition = "jsonb")
-    private java.util.Map<String, Object> attributes;
+    private Map<String, Object> attributes;
 
     @PreUpdate
     protected void onUpdate() {
@@ -154,11 +155,11 @@ public class ImportedRecordPartitioned {
         this.sourceFileName = sourceFileName;
     }
 
-    public java.util.Map<String, Object> getAttributes() {
+    public Map<String, Object> getAttributes() {
         return attributes;
     }
 
-    public void setAttributes(java.util.Map<String, Object> attributes) {
+    public void setAttributes(Map<String, Object> attributes) {
         this.attributes = attributes;
     }
 }

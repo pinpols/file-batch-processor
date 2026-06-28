@@ -1,12 +1,14 @@
 package com.example.filebatchprocessor.service;
 
 import com.example.filebatchprocessor.batch.scheduler.TaskSchedulerService;
+import com.example.filebatchprocessor.config.BatchTimezoneProvider;
 import com.example.filebatchprocessor.model.TaskExecutionState;
 import com.example.filebatchprocessor.model.TaskExecutionStatus;
 import com.example.filebatchprocessor.repository.TaskExecutionStateRepository;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
@@ -25,6 +27,7 @@ public class MisfirePolicyService {
     private final TaskExecutionStateRepository taskExecutionStateRepository;
     private final TaskSchedulerService taskSchedulerService;
     private final SchedulerLeaderService schedulerLeaderService;
+    private final ZoneId zoneId;
 
     // 统计信息
     private final AtomicLong totalMisfiresDetected = new AtomicLong(0);
@@ -41,10 +44,12 @@ public class MisfirePolicyService {
             TaskExecutionStateRepository taskExecutionStateRepository,
             TaskSchedulerService taskSchedulerService,
             SchedulerLeaderService schedulerLeaderService,
+            BatchTimezoneProvider timezoneProvider,
             MisfirePolicyProperties properties) {
         this.taskExecutionStateRepository = taskExecutionStateRepository;
         this.taskSchedulerService = taskSchedulerService;
         this.schedulerLeaderService = schedulerLeaderService;
+        this.zoneId = timezoneProvider.zoneId();
         this.misfireDetectionWindowMs = properties.getDetectionWindowMs();
         this.misfireRecoveryDelayMs = properties.getRecoveryDelayMs();
         this.maxMisfireRecoveryAttempts = properties.getMaxRecoveryAttempts();
@@ -63,9 +68,9 @@ public class MisfirePolicyService {
         try {
             Instant detectionThreshold = Instant.now().minus(misfireDetectionWindowMs, ChronoUnit.MILLIS);
 
-            // #16:走 (status, next_retry_at) 索引直接查 READY 且已过检测阈值的任务,
+            // 走 (status, next_retry_at) 索引直接查 READY 且已过检测阈值的任务,
             // 替代此前 findAll() 全表扫 + 内存过滤(任务表大时是明显瓶颈)。
-            LocalDateTime thresholdTs = LocalDateTime.ofInstant(detectionThreshold, java.time.ZoneId.systemDefault());
+            LocalDateTime thresholdTs = LocalDateTime.ofInstant(detectionThreshold, zoneId);
             List<TaskExecutionState> potentialMisfires =
                     taskExecutionStateRepository.findTop100ByStatusAndNextRetryAtBeforeOrderByNextRetryAtAsc(
                             TaskExecutionStatus.READY.name(), thresholdTs);
@@ -122,9 +127,7 @@ public class MisfirePolicyService {
     private MisfireContext createMisfireContext(TaskExecutionState state) {
         Instant now = Instant.now();
         Instant nextExecutionTime = state.getNextRetryAt() != null
-                ? state.getNextRetryAt()
-                        .atZone(java.time.ZoneId.systemDefault())
-                        .toInstant()
+                ? state.getNextRetryAt().atZone(zoneId).toInstant()
                 : now;
 
         long misfireDuration = Duration.between(nextExecutionTime, now).toMillis();
@@ -196,7 +199,7 @@ public class MisfirePolicyService {
 
             // 设置新的执行时间
             Instant newExecutionTime = Instant.now().plus(decision.getDelayMs(), ChronoUnit.MILLIS);
-            state.setNextRetryAt(LocalDateTime.ofInstant(newExecutionTime, java.time.ZoneId.systemDefault()));
+            state.setNextRetryAt(LocalDateTime.ofInstant(newExecutionTime, zoneId));
 
             // 更新状态
             state.setStatus(TaskExecutionStatus.READY.name());
@@ -255,7 +258,7 @@ public class MisfirePolicyService {
 
             // 设置稍后的重试时间
             Instant retryTime = Instant.now().plus(decision.getDelayMs(), ChronoUnit.MILLIS);
-            state.setNextRetryAt(LocalDateTime.ofInstant(retryTime, java.time.ZoneId.systemDefault()));
+            state.setNextRetryAt(LocalDateTime.ofInstant(retryTime, zoneId));
 
             // 保持 READY 状态
             state.setLastError("Misfire retry scheduled: " + decision.getReason());

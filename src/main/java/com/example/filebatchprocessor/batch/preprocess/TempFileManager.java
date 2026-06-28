@@ -11,6 +11,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -51,7 +52,7 @@ public class TempFileManager {
         try {
             ensureBaseDir();
             Instant cutoff = Instant.now().minus(maxAge == null ? Duration.ofHours(24) : maxAge);
-            try (java.util.stream.Stream<Path> files = Files.list(baseDir)) {
+            try (Stream<Path> files = Files.list(baseDir)) {
                 files.filter(Files::isRegularFile)
                         .filter(p ->
                                 isManagedTempFile(p) && modifiedAtOrEpoch(p).compareTo(cutoff) <= 0)

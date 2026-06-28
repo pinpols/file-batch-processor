@@ -9,13 +9,13 @@
 server:
   # 应用 HTTP 端口
   port: 8011
-  # #23 优雅停机:SIGTERM 后等在途请求/任务收尾再退出,而非直接 kill
+  # 优雅停机:SIGTERM 后等在途请求/任务收尾再退出,而非直接 kill
   shutdown: graceful
 
 spring:
   # 默认激活 dev；生产请通过 --spring.profiles.active=prod 覆盖
   profiles.active: dev
-  # #23 优雅停机阶段超时:给在途批处理/编排 drain 收尾的时间上限
+  # 优雅停机阶段超时:给在途批处理/编排 drain 收尾的时间上限
   lifecycle:
     timeout-per-shutdown-phase: 30s
   application:
@@ -134,7 +134,7 @@ batch:
       im:
         enabled: false
         url: ""
-    # 兼容旧 key：WebhookAlertSender 回落到 batch.alert.webhook.url
+    # 兼容旧 key：WebhookAlertSender 回退到 batch.alert.webhook.url
     webhook:
       enabled: false
       url: ""
@@ -306,10 +306,10 @@ ops:
     enabled: ${OPS_SECURITY_ENABLED:true}
     viewer:
       username: ${OPS_VIEWER_USERNAME:viewer}
-      password: ${OPS_VIEWER_PASSWORD:{noop}change_me_viewer}
+      password: ${OPS_VIEWER_PASSWORD:change_me_viewer}
     operator:
       username: ${OPS_OPERATOR_USERNAME:operator}
-      password: ${OPS_OPERATOR_PASSWORD:{noop}change_me_operator}
+      password: ${OPS_OPERATOR_PASSWORD:change_me_operator}
     admin:
       username: ${OPS_ADMIN_USERNAME:admin}
-      password: ${OPS_ADMIN_PASSWORD:{noop}change_me_admin}
+      password: ${OPS_ADMIN_PASSWORD:change_me_admin}

@@ -12,6 +12,7 @@ import com.example.filebatchprocessor.service.BatchAlertEvaluator;
 import com.example.filebatchprocessor.service.alert.AlertDispatcher;
 import com.example.filebatchprocessor.service.alert.AlertEvent;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -28,7 +29,7 @@ class BatchAlertEvaluatorDispatchTest {
         when(dlqRepo.countByHandledFalse()).thenReturn(9999L);
         when(dlqRepo.countByHandledFalseAndManualRequiredTrue()).thenReturn(0L);
 
-        BatchAlertEvaluator evaluator = new BatchAlertEvaluator(batchRepo, dlqRepo, dispatcher);
+        BatchAlertEvaluator evaluator = new BatchAlertEvaluator(batchRepo, dlqRepo, dispatcher, Optional.empty());
         ReflectionTestUtils.setField(evaluator, "enabled", true);
         ReflectionTestUtils.setField(evaluator, "dlqBacklogThreshold", 100L);
         ReflectionTestUtils.setField(evaluator, "failureRateThreshold", 0.2);

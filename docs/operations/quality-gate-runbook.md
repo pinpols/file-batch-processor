@@ -66,5 +66,5 @@ LIMIT 20;
 - 持续失败：同一 jobName 多次失败时升级
 
 ## 相关文档
-- 配置矩阵：`docs/configuration-matrix.md`
-- 全局运维手册：`docs/ops/runbook.md`
+- 配置矩阵：`docs/architecture/configuration-matrix.md`
+- 全局运维手册：`docs/operations/runbook.md`

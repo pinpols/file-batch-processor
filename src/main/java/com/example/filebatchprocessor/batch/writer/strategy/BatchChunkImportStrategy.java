@@ -7,6 +7,7 @@ import com.example.filebatchprocessor.model.RecordTrace;
 import com.example.filebatchprocessor.repository.RecordTraceRepository;
 import com.example.filebatchprocessor.service.PartitionedImportService;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -27,7 +28,7 @@ public class BatchChunkImportStrategy implements ChunkImportStrategy {
 
     private final PartitionedImportService partitionedImportService;
     private final RecordTraceRepository recordTraceRepository;
-    // #13/#14:用 REQUIRES_NEW 把批量写与 trace 写各自隔离,失败只回滚各自的独立事务,
+    // 用 REQUIRES_NEW 把批量写与 trace 写各自隔离,失败只回滚各自的独立事务,
     // 不把外层 Spring Batch chunk 事务标记 rollback-only,保证降级路径能干净执行。
     private final org.springframework.transaction.support.TransactionTemplate requiresNewTx;
 
@@ -93,7 +94,7 @@ public class BatchChunkImportStrategy implements ChunkImportStrategy {
      * 三处(本主循环、trace、PerRecord、Writer.dedup)必须逐字一致。
      */
     public static String businessKeyOf(FileRecord item, ImportContext context) {
-        Map<String, Object> row = new java.util.LinkedHashMap<>();
+        Map<String, Object> row = new LinkedHashMap<>();
         row.put("name", item.getName());
         row.put("description", item.getDescription());
         if (item.getAttributes() != null) {

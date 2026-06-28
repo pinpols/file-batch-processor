@@ -1,9 +1,8 @@
-# Docs Standards
-> 中文名：文档标准规范
+# 文档标准规范
 
 ## 1. 目录约定
 - `docs/README.md`: 文档入口与阅读顺序。
-- `docs/ops/`: 运维、部署、故障处置。
+- `docs/operations/`: 运维、部署、故障处置。
 - `docs/observability/`: 日志、指标、告警规范。
 - 其余文档放 `docs/` 根目录（架构、SLO、配置矩阵、作业契约等）。
 
@@ -18,6 +17,6 @@
 - 关键文档变更后，更新 `docs/README.md` 导航。
 
 ## 4. 当前建议补充（按优先级）
-1. `docs/release-process.md`：发布/回滚流程与版本策略。
-2. `docs/security-baseline.md`：密钥管理、最小权限、依赖扫描要求。
-3. `docs/test-strategy.md`：单测/集成/E2E 的边界与执行策略。
+1. `docs/operations/release-process.md`：发布/回滚流程与版本策略。
+2. `docs/operations/security-baseline.md`：密钥管理、最小权限、依赖扫描要求。
+3. `docs/developer-guide/test-strategy.md`：单测/集成/E2E 的边界与执行策略。

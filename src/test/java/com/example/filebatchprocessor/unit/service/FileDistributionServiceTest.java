@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 import com.example.filebatchprocessor.model.FileDistributionTask;
+import com.example.filebatchprocessor.observability.BatchMetrics;
 import com.example.filebatchprocessor.repository.FileDistributionTaskRepository;
 import com.example.filebatchprocessor.repository.RecordTraceRepository;
 import com.example.filebatchprocessor.service.FileAssetService;
@@ -25,6 +26,7 @@ class FileDistributionServiceTest {
         FileDispatchRecordService fileDispatchRecordService = mock(FileDispatchRecordService.class);
         FileProcessLogService fileProcessLogService = mock(FileProcessLogService.class);
         RetryCompensationService retryCompensationService = mock(RetryCompensationService.class);
+        BatchMetrics batchMetrics = mock(BatchMetrics.class);
 
         FileDistributionService service = new FileDistributionService(
                 repository,
@@ -32,7 +34,8 @@ class FileDistributionServiceTest {
                 fileAssetService,
                 fileDispatchRecordService,
                 fileProcessLogService,
-                retryCompensationService);
+                retryCompensationService,
+                batchMetrics);
 
         when(repository.findByStatus("PENDING")).thenReturn(java.util.List.of());
 
@@ -50,6 +53,7 @@ class FileDistributionServiceTest {
         FileDispatchRecordService fileDispatchRecordService = mock(FileDispatchRecordService.class);
         FileProcessLogService fileProcessLogService = mock(FileProcessLogService.class);
         RetryCompensationService retryCompensationService = mock(RetryCompensationService.class);
+        BatchMetrics batchMetrics = mock(BatchMetrics.class);
 
         FileDistributionService service = new FileDistributionService(
                 repository,
@@ -57,7 +61,8 @@ class FileDistributionServiceTest {
                 fileAssetService,
                 fileDispatchRecordService,
                 fileProcessLogService,
-                retryCompensationService);
+                retryCompensationService,
+                batchMetrics);
 
         FileDistributionTask task = new FileDistributionTask();
         task.setId(1L);
@@ -77,6 +82,7 @@ class FileDistributionServiceTest {
         FileDispatchRecordService fileDispatchRecordService = mock(FileDispatchRecordService.class);
         FileProcessLogService fileProcessLogService = mock(FileProcessLogService.class);
         RetryCompensationService retryCompensationService = mock(RetryCompensationService.class);
+        BatchMetrics batchMetrics = mock(BatchMetrics.class);
 
         FileDistributionService service = new FileDistributionService(
                 repository,
@@ -84,7 +90,8 @@ class FileDistributionServiceTest {
                 fileAssetService,
                 fileDispatchRecordService,
                 fileProcessLogService,
-                retryCompensationService);
+                retryCompensationService,
+                batchMetrics);
 
         when(fileDispatchRecordService.findAckTimeoutCandidates(any(), anyInt()))
                 .thenReturn(java.util.List.of());

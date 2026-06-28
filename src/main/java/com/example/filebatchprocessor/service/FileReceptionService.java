@@ -21,7 +21,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,7 +45,6 @@ public class FileReceptionService {
     private final String manifestSuffix;
     private final boolean groupEnabled;
 
-    @Autowired
     public FileReceptionService(
             FileReceptionQueueRepository fileReceptionQueueRepository,
             FileAssetService fileAssetService,
@@ -64,37 +62,6 @@ public class FileReceptionService {
         this.receptionGroupService = receptionGroupService;
         this.manifestSuffix = manifestSuffix;
         this.groupEnabled = groupEnabled;
-    }
-
-    public FileReceptionService(FileReceptionQueueRepository fileReceptionQueueRepository) {
-        this(fileReceptionQueueRepository, null, null, FileReceptionGuardService.testingDefaults());
-    }
-
-    public FileReceptionService(
-            FileReceptionQueueRepository fileReceptionQueueRepository,
-            FileAssetService fileAssetService,
-            FileProcessLogService fileProcessLogService) {
-        this(
-                fileReceptionQueueRepository,
-                fileAssetService,
-                fileProcessLogService,
-                FileReceptionGuardService.testingDefaults());
-    }
-
-    public FileReceptionService(
-            FileReceptionQueueRepository fileReceptionQueueRepository,
-            FileAssetService fileAssetService,
-            FileProcessLogService fileProcessLogService,
-            FileReceptionGuardService fileReceptionGuardService) {
-        this(
-                fileReceptionQueueRepository,
-                fileAssetService,
-                fileProcessLogService,
-                fileReceptionGuardService,
-                null,
-                null,
-                ".manifest.json",
-                false);
     }
 
     /**

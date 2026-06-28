@@ -15,12 +15,10 @@ public class ImportParseErrorGateProperties {
 
     private long minLines = 50;
 
-    /**
-     * Per job override rules: rules.<jobName>.max-rate / rules.<jobName>.min-lines
-     */
+    /** 单作业覆盖规则：rules.<jobName>.max-rate / rules.<jobName>.min-lines。 */
     private Map<String, Rule> rules = new HashMap<>();
 
-    // Explicit getters as workaround for Lombok annotation processing issue
+    // 显式 getter/setter 用于规避当前 Lombok 注解处理差异。
 
     public double getMaxRate() {
         return maxRate;
@@ -52,7 +50,7 @@ public class ImportParseErrorGateProperties {
         private Double maxRate;
         private Long minLines;
 
-        // Explicit getters as workaround for Lombok annotation processing issue
+        // 显式 getter/setter 用于规避当前 Lombok 注解处理差异。
 
         public Double getMaxRate() {
             return maxRate;

@@ -20,7 +20,6 @@ import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 /**
@@ -39,16 +38,11 @@ public class FileExportService {
     private final FileAssetService fileAssetService;
     private final FileProcessLogService fileProcessLogService;
 
-    @Autowired
     public FileExportService(
             ObjectMapper objectMapper, FileAssetService fileAssetService, FileProcessLogService fileProcessLogService) {
         this.objectMapper = objectMapper.copy().enable(SerializationFeature.INDENT_OUTPUT);
         this.fileAssetService = fileAssetService;
         this.fileProcessLogService = fileProcessLogService;
-    }
-
-    public FileExportService() {
-        this(new ObjectMapper(), null, null);
     }
 
     public String exportDemoData(String outputDir, String fileName, String batchDate, String format) {
@@ -140,7 +134,7 @@ public class FileExportService {
     }
 
     /**
-     * 导出为 JSON 格式（使用简单 JSON 格式）
+     * 导出为 JSON 数组格式。
      */
     public String exportToJSON(String outputDir, String fileName, List<? extends Object> data) {
         log.info("Exporting to JSON: {}", fileName);

@@ -9,9 +9,7 @@ import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Enhanced fixed delay scheduler that supports task management and graceful shutdown.
- */
+/** 固定延迟调度器，负责按任务 ID 管理注册、取消和停机释放。 */
 public class FixedDelayScheduler {
 
     private static final Logger log = LoggerFactory.getLogger(FixedDelayScheduler.class);
@@ -25,14 +23,14 @@ public class FixedDelayScheduler {
     }
 
     /**
-     * Schedule a task to run with fixed delay between executions.
+     * 注册固定延迟任务。
      *
-     * @param taskId unique identifier for the task
-     * @param task the task to execute
-     * @param delayMs delay between task executions in milliseconds
+     * @param taskId 任务唯一标识
+     * @param task 待执行逻辑
+     * @param delayMs 两次执行之间的延迟，单位毫秒
      */
     public void scheduleFixedDelay(String taskId, Runnable task, long delayMs) {
-        // Cancel existing task if present
+        // 同一任务重复注册时先取消旧调度，避免并发执行同一逻辑。
         cancelTask(taskId);
 
         ScheduledFuture<?> future = scheduler.scheduleWithFixedDelay(
@@ -52,9 +50,9 @@ public class FixedDelayScheduler {
     }
 
     /**
-     * Cancel a scheduled task.
+     * 取消已注册任务。
      *
-     * @param taskId the task identifier to cancel
+     * @param taskId 待取消的任务标识
      */
     public void cancelTask(String taskId) {
         ScheduledFuture<?> future = scheduledTasks.remove(taskId);
@@ -65,31 +63,25 @@ public class FixedDelayScheduler {
     }
 
     /**
-     * Check if a task is currently scheduled.
+     * 判断任务是否仍在调度表中。
      *
-     * @param taskId the task identifier to check
-     * @return true if the task is scheduled, false otherwise
+     * @param taskId 待检查的任务标识
+     * @return 已注册返回 true，否则返回 false
      */
     public boolean isTaskScheduled(String taskId) {
         return scheduledTasks.containsKey(taskId);
     }
 
-    /**
-     * Get the number of currently scheduled tasks.
-     *
-     * @return the number of scheduled tasks
-     */
+    /** 返回当前已注册任务数量。 */
     public int getScheduledTaskCount() {
         return scheduledTasks.size();
     }
 
-    /**
-     * Shutdown the scheduler gracefully.
-     */
+    /** 停止调度器并释放线程资源。 */
     public void shutdown() {
         log.info("Shutting down FixedDelayScheduler...");
 
-        // Cancel all scheduled tasks
+        // 先取消业务任务，再关闭线程池，避免停机期间继续触发。
         scheduledTasks.forEach((taskId, future) -> {
             if (future != null && !future.isCancelled()) {
                 future.cancel(false);
@@ -97,7 +89,6 @@ public class FixedDelayScheduler {
         });
         scheduledTasks.clear();
 
-        // Shutdown the executor
         scheduler.shutdown();
         try {
             if (!scheduler.awaitTermination(30, TimeUnit.SECONDS)) {

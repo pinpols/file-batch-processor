@@ -28,7 +28,7 @@ class FtpFileDistributorTest {
     void shouldDoNothingWhenTaskIsNull() {
         FileDistributionService service = mock(FileDistributionService.class);
         DistributionTargetValidator validator = mock(DistributionTargetValidator.class);
-        FtpFileDistributor distributor = new FtpFileDistributor(service, validator);
+        FtpFileDistributor distributor = new FtpFileDistributor(service, validator, 5000L, 30000L);
 
         distributor.distribute(null);
 
@@ -40,7 +40,7 @@ class FtpFileDistributorTest {
     void shouldFailWhenTargetAddressIsBlank() {
         FileDistributionService service = mock(FileDistributionService.class);
         DistributionTargetValidator validator = mock(DistributionTargetValidator.class);
-        FtpFileDistributor distributor = new FtpFileDistributor(service, validator);
+        FtpFileDistributor distributor = new FtpFileDistributor(service, validator, 5000L, 30000L);
 
         FileDistributionTask task = new FileDistributionTask();
         task.setId(1L);
@@ -61,7 +61,7 @@ class FtpFileDistributorTest {
         doThrow(new BusinessException(ErrorCode.INVALID_ARGUMENT, "blocked"))
                 .when(validator)
                 .validate(any());
-        FtpFileDistributor distributor = new FtpFileDistributor(service, validator);
+        FtpFileDistributor distributor = new FtpFileDistributor(service, validator, 5000L, 30000L);
 
         FileDistributionTask task = new FileDistributionTask();
         task.setId(2L);

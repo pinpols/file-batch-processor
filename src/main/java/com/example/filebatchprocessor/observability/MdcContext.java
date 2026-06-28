@@ -4,16 +4,12 @@ import java.util.Map;
 import java.util.function.Supplier;
 import org.slf4j.MDC;
 
-/**
- * Utility for safe MDC context management, especially for batch job/task execution.
- */
+/** MDC 上下文工具，保证批处理 Job 和任务执行结束后清理链路字段。 */
 public final class MdcContext {
 
     private MdcContext() {}
 
-    /**
-     * Run within MDC context, automatically clearing after execution.
-     */
+    /** 在指定 MDC 上下文中执行逻辑，结束后自动清理写入的键。 */
     public static <T> T withContext(Map<String, String> context, Supplier<T> action) {
         if (context == null || context.isEmpty()) {
             return action.get();
@@ -26,9 +22,7 @@ public final class MdcContext {
         }
     }
 
-    /**
-     * Run within MDC context, automatically clearing after execution (Runnable).
-     */
+    /** Runnable 版本的 MDC 包裹执行。 */
     public static void withContext(Map<String, String> context, Runnable action) {
         withContext(context, () -> {
             action.run();
@@ -36,27 +30,21 @@ public final class MdcContext {
         });
     }
 
-    /**
-     * Put a single key-value into MDC.
-     */
+    /** 写入单个 MDC 键值。 */
     public static void put(String key, String value) {
         if (key != null && value != null) {
             MDC.put(key, value);
         }
     }
 
-    /**
-     * Remove a key from MDC.
-     */
+    /** 移除单个 MDC 键。 */
     public static void remove(String key) {
         if (key != null) {
             MDC.remove(key);
         }
     }
 
-    /**
-     * Clear all MDC.
-     */
+    /** 清空当前线程的 MDC。 */
     public static void clear() {
         MDC.clear();
     }

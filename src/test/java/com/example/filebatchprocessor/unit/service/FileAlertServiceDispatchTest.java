@@ -16,6 +16,7 @@ import com.example.filebatchprocessor.service.alert.AlertDispatcher;
 import com.example.filebatchprocessor.service.alert.AlertEvent;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -29,7 +30,8 @@ class FileAlertServiceDispatchTest {
                 mock(FileAssetRecordRepository.class),
                 mock(FileDispatchRecordRepository.class),
                 new ObjectMapper(),
-                dispatcher);
+                dispatcher,
+                Optional.empty());
         ReflectionTestUtils.setField(svc, "fileExternalizeMinSeverity", "CRITICAL");
         return svc;
     }

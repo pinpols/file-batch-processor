@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.example.filebatchprocessor.batch.scheduler.TaskSchedulerService;
+import com.example.filebatchprocessor.config.BatchTimezoneProvider;
 import com.example.filebatchprocessor.model.TaskExecutionState;
 import com.example.filebatchprocessor.model.TaskExecutionStatus;
 import com.example.filebatchprocessor.repository.TaskExecutionStateRepository;
@@ -44,7 +45,11 @@ class MisfirePolicyServiceTest {
         properties.setRecoveryDelayMs(5_000);
         properties.setMaxRecoveryAttempts(3);
         service = new MisfirePolicyService(
-                taskExecutionStateRepository, taskSchedulerService, schedulerLeaderService, properties);
+                taskExecutionStateRepository,
+                taskSchedulerService,
+                schedulerLeaderService,
+                new BatchTimezoneProvider("Asia/Shanghai"),
+                properties);
     }
 
     @Test

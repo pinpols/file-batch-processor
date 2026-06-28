@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/postgres}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/file_batch}
     username: ${SPRING_DATASOURCE_USERNAME:postgres}
     password: ${SPRING_DATASOURCE_PASSWORD:postgres}
   quartz:
@@ -15,6 +15,11 @@ spring:
             tablePrefix: QRTZ_
             misfireThreshold: 60000
             acquireTriggersWithinLock: true
+
+management:
+  health:
+    mail:
+      enabled: false
 
 batch:
   dedup:

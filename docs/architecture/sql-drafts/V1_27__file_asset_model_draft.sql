@@ -1,17 +1,17 @@
--- Draft only.
--- Do NOT place this file under src/main/resources/db/migration until reviewed.
--- When approved, rename/move to:
+-- 仅作草案。
+-- 未完成评审前不要放入 src/main/resources/db/migration。
+-- 评审通过后再改名或移动到：
 --   src/main/resources/db/migration/V1_27__file_asset_model.sql
 --
--- Scope:
--- 1. Introduce file asset domain tables
--- 2. Keep legacy file_reception_queue / file_distribution_task in place
--- 3. Add nullable bridge columns for gradual dual-write / read cutover
+-- 范围：
+-- 1. 新增文件资产领域表
+-- 2. 保留旧 file_reception_queue / file_distribution_task 表
+-- 3. 增加可空桥接列，支持逐步双写和读路径切换
 --
--- Rollout assumptions:
--- 1. Stage 2 only creates new tables and bridge columns
--- 2. Business read path stays on legacy tables in this phase
--- 3. Data backfill is reviewed separately and not auto-enabled in this draft
+-- 发布假设：
+-- 1. 第二阶段只建新表和桥接列
+-- 2. 本阶段业务读路径仍保留在旧表
+-- 3. 数据回填单独评审，本草案不默认启用
 
 BEGIN;
 

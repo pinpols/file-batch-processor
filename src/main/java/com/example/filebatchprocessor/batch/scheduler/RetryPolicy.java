@@ -49,7 +49,7 @@ class RetryPolicy {
         return nextRetryAt(def, 0);
     }
 
-    // #25 修复:指数退避——base * 2^attempt(封顶 30 分钟),再叠加 jitter;attempt=已发生的重试次数。
+    // 指数退避:base * 2^attempt(封顶 30 分钟),再叠加 jitter;attempt=已发生的重试次数。
     Instant nextRetryAt(OrchestrationTaskDefinition def, int attempt) {
         long base = def.getRetryBackoffMs() == null ? defaultRetryBackoffMs : Math.max(1000, def.getRetryBackoffMs());
 

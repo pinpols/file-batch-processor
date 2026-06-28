@@ -1,32 +1,37 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-BASE_URL=${BASE_URL:-http://localhost:8011}
-TIMEOUT=${TIMEOUT:-30}
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
-check() {
-  local name=$1
-  local cmd=$2
-  echo "[SMOKE] $name"
-  eval "$cmd"
+# shellcheck source=../lib/env-common.sh
+source "${ROOT_DIR}/scripts/lib/env-common.sh"
+# shellcheck source=../lib/logging.sh
+source "${ROOT_DIR}/scripts/lib/logging.sh"
+# shellcheck source=../lib/psql.sh
+source "${ROOT_DIR}/scripts/lib/psql.sh"
+
+TIMEOUT="${TIMEOUT:-30}"
+
+curl_get() {
+  local path="$1"
+  curl -fsS --max-time "$TIMEOUT" -u "${OPS_AUTH_USER}:${OPS_AUTH_PASSWORD}" "${BASE_URL}${path}"
 }
 
-check "health endpoint" "curl -fsS --max-time $TIMEOUT $BASE_URL/actuator/health >/dev/null"
-check "prometheus endpoint" "curl -fsS --max-time $TIMEOUT $BASE_URL/actuator/prometheus | grep -q 'batch_'"
-check "prometheus includes scheduler metrics" "curl -fsS --max-time $TIMEOUT $BASE_URL/actuator/prometheus | grep -q 'scheduler_enqueue_total'"
-check "prometheus includes import quality gate metrics" "curl -fsS --max-time $TIMEOUT $BASE_URL/actuator/prometheus | grep -q 'import_parse_error_gate_failed_total'"
-check "prometheus includes quartz metrics" "curl -fsS --max-time $TIMEOUT $BASE_URL/actuator/prometheus | grep -q 'quartz_jobs_total'"
+check() {
+  local name="$1"
+  shift
+  bfp_info "SMOKE: ${name}"
+  "$@"
+}
 
-if command -v psql >/dev/null 2>&1; then
-  DB_HOST=${POSTGRES_HOST:-localhost}
-  DB_PORT=${POSTGRES_PORT:-5432}
-  DB_NAME=${POSTGRES_DB:-file_batch}
-  DB_USER=${POSTGRES_USER:-postgres}
-  export PGPASSWORD=${POSTGRES_PASSWORD:-postgres}
-  check "db connectivity" "psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -c 'select 1;' >/dev/null"
-  unset PGPASSWORD
-else
-  echo "[SMOKE] skip db connectivity (psql not found)"
-fi
+check "health endpoint" curl -fsS --max-time "$TIMEOUT" "${BASE_URL}/actuator/health" >/dev/null
+check "prometheus endpoint" curl_get "/actuator/prometheus" >/dev/null
+check "scheduler snapshot" curl_get "/ops/scheduler" >/dev/null
+check "ops dashboard" curl_get "/ops/dashboard" >/dev/null
+check "quality gates api" curl_get "/api/quality/gates" >/dev/null
+check "trace api" curl_get "/api/trace/Alice:2026-03-01" >/dev/null
+check "reconcile runs api" curl_get "/api/reconcile/runs" >/dev/null
+check "db connectivity" bfp_psql_check
 
-echo "[SMOKE] PASS"
+bfp_info "SMOKE PASS"

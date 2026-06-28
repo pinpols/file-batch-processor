@@ -12,7 +12,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -26,6 +28,10 @@ public class FileArchivalService {
     private final FileAssetRecordRepository fileAssetRepository;
     private final FileRetentionPolicyRepository retentionPolicyRepository;
     private final FileAssetStateMachineService stateMachineService;
+    private final SchedulerLeaderService schedulerLeaderService;
+    private final FileDispatchRecordRepository fileDispatchRecordRepository;
+    private final FileReceptionQueueRepository fileReceptionQueueRepository;
+    private final ReceptionGroupMemberRepository receptionGroupMemberRepository;
 
     @Value("${file.archive.enabled:true}")
     private boolean enabled;
@@ -36,24 +42,19 @@ public class FileArchivalService {
     public FileArchivalService(
             FileAssetRecordRepository fileAssetRepository,
             FileRetentionPolicyRepository retentionPolicyRepository,
-            FileAssetStateMachineService stateMachineService) {
+            FileAssetStateMachineService stateMachineService,
+            ObjectProvider<SchedulerLeaderService> schedulerLeaderService,
+            ObjectProvider<FileDispatchRecordRepository> fileDispatchRecordRepository,
+            ObjectProvider<FileReceptionQueueRepository> fileReceptionQueueRepository,
+            ObjectProvider<ReceptionGroupMemberRepository> receptionGroupMemberRepository) {
         this.fileAssetRepository = fileAssetRepository;
         this.retentionPolicyRepository = retentionPolicyRepository;
         this.stateMachineService = stateMachineService;
+        this.schedulerLeaderService = schedulerLeaderService.getIfAvailable();
+        this.fileDispatchRecordRepository = fileDispatchRecordRepository.getIfAvailable();
+        this.fileReceptionQueueRepository = fileReceptionQueueRepository.getIfAvailable();
+        this.receptionGroupMemberRepository = receptionGroupMemberRepository.getIfAvailable();
     }
-
-    // #8:归档/删文件只让 leader 跑,避免多副本并发改/删同一批文件
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    private SchedulerLeaderService schedulerLeaderService;
-
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    private FileDispatchRecordRepository fileDispatchRecordRepository;
-
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    private FileReceptionQueueRepository fileReceptionQueueRepository;
-
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    private ReceptionGroupMemberRepository receptionGroupMemberRepository;
 
     @Scheduled(cron = "${file.archive.cron:0 0 2 * * *}")
     public void runArchiveJob() {
@@ -190,7 +191,7 @@ public class FileArchivalService {
         }
 
         stateMachineService.transition(
-                fileId, FileAssetStatus.ARCHIVED, "manual-archive", java.util.Map.of("operator", operator));
+                fileId, FileAssetStatus.ARCHIVED, "manual-archive", Map.of("operator", operator));
     }
 
     public void deleteFileManually(Long fileId, String operator) {

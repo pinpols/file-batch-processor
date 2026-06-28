@@ -1,17 +1,11 @@
 package com.example.filebatchprocessor.batch.reader.spi;
 
-/**
- * Parser provider SPI for platform-managed parser selection.
- */
+/** 行解析器提供方 SPI，由平台按文件格式选择具体解析器。 */
 public interface RecordLineParserProvider {
 
-    /**
-     * Whether this provider supports the given format, e.g. CSV/FIXED.
-     */
+    /** 判断当前提供方是否支持指定格式，例如 CSV 或 FIXED。 */
     boolean supports(String format);
 
-    /**
-     * Create a parser for the given delimiter (may be ignored by certain formats).
-     */
+    /** 按分隔符创建解析器；定长等格式可以忽略该参数。 */
     RecordLineParser create(String delimiter);
 }

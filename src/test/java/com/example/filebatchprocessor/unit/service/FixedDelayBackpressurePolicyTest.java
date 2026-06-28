@@ -9,6 +9,7 @@ import com.example.filebatchprocessor.batch.scheduler.TargetSystemCircuitBreaker
 import com.example.filebatchprocessor.batch.scheduler.TaskGraphManager;
 import com.example.filebatchprocessor.batch.scheduler.TaskMergeService;
 import com.example.filebatchprocessor.batch.scheduler.TaskSchedulerService;
+import com.example.filebatchprocessor.config.BatchTimezoneProvider;
 import com.example.filebatchprocessor.observability.BatchMetrics;
 import com.example.filebatchprocessor.repository.DlqRecordRepository;
 import com.example.filebatchprocessor.repository.TaskExecutionStateRepository;
@@ -73,7 +74,8 @@ class FixedDelayBackpressurePolicyTest {
                 60,
                 2.0,
                 300_000,
-                60);
+                60,
+                new BatchTimezoneProvider("Asia/Shanghai"));
 
         OrchestrationTaskDefinition def = OrchestrationTaskDefinition.builder()
                 .id("fd-backpressure-task")

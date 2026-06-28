@@ -32,6 +32,7 @@ import com.example.filebatchprocessor.repository.FieldMappingRepository;
 import com.example.filebatchprocessor.repository.RecordTraceRepository;
 import com.example.filebatchprocessor.service.DlqCompensationService;
 import com.example.filebatchprocessor.service.PartitionedImportService;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
@@ -47,7 +48,6 @@ import org.springframework.batch.core.step.StepExecution;
 import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.core.step.tasklet.Tasklet;
 import org.springframework.batch.infrastructure.repeat.RepeatStatus;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -68,7 +68,6 @@ public class FileImportJobConfig {
     private final JobRepository jobRepository;
     private final PlatformTransactionManager transactionManager;
 
-    @Autowired
     public FileImportJobConfig(JobRepository jobRepository, PlatformTransactionManager transactionManager) {
         this.jobRepository = jobRepository;
         this.transactionManager = transactionManager;
@@ -138,7 +137,7 @@ public class FileImportJobConfig {
                     recordLineParserFactory,
                     documentReaderFactory,
                     new DocumentReadOptions(params.getExcelSheetIndex(), params.getExcelSheetName()),
-                    java.util.List.of());
+                    List.of());
         }
 
         return new FileImportRecordReader(
@@ -179,7 +178,7 @@ public class FileImportJobConfig {
                     .orElseThrow(() -> new IllegalArgumentException("unknown or disabled feedId: " + feedId));
             String bkf = feed.getBusinessKeyFields();
             List<String> businessKeyFields = StringUtils.hasText(bkf)
-                    ? java.util.Arrays.stream(bkf.split(","))
+                    ? Arrays.stream(bkf.split(","))
                             .map(String::trim)
                             .filter(s -> !s.isEmpty())
                             .toList()

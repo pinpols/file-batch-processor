@@ -1,8 +1,21 @@
 package com.example.filebatchprocessor.service;
 
-import java.time.*;
+import com.example.filebatchprocessor.config.BatchTimezoneProvider;
+import java.time.DayOfWeek;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.Year;
+import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import lombok.Data;
@@ -18,11 +31,13 @@ import org.springframework.stereotype.Service;
 public class CalendarExclusionService {
 
     private final CalendarExclusionProperties properties;
+    private final ZoneId zoneId;
     private final Map<String, Set<LocalDate>> holidayCache = new ConcurrentHashMap<>();
     private final Map<String, List<TimeWindow>> timeWindowCache = new ConcurrentHashMap<>();
 
-    public CalendarExclusionService(CalendarExclusionProperties properties) {
+    public CalendarExclusionService(CalendarExclusionProperties properties, BatchTimezoneProvider timezoneProvider) {
         this.properties = properties;
+        this.zoneId = timezoneProvider.zoneId();
         initializeHolidays();
         initializeTimeWindows();
     }
@@ -31,7 +46,7 @@ public class CalendarExclusionService {
      * 检查指定时间是否被排除
      */
     public boolean isExcluded(Instant instant, String calendarName) {
-        LocalDateTime localDateTime = LocalDateTime.ofInstant(instant, ZoneId.systemDefault());
+        LocalDateTime localDateTime = LocalDateTime.ofInstant(instant, zoneId);
         LocalDate date = localDateTime.toLocalDate();
         LocalTime time = localDateTime.toLocalTime();
 

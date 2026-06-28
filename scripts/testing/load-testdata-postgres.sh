@@ -2,13 +2,14 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
-POSTGRES_HOST="${POSTGRES_HOST:-127.0.0.1}"
-POSTGRES_PORT="${POSTGRES_PORT:-5432}"
-POSTGRES_DB="${POSTGRES_DB:-file_batch}"
-POSTGRES_USER="${POSTGRES_USER:-postgres}"
-POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-postgres}"
-PSQL_BIN="${PSQL_BIN:-psql}"
+# shellcheck source=../lib/env-common.sh
+source "${ROOT_DIR}/scripts/lib/env-common.sh"
+# shellcheck source=../lib/logging.sh
+source "${ROOT_DIR}/scripts/lib/logging.sh"
+# shellcheck source=../lib/psql.sh
+source "${ROOT_DIR}/scripts/lib/psql.sh"
 
 SEED_FILES_DEFAULT=(
   "seed_imported_records.sql"
@@ -16,31 +17,24 @@ SEED_FILES_DEFAULT=(
   "seed_reconcile_mismatch.sql"
 )
 
-if ! command -v "${PSQL_BIN}" >/dev/null 2>&1; then
-  echo "[ERROR] psql not found. Install PostgreSQL client first." >&2
-  exit 1
-fi
-
-if [[ "${SEED_FILES:-}" != "" ]]; then
+if [[ $# -gt 0 ]]; then
+  SEED_FILES_ARR=("$@")
+elif [[ -n "${SEED_FILES:-}" ]]; then
   IFS=',' read -r -a SEED_FILES_ARR <<< "${SEED_FILES}"
 else
   SEED_FILES_ARR=("${SEED_FILES_DEFAULT[@]}")
 fi
 
-export PGPASSWORD="${POSTGRES_PASSWORD}"
-
-echo "[INFO] checking PostgreSQL connectivity: ${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}"
-"${PSQL_BIN}" -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -c "SELECT 1;" >/dev/null
+bfp_info "检查 PostgreSQL 连接: ${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}"
+bfp_psql_check
 
 for file in "${SEED_FILES_ARR[@]}"; do
-  sql_file="${SCRIPT_DIR}/${file}"
-  if [[ ! -f "${sql_file}" ]]; then
-    echo "[ERROR] seed file not found: ${sql_file}" >&2
-    exit 1
+  sql_file="${file}"
+  if [[ "$sql_file" != /* ]]; then
+    sql_file="${SCRIPT_DIR}/${sql_file}"
   fi
-  echo "[INFO] applying ${file}"
-  "${PSQL_BIN}" -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -f "${sql_file}" >/dev/null
+  bfp_info "加载测试 SQL: ${sql_file}"
+  bfp_psql_file "${sql_file}" >/dev/null
 done
 
-unset PGPASSWORD
-echo "[OK] PostgreSQL test data imported."
+bfp_info "测试数据加载完成"

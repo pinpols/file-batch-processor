@@ -68,7 +68,7 @@ batch:
       im:                        # 飞书自定义机器人
         enabled: true
         url: "https://open.feishu.cn/open-apis/bot/v2/hook/xxxx"
-    # 兼容旧 key（仅作 webhook fallback）
+    # 兼容旧 key（仅作 webhook 回退）
     webhook:
       enabled: false
       url: ""

@@ -39,7 +39,7 @@ public class OpsNoopJobConfig {
                 .build();
     }
 
-    // Compatibility aliases for task_definition jobName values that are not wired yet.
+    // 兼容 task_definition 中暂未接入真实 Job 的运维占位任务。
     @Bean(name = {"opsNoopJob", "batchRestartJob"})
     public Job opsNoopJob(@Qualifier("opsNoopStep") Step opsNoopStep, JobCompletionNotificationListener listener) {
         return new JobBuilder("opsNoopJob", jobRepository)

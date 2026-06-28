@@ -31,7 +31,6 @@ import org.springframework.batch.core.step.Step;
 import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.core.step.tasklet.Tasklet;
 import org.springframework.batch.infrastructure.repeat.RepeatStatus;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -52,7 +51,6 @@ public class ReconcileJobConfig {
     @Value("${batch.io.input-base-dir:}")
     private String inputBaseDir;
 
-    @Autowired
     public ReconcileJobConfig(
             JobRepository jobRepository,
             PlatformTransactionManager transactionManager,
@@ -117,7 +115,7 @@ public class ReconcileJobConfig {
             return;
         }
         try {
-            // naive sampling: first 20 keys from file vs first 20 from db
+            // 对账失败时只保留有限样本，避免一次失败对账写入过多差异明细。
             List<String> sourceKeys = sampleSourceBusinessKeys(inputFileName, batchDate, 20);
             List<String> targetKeys = sampleTargetBusinessKeys(batchDate, 20);
 
@@ -140,7 +138,7 @@ public class ReconcileJobConfig {
                 }
             }
         } catch (Exception ex) {
-            // do not fail reconcile due to sampling
+            // 差异样本是辅助排查信息，采样失败不覆盖主对账结论。
         }
     }
 
@@ -152,7 +150,7 @@ public class ReconcileJobConfig {
     }
 
     private List<String> sampleTargetBusinessKeys(String batchDate, int limit) {
-        java.util.ArrayList<String> keys = new java.util.ArrayList<>();
+        ArrayList<String> keys = new ArrayList<>();
         Page<?> p = importedRecordPartitionedRepository.findByBatchDateOrderByBusinessKeyAsc(
                 batchDate, PageRequest.of(0, Math.max(1, limit)));
         p.forEach(r -> keys.add(((com.example.filebatchprocessor.model.ImportedRecordPartitioned) r).getBusinessKey()));

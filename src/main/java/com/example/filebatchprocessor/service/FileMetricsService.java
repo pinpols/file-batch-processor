@@ -8,6 +8,7 @@ import com.example.filebatchprocessor.repository.FileMetricsSnapshotRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -23,6 +24,7 @@ public class FileMetricsService {
     private final FileDispatchRecordRepository dispatchRecordRepository;
     private final FileMetricsSnapshotRepository metricsRepository;
     private final DlqRecordRepository dlqRecordRepository;
+    private final SchedulerLeaderService schedulerLeaderService;
 
     @Value("${file.metrics.enabled:true}")
     private boolean enabled;
@@ -31,16 +33,14 @@ public class FileMetricsService {
             FileAssetRecordRepository fileAssetRepository,
             FileDispatchRecordRepository dispatchRecordRepository,
             FileMetricsSnapshotRepository metricsRepository,
-            DlqRecordRepository dlqRecordRepository) {
+            DlqRecordRepository dlqRecordRepository,
+            Optional<SchedulerLeaderService> schedulerLeaderService) {
         this.fileAssetRepository = fileAssetRepository;
         this.dispatchRecordRepository = dispatchRecordRepository;
         this.metricsRepository = metricsRepository;
         this.dlqRecordRepository = dlqRecordRepository;
+        this.schedulerLeaderService = schedulerLeaderService == null ? null : schedulerLeaderService.orElse(null);
     }
-
-    // #8:快照写库只让 leader 跑,避免多副本写重复快照行
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    private SchedulerLeaderService schedulerLeaderService;
 
     @Scheduled(cron = "${file.metrics.cron:0 0 * * * *}")
     public void captureMetrics() {

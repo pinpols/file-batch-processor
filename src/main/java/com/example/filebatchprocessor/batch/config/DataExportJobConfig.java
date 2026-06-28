@@ -14,7 +14,9 @@ import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import javax.sql.DataSource;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.job.Job;
@@ -29,7 +31,6 @@ import org.springframework.batch.infrastructure.item.file.FlatFileItemWriter;
 import org.springframework.batch.infrastructure.item.file.builder.FlatFileItemWriterBuilder;
 import org.springframework.batch.infrastructure.item.file.transform.DelimitedLineAggregator;
 import org.springframework.batch.infrastructure.item.file.transform.FieldExtractor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -54,7 +55,6 @@ public class DataExportJobConfig {
     @Value("${batch.export.allowed-tables:" + DEFAULT_ALLOWED_TABLES + "}")
     private String allowedTablesCsv = DEFAULT_ALLOWED_TABLES;
 
-    @Autowired
     public DataExportJobConfig(
             JobRepository jobRepository, PlatformTransactionManager transactionManager, DataSource dataSource) {
         this.jobRepository = jobRepository;
@@ -129,13 +129,13 @@ public class DataExportJobConfig {
                 .map(String::trim)
                 .filter(s -> !s.isEmpty())
                 .map(s -> s.toLowerCase(Locale.ROOT))
-                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+                .collect(Collectors.toCollection(LinkedHashSet::new));
         if (allowed.isEmpty()) {
             return false;
         }
 
         Set<String> cteAliases = extractCteAliases(sql);
-        java.util.regex.Matcher matcher = Pattern.compile(
+        Matcher matcher = Pattern.compile(
                         "\\b(?:from|join)\\s+([a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)?)\\b",
                         Pattern.CASE_INSENSITIVE)
                 .matcher(sql);
@@ -157,7 +157,7 @@ public class DataExportJobConfig {
 
     private Set<String> extractCteAliases(String sql) {
         Set<String> aliases = new LinkedHashSet<>();
-        java.util.regex.Matcher matcher = Pattern.compile(
+        Matcher matcher = Pattern.compile(
                         "(?:\\bwith|,)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s+as\\s*\\(", Pattern.CASE_INSENSITIVE)
                 .matcher(sql);
         while (matcher.find()) {

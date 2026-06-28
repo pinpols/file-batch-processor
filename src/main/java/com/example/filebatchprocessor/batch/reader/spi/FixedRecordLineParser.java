@@ -3,7 +3,7 @@ package com.example.filebatchprocessor.batch.reader.spi;
 import com.example.filebatchprocessor.model.FileRecord;
 
 /**
- * 简单定长行解析实现，字段起止位置可按需要调整。
+ * 默认定长行解析器，字段位置与当前内置导入样例保持一致。
  */
 public class FixedRecordLineParser implements RecordLineParser {
 

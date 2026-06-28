@@ -41,11 +41,12 @@ input=/data/input.csv&batchDate=2025-01-01&runMode=backfill&rerunId=bf-20250101&
 ```
 
 ### 启动与运行
-1) 准备 PostgreSQL（本地默认：`jdbc:postgresql://localhost:5432/postgres`，用户/密码见 `application-dev.yml`）。  
-2) 构建/启动：`./mvnw spring-boot:run`。  
-3) Flyway 会自动执行 `db/migration`，Quartz 使用 `QRTZ_*` 表（JDBC JobStore）。  
+1) 准备 PostgreSQL（本地默认：`jdbc:postgresql://localhost:5432/file_batch`，用户/密码见 `application-dev.yml`）。
+2) 构建/启动：`APP_BACKGROUND=true ./scripts/local/start-local.sh`。
+3) Flyway 会自动执行 `db/migration`，Quartz 使用 `QRTZ_*` 表（JDBC JobStore）。
 4) 调度：
    - 默认路径：应用启动时从数据库读取启用任务并注册到 Quartz。
+   - 配置热刷新：任务表或参数表变更后，可调用 `POST /ops/scheduler/reload` 重新注册启用任务，避免为本地验证或运维参数调整重启后端。
    - YAML 路径：仅当 `orchestration.config-source=yaml` 且运行于 local/dev 时使用。
 5) 监控接口：
    - 健康检查：`/actuator/health`
@@ -56,16 +57,17 @@ input=/data/input.csv&batchDate=2025-01-01&runMode=backfill&rerunId=bf-20250101&
 - 作业配置范例（导入/导出/多格式）：[docs/user-guide/job-configuration-examples.md](docs/user-guide/job-configuration-examples.md)
 - 任务配置表结构：[docs/architecture/task-configuration-schema.md](docs/architecture/task-configuration-schema.md)
 - 运维专题：[加密压缩导入](docs/operations/encrypted-compressed-intake.md) · [清单驱动入库](docs/operations/manifest-driven-intake.md) · [多告警渠道](docs/operations/alerting-channels.md) · [声明式映射](docs/operations/declarative-mapping.md) · [熔断 runbook](docs/operations/circuit-breaker-runbook.md) · [质量门 runbook](docs/operations/quality-gate-runbook.md) · [安全基线](docs/operations/security-baseline.md)
-- 设计稿/实现计划:`docs/superpowers/specs/` 与 `docs/superpowers/plans/`
+- 全量文档索引：[docs/README.md](docs/README.md)
 
 ### 测试执行（分层）
 - 单元测试：`mvn test -Punit-test`（200+ tests）
 - 集成测试：`mvn test -Pintegration-test`（使用 Testcontainers PostgreSQL，需要本机 Docker 可用）
 - E2E 测试：`mvn test -Pe2e-test`（使用 Testcontainers PostgreSQL，需要本机 Docker 可用）
+- 本地后端全场景：`./scripts/testing/run-local-scenarios.sh`（需要后端已启动，并连接本地 PostgreSQL；脚本会刷新调度器配置、等待导入/导出成功，并校验导出文件）
 
 ### 本地运行数据库准备
-1. 创建测试数据库：`CREATE DATABASE test;`
-2. 运行 Flyway 迁移：`mvn flyway:migrate -Dflyway.url=jdbc:postgresql://localhost:5432/test`
+1. 创建测试数据库：`CREATE DATABASE file_batch;`
+2. 启动应用后由 Flyway 自动迁移；也可使用 `scripts/testing/init-test-environment.sh all` 加载本地验证数据。
 
 ### 扩展点
 - Writer 落地真实数据库时，可按业务键/多字段自定义 `business_key` 生成逻辑。

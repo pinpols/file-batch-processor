@@ -66,6 +66,7 @@ class JobCompletionNotificationListenerTest {
                 fileAssetService,
                 fileProcessLogService,
                 jobInstanceService,
+                null,
                 0.0,
                 100,
                 false);

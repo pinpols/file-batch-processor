@@ -38,7 +38,7 @@ public class BatchConfig {
         executor.setMaxPoolSize(Math.max(corePoolSize, maxPoolSize));
         executor.setQueueCapacity(Math.max(10, queueCapacity));
         executor.setThreadNamePrefix("batch-executor-");
-        // #23 优雅停机:停机时等在途任务跑完(上限 30s),避免 SIGTERM 直接丢弃在途批处理
+        // 优雅停机:停机时等在途任务跑完(上限 30s),避免 SIGTERM 直接丢弃在途批处理。
         executor.setWaitForTasksToCompleteOnShutdown(true);
         executor.setAwaitTerminationSeconds(30);
         executor.initialize();
