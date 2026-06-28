@@ -68,7 +68,7 @@ public class FileImportRecordWriter implements ItemWriter<FileRecord>, StepExecu
             log.warn("Failed to get input.file.name from job parameters", e);
             inputFileName = null;
         }
-        this.context = new ImportContext(batchDate, jobExecutionId, inputFileName);
+        this.context = new ImportContext(batchDate, jobExecutionId, inputFileName, null);
     }
 
     @Override
