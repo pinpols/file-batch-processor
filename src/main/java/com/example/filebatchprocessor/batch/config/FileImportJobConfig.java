@@ -93,8 +93,7 @@ public class FileImportJobConfig {
             DocumentRecordReaderFactory documentReaderFactory,
             FilePreprocessor filePreprocessor,
             ImportTempFileHolder tempFileHolder,
-            FeedDefinitionRepository feedDefinitionRepository,
-            FieldMappingRepository fieldMappingRepository) {
+            FeedDefinitionRepository feedDefinitionRepository) {
 
         ImportJobParams params = ImportJobParams.from(jobParameters);
         params.validateForReader();
