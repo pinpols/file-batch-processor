@@ -1,0 +1,56 @@
+name: CodeQL
+
+# CodeQL SAST(静态应用安全测试)。单体已有 SpotBugs(质量)+ OWASP dependency-check(依赖 CVE)+
+# Trivy(镜像/文件系统),本工作流补 Java 源码级安全分析(注入/路径穿越/反序列化等数据流漏洞)。
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # 每周一 03:17 UTC 全量复扫(捕获规则更新带来的新发现)
+    - cron: '17 3 * * 1'
+
+permissions:
+  contents: read
+  security-events: write
+
+concurrency:
+  group: codeql-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  JAVA_VERSION: '21'
+
+jobs:
+  analyze:
+    name: CodeQL Analyze (java)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: java
+          queries: security-extended
+
+      - name: Grant execute permission for mvnw
+        run: chmod +x ./mvnw
+
+      # 用真实编译让 CodeQL 抓取字节码与数据流(比 autobuild 更可靠)
+      - name: Compile
+        run: ./mvnw -B -ntp -DskipTests compile
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: /language:java
