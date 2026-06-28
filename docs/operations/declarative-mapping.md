@@ -1,13 +1,15 @@
-# 声明式映射（地基版）
+# 声明式映射
 
-> 🔴 **重要范围声明**：本版**仅交付配置表、映射引擎与列**，**尚未接入导入链路**。
-> `business_key` 多字段化与 config-driven processor/writer 属于后续增量。
-> 现有 `importJob` 行为**零变化**，运行时不读取本版任何配置。
+> ✅ **已接入导入链路（feedId 路由）**：job 参数带 `feedId` 即触发 feed 路径，
+> 按该 feed 的 `field_mapping` 声明式映射 CSV 原始列到 `name`/`description` 主列与 `attributes`（JSONB），
+> `business_key` 按 `feed_definition.business_key_fields` 配置（空则退回 `name:batchDate`）。
+> **不带 `feedId` 时默认导入路径完全不变**（零行为变化）。
+> 守门回归见 `DeclarativeMappingWiringIT`：默认路径 vs 对照 feed `default-csv` 字节级逐行一致。
 
 ## 目的
 
-为后续「按 feed 配置驱动导入」打地基：把「输入文件长什么样、字段怎么映射到目标、做哪些转换」
-从硬编码代码迁移到数据库配置（`feed_definition` + `field_mapping`），由纯函数 `MappingEngine` 执行。
+把「输入文件长什么样、字段怎么映射到目标、做哪些转换」从硬编码代码迁移到数据库配置
+（`feed_definition` + `field_mapping`），由纯函数 `MappingEngine` 执行，运行时按 `feedId` 路由。
 
 ## 表结构（Flyway V1_39）
 
@@ -45,8 +47,9 @@
 
 ### `imported_records_partition.attributes`（JSONB，V1_39 新增列）
 
-预留列，用于将来存放「不落固定结构列」的动态映射结果（半结构化属性袋）。
-本版只加列，**写入路径尚未接线**。
+存放「不落固定结构列」的动态映射结果（半结构化属性袋）。
+feed 路径下，`target_field` 为 `name`/`description` 的映射落到主列，**其余 `target_field` 落到 `attributes` JSONB**，
+回读为 `Map<String,Object>`。
 
 ## 映射引擎 `MappingEngine`
 
@@ -63,9 +66,52 @@
 
 **必填校验**：`required=true` 的字段若映射后为 `null` 或空白，抛 `IllegalArgumentException`（携带 `target_field`）。
 
-## 当前不做（后续增量）
+## 如何触发 feed 路径
 
-- 导入链路接线：现有 `importJob` 不读取 `feed_definition` / `field_mapping`，行为不变。
-- config-driven processor / writer：按 feed 动态选择处理器与写库逻辑。
-- `business_key` 多字段化在写库与去重路径的落地。
-- `attributes` JSONB 的实际写入与查询。
+在导入 job 参数中加 `feedId` 即走 feed 路径，其余参数不变：
+
+```text
+feedId=default-csv
+batchDate=2026-07-01
+file.format=CSV
+file.delimiter=,
+input.file.name=/path/to/input.csv
+```
+
+不带 `feedId` 则走默认导入路径（行为完全不变）。feed 模式按文件首行自动探测列名，
+`source_column` 即对应 CSV 表头列名。
+
+## 最小配置示例（SQL）
+
+对照 feed `default-csv`（复刻默认语义,见迁移 V1_40）：
+
+```sql
+INSERT INTO feed_definition (feed_id, feed_name, format, delimiter, has_header,
+                             target_table, business_key_fields, enabled)
+VALUES ('default-csv', 'Default CSV (parity feed)', 'CSV', ',', TRUE,
+        'imported_records_partition', NULL, TRUE);
+
+INSERT INTO field_mapping (feed_id, source_column, target_field, transform_op, required, order_no, enabled)
+VALUES ('default-csv', 'name',        'name',        'UPPER', TRUE,  1, TRUE),
+       ('default-csv', 'description', 'description', 'NONE',  FALSE, 2, TRUE);
+```
+
+两列映射到 `name` 主列 + `attributes` JSONB 的例子（`c_cat` 落 `attributes.category`）：
+
+```sql
+INSERT INTO feed_definition (feed_id, feed_name, format, delimiter, has_header,
+                             target_table, business_key_fields, enabled)
+VALUES ('demo-attrs', 'Demo attrs feed', 'CSV', ',', TRUE,
+        'imported_records_partition', NULL, TRUE);
+
+INSERT INTO field_mapping (feed_id, source_column, target_field, transform_op, required, order_no, enabled)
+VALUES ('demo-attrs', 'c_name', 'name',     'UPPER', TRUE,  1, TRUE),
+       ('demo-attrs', 'c_cat',  'category', 'NONE',  FALSE, 2, TRUE);
+```
+
+`business_key_fields=NULL` 时退回 `name:batchDate`（name 已经过 transform）。
+
+## 当前限制（后续增量）
+
+- **仅支持 CSV 行格式 feed**；JSON / Excel feed 后置。
+- `business_key` 多字段化（`business_key_fields` 配多列）已接线生效，空值退回 `name:batchDate`。
