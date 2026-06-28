@@ -31,6 +31,8 @@ public class PartitionedImportService {
 
     private final ImportedRecordPartitionedRepository partitionedRepository;
     private final JdbcTemplate jdbcTemplate;
+    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper =
+            new com.fasterxml.jackson.databind.ObjectMapper();
     private static final DateTimeFormatter BATCH_DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
 
     public PartitionedImportService(
@@ -49,6 +51,22 @@ public class PartitionedImportService {
             String batchDate,
             String sourceFileName,
             String checksum) {
+        return importRecord(businessKey, name, description, batchDate, sourceFileName, checksum, null);
+    }
+
+    /**
+     * 导入记录到分区表(声明式映射:携带 attributes 落 JSONB 列)。
+     *
+     * <p>{@code attributes==null} 时 attributes 列保持 NULL,与不带 attributes 的旧路径字节级一致。
+     */
+    public ImportedRecordPartitioned importRecord(
+            String businessKey,
+            String name,
+            String description,
+            String batchDate,
+            String sourceFileName,
+            String checksum,
+            Map<String, Object> attributes) {
         String normalizedBatchDate =
                 StringUtils.hasText(batchDate) ? batchDate : LocalDate.now().format(BATCH_DATE_FORMATTER);
         log.info("Importing record to partitioned table: key={}, batchDate={}", businessKey, normalizedBatchDate);
@@ -65,6 +83,7 @@ public class PartitionedImportService {
             record.setPartitionKey(partitionKey);
             record.setSourceFileName(sourceFileName);
             record.setChecksum(checksum);
+            record.setAttributes(attributes);
             record.setCreatedAt(LocalDateTime.now());
             record.setUpdatedAt(LocalDateTime.now());
 
@@ -121,9 +140,10 @@ public class PartitionedImportService {
             return 0;
         }
         LocalDateTime now = LocalDateTime.now();
+        // attributes 走 ?::jsonb:null 时退化为 NULL::jsonb = NULL,与不写该列的旧路径字节级一致。
         String sql = "INSERT INTO imported_records_partition "
-                + "(business_key, name, description, batch_date, partition_key, checksum, source_file_name, created_at, updated_at) "
-                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) "
+                + "(business_key, name, description, batch_date, partition_key, checksum, source_file_name, attributes, created_at, updated_at) "
+                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?, ?) "
                 + "ON CONFLICT (business_key, batch_date, partition_key) DO NOTHING";
 
         jdbcTemplate.batchUpdate(sql, records, records.size(), (ps, record) -> {
@@ -139,11 +159,24 @@ public class PartitionedImportService {
             ps.setString(5, partitionKey);
             ps.setString(6, record.getChecksum());
             ps.setString(7, record.getSourceFileName());
-            ps.setTimestamp(8, Timestamp.valueOf(record.getCreatedAt() == null ? now : record.getCreatedAt()));
-            ps.setTimestamp(9, Timestamp.valueOf(record.getUpdatedAt() == null ? now : record.getUpdatedAt()));
+            ps.setString(8, toJsonOrNull(record.getAttributes()));
+            ps.setTimestamp(9, Timestamp.valueOf(record.getCreatedAt() == null ? now : record.getCreatedAt()));
+            ps.setTimestamp(10, Timestamp.valueOf(record.getUpdatedAt() == null ? now : record.getUpdatedAt()));
         });
         log.info("Batch idempotent import submitted: {} records", records.size());
         return records.size();
+    }
+
+    /** 把 attributes 序列化为 JSON 文本(供 ?::jsonb 绑定);null/空返回 null,保持 JSONB 列为 NULL。 */
+    private String toJsonOrNull(Map<String, Object> attributes) {
+        if (attributes == null) {
+            return null;
+        }
+        try {
+            return objectMapper.writeValueAsString(attributes);
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            throw new RuntimeException("Failed to serialize attributes to JSON", e);
+        }
     }
 
     /**

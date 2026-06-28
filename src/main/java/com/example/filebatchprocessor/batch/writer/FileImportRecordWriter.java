@@ -1,5 +1,6 @@
 package com.example.filebatchprocessor.batch.writer;
 
+import com.example.filebatchprocessor.batch.writer.strategy.BatchChunkImportStrategy;
 import com.example.filebatchprocessor.batch.writer.strategy.ChunkImportStrategy;
 import com.example.filebatchprocessor.batch.writer.strategy.ImportContext;
 import com.example.filebatchprocessor.exception.TransientImportException;
@@ -107,7 +108,8 @@ public class FileImportRecordWriter implements ItemWriter<FileRecord>, StepExecu
     private List<FileRecord> dedup(List<? extends FileRecord> items) {
         List<FileRecord> fresh = new ArrayList<>(items.size());
         for (FileRecord item : items) {
-            String bizKey = context.buildBusinessKey(item.getName());
+            // 去重口径必须与 strategy 落库口径逐字一致,否则去重与唯一索引错位。
+            String bizKey = BatchChunkImportStrategy.businessKeyOf(item, context);
             if (seenKeys.size() < maxDedupKeys) {
                 if (!seenKeys.add(bizKey)) {
                     log.debug("Skipping duplicate record in current batch: {}", bizKey);
