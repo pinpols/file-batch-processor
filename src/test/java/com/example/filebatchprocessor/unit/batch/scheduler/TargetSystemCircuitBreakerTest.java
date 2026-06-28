@@ -65,7 +65,13 @@ class TargetSystemCircuitBreakerTest {
         shared.setFailureRateThreshold(0.5);
         when(repository.findByTargetSystem("flaky")).thenReturn(Optional.of(shared));
         when(repository.incrementFailureAndOpenIfThreshold(
-                        eq("flaky"), any(LocalDateTime.class), eq(4L), eq(0.5), anyLong(), any(LocalDateTime.class)))
+                        eq("flaky"),
+                        any(LocalDateTime.class),
+                        eq(4L),
+                        eq(0.5),
+                        anyLong(),
+                        eq(2L),
+                        any(LocalDateTime.class)))
                 .thenAnswer(invocation -> {
                     shared.setWindowFailureCount(shared.getWindowFailureCount() + 1);
                     if (shared.getWindowFailureCount() >= 2) {
@@ -95,7 +101,13 @@ class TargetSystemCircuitBreakerTest {
         state.setFailureRateThreshold(0.5);
         when(repository.findByTargetSystem("flaky")).thenReturn(Optional.of(state));
         when(repository.incrementFailureAndOpenIfThreshold(
-                        eq("flaky"), any(LocalDateTime.class), eq(4L), eq(0.5), anyLong(), any(LocalDateTime.class)))
+                        eq("flaky"),
+                        any(LocalDateTime.class),
+                        eq(4L),
+                        eq(0.5),
+                        anyLong(),
+                        eq(2L),
+                        any(LocalDateTime.class)))
                 .thenReturn(1);
 
         TargetSystemCircuitBreaker breaker = new TargetSystemCircuitBreaker(repository, properties, batchMetrics);
@@ -103,7 +115,13 @@ class TargetSystemCircuitBreakerTest {
 
         verify(repository)
                 .incrementFailureAndOpenIfThreshold(
-                        eq("flaky"), any(LocalDateTime.class), eq(4L), eq(0.5), anyLong(), any(LocalDateTime.class));
+                        eq("flaky"),
+                        any(LocalDateTime.class),
+                        eq(4L),
+                        eq(0.5),
+                        anyLong(),
+                        eq(2L),
+                        any(LocalDateTime.class));
         verify(repository, never()).save(any(TargetSystemCircuitState.class));
     }
 

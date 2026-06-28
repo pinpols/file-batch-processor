@@ -55,6 +55,9 @@ public abstract class PostgresContainerSupport {
     }
 
     private static DatabaseConfig initializeDatabaseConfig() {
+        if (hasSetting("TEST_POSTGRES_URL", "test.postgres.url")) {
+            return createLocalConfig(null);
+        }
         try {
             if (!POSTGRES.isRunning()) {
                 POSTGRES.start();
@@ -69,11 +72,11 @@ public abstract class PostgresContainerSupport {
             return config;
         } catch (Throwable dockerFailure) {
             log.warn("Falling back to local PostgreSQL for integration tests: {}", dockerFailure.getMessage());
-            return createLocalFallbackConfig(dockerFailure);
+            return createLocalConfig(dockerFailure);
         }
     }
 
-    private static DatabaseConfig createLocalFallbackConfig(Throwable dockerFailure) {
+    private static DatabaseConfig createLocalConfig(Throwable dockerFailure) {
         String jdbcUrl =
                 readSetting("TEST_POSTGRES_URL", "test.postgres.url", "jdbc:postgresql://localhost:5432/postgres");
         String username = readSetting("TEST_POSTGRES_USERNAME", "test.postgres.username", "postgres");
@@ -84,9 +87,20 @@ public abstract class PostgresContainerSupport {
             log.info("Using local PostgreSQL fallback for integration tests: schema={}", config.schema());
             return config;
         } catch (RuntimeException localFailure) {
-            localFailure.addSuppressed(dockerFailure);
+            if (dockerFailure != null) {
+                localFailure.addSuppressed(dockerFailure);
+            }
             throw localFailure;
         }
+    }
+
+    private static boolean hasSetting(String envKey, String systemPropertyKey) {
+        String envValue = System.getenv(envKey);
+        if (envValue != null && !envValue.isBlank()) {
+            return true;
+        }
+        String systemValue = System.getProperty(systemPropertyKey);
+        return systemValue != null && !systemValue.isBlank();
     }
 
     private static DatabaseConfig createSchemaScopedConfig(

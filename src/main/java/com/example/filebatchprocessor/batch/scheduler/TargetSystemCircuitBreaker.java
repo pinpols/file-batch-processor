@@ -90,12 +90,14 @@ public class TargetSystemCircuitBreaker {
         } else {
             LocalDateTime now = LocalDateTime.now();
             LocalDateTime cooldownUntil = now.plusNanos(properties.getCooldownDurationMs() * 1_000_000L);
+            long openFailureCount = openFailureCount();
             int updated = repository.incrementFailureAndOpenIfThreshold(
                     targetSystem,
                     now,
                     properties.getWindowSize(),
                     properties.getFailureRateThreshold(),
                     properties.getCooldownDurationMs(),
+                    openFailureCount,
                     cooldownUntil);
             if (updated == 0) {
                 TargetSystemCircuitState created = new TargetSystemCircuitState();
@@ -111,6 +113,7 @@ public class TargetSystemCircuitBreaker {
                         properties.getWindowSize(),
                         properties.getFailureRateThreshold(),
                         properties.getCooldownDurationMs(),
+                        openFailureCount,
                         cooldownUntil);
             }
 
@@ -130,5 +133,10 @@ public class TargetSystemCircuitBreaker {
     private double failureRate(TargetSystemCircuitState state) {
         long windowSize = Math.max(1L, state.getWindowSize());
         return ((double) state.getWindowFailureCount()) / ((double) windowSize);
+    }
+
+    private long openFailureCount() {
+        long windowSize = Math.max(1L, properties.getWindowSize());
+        return Math.max(1L, (long) Math.ceil(properties.getFailureRateThreshold() * windowSize));
     }
 }

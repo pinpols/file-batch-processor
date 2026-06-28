@@ -32,10 +32,10 @@ public interface TargetSystemCircuitStateRepository extends JpaRepository<Target
             + "s.failureRateThreshold = :failureRateThreshold, "
             + "s.cooldownDurationMs = :cooldownDurationMs, "
             + "s.status = CASE WHEN s.status = 'HALF_OPEN' "
-            + "OR ((s.windowFailureCount + 1) >= (:failureRateThreshold * :windowSize)) "
+            + "OR ((s.windowFailureCount + 1) >= :openFailureCount) "
             + "THEN 'OPEN' ELSE s.status END, "
             + "s.cooldownUntil = CASE WHEN s.status = 'HALF_OPEN' "
-            + "OR ((s.windowFailureCount + 1) >= (:failureRateThreshold * :windowSize)) "
+            + "OR ((s.windowFailureCount + 1) >= :openFailureCount) "
             + "THEN :cooldownUntil ELSE s.cooldownUntil END "
             + "WHERE s.targetSystem = :targetSystem")
     int incrementFailureAndOpenIfThreshold(
@@ -44,6 +44,7 @@ public interface TargetSystemCircuitStateRepository extends JpaRepository<Target
             @Param("windowSize") long windowSize,
             @Param("failureRateThreshold") double failureRateThreshold,
             @Param("cooldownDurationMs") long cooldownDurationMs,
+            @Param("openFailureCount") long openFailureCount,
             @Param("cooldownUntil") LocalDateTime cooldownUntil);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
