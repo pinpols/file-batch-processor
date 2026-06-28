@@ -98,6 +98,8 @@ batch:
     # 导入/导出文件路径基目录(配置后强制限定在其内,防路径穿越;留空则仅拒绝 .. 逃逸)
     input-base-dir: ${BATCH_IO_INPUT_BASE_DIR:}
     output-base-dir: ${BATCH_IO_OUTPUT_BASE_DIR:}
+    # 导入预处理临时明文文件目录；空=系统临时目录下 fbp-import-tmp
+    temp-dir: ${BATCH_IO_TEMP_DIR:}
   file-export:
     # tasklet 式文件导出一次性物化进内存的行数上界,超过应改用流式 dataExportJob
     max-rows: ${BATCH_FILE_EXPORT_MAX_ROWS:500000}
@@ -105,9 +107,6 @@ batch:
     startup-bootstrap:
       # 仅兜底，主路径必须走 Flyway
       enabled: false
-  io:
-    # 导入预处理临时明文文件目录；空=系统临时目录下 fbp-import-tmp
-    temp-dir: ${BATCH_IO_TEMP_DIR:}
   pgp:
     # 导入 PGP 解密：私钥(secret key ring)路径 + passphrase；passphrase 走 env 不入仓
     private-key-path: ${BATCH_PGP_PRIVATE_KEY_PATH:}
