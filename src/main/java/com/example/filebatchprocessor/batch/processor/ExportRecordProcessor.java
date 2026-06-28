@@ -20,8 +20,6 @@ public class ExportRecordProcessor implements ItemProcessor<ExportRecord, Export
 
     private static final Logger log = LoggerFactory.getLogger(ExportRecordProcessor.class);
     private static final DateTimeFormatter EXPORT_DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-    private static final DateTimeFormatter EXPORT_DATETIME_FORMATTER =
-            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     // 处理统计
     private long totalProcessed = 0;
@@ -93,11 +91,6 @@ public class ExportRecordProcessor implements ItemProcessor<ExportRecord, Export
      * 判断是否应该过滤记录
      */
     private boolean shouldFilterRecord(ExportRecord record) {
-        // 过滤已删除的记录（如果有状态字段）
-        if (hasStatusField(record) && isDeletedRecord(record)) {
-            return true;
-        }
-
         // 过滤空业务键记录
         if (!StringUtils.hasText(record.getBusinessKey())) {
             return true;
@@ -132,9 +125,6 @@ public class ExportRecordProcessor implements ItemProcessor<ExportRecord, Export
         // 格式化批次日期
         String formattedBatchDate = formatBatchDateForExport(record.getBatchDate());
         processedRecord.setBatchDate(formattedBatchDate);
-
-        // 添加导出时间戳（如果有对应字段）
-        addExportTimestamp(processedRecord);
 
         return processedRecord;
     }
@@ -210,31 +200,6 @@ public class ExportRecordProcessor implements ItemProcessor<ExportRecord, Export
                 return batchDate;
             }
         }
-    }
-
-    /**
-     * 添加导出时间戳
-     */
-    private void addExportTimestamp(ExportRecord record) {
-        // 如果ExportRecord有导出时间戳字段，可以在这里设置
-        // record.setExportTimestamp(LocalDateTime.now().format(EXPORT_DATETIME_FORMATTER));
-    }
-
-    /**
-     * 检查记录是否有状态字段
-     */
-    private boolean hasStatusField(ExportRecord record) {
-        // 通过反射或其他方式检查是否有状态字段
-        // 这里简化处理，假设有状态字段
-        return false;
-    }
-
-    /**
-     * 检查是否为已删除记录
-     */
-    private boolean isDeletedRecord(ExportRecord record) {
-        // 检查记录状态是否为已删除
-        return false;
     }
 
     /**

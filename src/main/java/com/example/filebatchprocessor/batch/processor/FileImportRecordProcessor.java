@@ -32,7 +32,7 @@ public class FileImportRecordProcessor implements ItemProcessor<FileRecord, File
         processedRecord.setName(processedName);
         processedRecord.setDescription(record.getDescription());
 
-        log.info("Processing record: {} -> {}", record, processedRecord);
+        log.debug("Processing record id={}", record.getId());
 
         return processedRecord;
     }
