@@ -97,6 +97,14 @@ class SecurityConfigTest {
                 .andExpect(status().isForbidden());
     }
 
+    @Test
+    void viewerCannotReloadScheduler() throws Exception {
+        mockMvc.perform(post("/ops/scheduler/reload")
+                        .with(httpBasic("viewer", "viewer"))
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isForbidden());
+    }
+
     @org.springframework.context.annotation.Configuration
     @EnableWebSecurity
     static class TestSecurityWebConfig {}

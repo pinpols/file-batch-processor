@@ -99,4 +99,30 @@ class MigrationServiceTest {
         assertEquals(true, result.get("readyForReadSwitch"));
         assertEquals(true, result.get("readyForDeprecation"));
     }
+
+    @Test
+    void switchToNewModelShouldNormalizeSupportedType() {
+        when(migrationStatusRepository.findByMigrationName("READ_SWITCH_FILE_RECORD"))
+                .thenReturn(Optional.empty());
+        when(migrationStatusRepository.save(any(MigrationStatus.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        Map<String, Object> result = migrationService.switchToNewModel("file-record");
+
+        assertEquals("FILE_RECORD", result.get("table"));
+        assertEquals("SWITCHED", result.get("status"));
+        verify(migrationStatusRepository).findByMigrationName("READ_SWITCH_FILE_RECORD");
+    }
+
+    @Test
+    void switchToNewModelShouldRejectUnknownType() {
+        assertThrows(IllegalArgumentException.class, () -> migrationService.switchToNewModel("unknown-table"));
+        verifyNoInteractions(migrationStatusRepository);
+    }
+
+    @Test
+    void deprecateLegacyTableShouldRejectUnknownTable() {
+        assertThrows(IllegalArgumentException.class, () -> migrationService.deprecateLegacyTable("job_instance"));
+        verifyNoInteractions(migrationStatusRepository);
+    }
 }

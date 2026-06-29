@@ -190,7 +190,12 @@ public class FileImportRecordReader implements ItemStreamReader<FileRecord>, Ste
                 return record;
             } catch (Exception e) {
                 // 解析失败跳过当前行，继续读下一行，避免错误地把 null 当作 EOF
-                log.error("Error parsing line {}: {}", lineCount, line, e);
+                log.error(
+                        "Error parsing line {} (length={}, fingerprint={})",
+                        lineCount,
+                        line.length(),
+                        Integer.toHexString(line.hashCode()),
+                        e);
                 parseErrorCount++;
             }
         }

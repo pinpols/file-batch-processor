@@ -195,6 +195,33 @@ public class TaskSchedulerService {
         enqueue(definition);
     }
 
+    public ManualEnqueueResult enqueueManualRerun(String taskId, String bizDate, String reason, String operator) {
+        OrchestrationTaskDefinition registered = taskGraphManager.get(taskId);
+        if (registered == null) {
+            throw new IllegalArgumentException("Task is not registered: " + taskId);
+        }
+        OrchestrationTaskDefinition definition = copyForManualRun(registered);
+        Map<String, String> parameters =
+                new HashMap<>(registered.getParameters() == null ? Map.of() : registered.getParameters());
+        if (bizDate != null && !bizDate.isBlank()) {
+            parameters.put("batchDate", bizDate);
+        }
+        String rerunId = "manual-" + System.currentTimeMillis();
+        parameters.put("rerunId", rerunId);
+        if (reason != null && !reason.isBlank()) {
+            parameters.put("rerunReason", reason);
+        }
+        if (operator != null && !operator.isBlank()) {
+            parameters.put("triggeredBy", operator);
+        }
+        definition.setParameters(parameters);
+        definition.setEnabled(Boolean.TRUE);
+        String runKey = taskRunKey(definition);
+        enqueue(definition);
+        return new ManualEnqueueResult(
+                definition.getId(), definition.getJobName(), resolveBatchDate(definition), rerunId, runKey);
+    }
+
     public void resetPersistedSchedules() {
         if (!schedulerLeaderService.isLeader()) {
             log.info("Skip resetting Quartz orchestration rows because current instance is not leader");
@@ -490,6 +517,7 @@ public class TaskSchedulerService {
                                 launchExecutor.launch(task, resolveBatchDate(task), queueManager.size());
                         if (launchResult.isShouldReschedule()) {
                             queueManager.requeue(task);
+                            heldRunKeys.add(taskRunKey(task));
                             batchMetrics.counter(
                                     "scheduler_launch_reschedule_total", "job", String.valueOf(task.getJobName()));
                             return;
@@ -964,6 +992,44 @@ public class TaskSchedulerService {
         String rerunId = def.getParameters().getOrDefault("rerunId", "");
         return def.getId() + ":" + batchDate + ":" + rerunId;
     }
+
+    private OrchestrationTaskDefinition copyForManualRun(OrchestrationTaskDefinition source) {
+        OrchestrationTaskDefinition copy = new OrchestrationTaskDefinition();
+        copy.setId(source.getId());
+        copy.setJobName(source.getJobName());
+        copy.setTenantId(source.getTenantId());
+        copy.setBizDomain(source.getBizDomain());
+        copy.setEnv(source.getEnv());
+        copy.setTrigger(null);
+        copy.setPriority(source.getPriority());
+        copy.setParameters(new HashMap<>(source.getParameters() == null ? Map.of() : source.getParameters()));
+        copy.setDependencies(new ArrayList<>(source.getDependencies() == null ? List.of() : source.getDependencies()));
+        copy.setDependencyTimeoutByTask(new HashMap<>(
+                source.getDependencyTimeoutByTask() == null ? Map.of() : source.getDependencyTimeoutByTask()));
+        copy.setDependencyFailureActionByTask(new HashMap<>(
+                source.getDependencyFailureActionByTask() == null
+                        ? Map.of()
+                        : source.getDependencyFailureActionByTask()));
+        copy.setDedupKey(source.getDedupKey());
+        copy.setAllowParallel(source.isAllowParallel());
+        copy.setAllowMerge(false);
+        copy.setEnabled(Boolean.TRUE);
+        copy.setSlaMaxDurationMs(source.getSlaMaxDurationMs());
+        copy.setSlaMaxQueueDelayMs(source.getSlaMaxQueueDelayMs());
+        copy.setRateLimitPerMinute(source.getRateLimitPerMinute());
+        copy.setShardIndex(source.getShardIndex());
+        copy.setShardTotal(source.getShardTotal());
+        copy.setTimeoutMs(source.getTimeoutMs());
+        copy.setMaxQueueWaitMs(source.getMaxQueueWaitMs());
+        copy.setDynamicShardMax(source.getDynamicShardMax());
+        copy.setDependencyTimeoutMs(source.getDependencyTimeoutMs());
+        copy.setRerunWindowMs(source.getRerunWindowMs());
+        copy.setMaxAttempts(source.getMaxAttempts());
+        copy.setRetryBackoffMs(source.getRetryBackoffMs());
+        return copy;
+    }
+
+    public record ManualEnqueueResult(String taskId, String jobName, String batchDate, String rerunId, String runKey) {}
 
     private int getCurrentAttempt(OrchestrationTaskDefinition def) {
         String batchDate = resolveBatchDate(def);

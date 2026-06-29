@@ -10,6 +10,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import lombok.Builder;
@@ -89,85 +93,108 @@ public class LaunchExecutor {
             }
         }
 
+        if (def.isAllowParallel() && shardIndexes.size() > 1) {
+            return launchParallelShards(
+                    def, job, taskParameters, batchDate, rerunId, shardIndexes, shardTotal, launchWarnThresholdMs);
+        }
+
         int successShards = 0;
         int failedShards = 0;
         Throwable lastFailureCause = null;
         for (Integer shardIndex : shardIndexes) {
-            String executionId = def.getId()
-                    + "-"
-                    + batchDate
-                    + (rerunId.isEmpty() ? "" : "-" + rerunId)
-                    + "-s"
-                    + shardIndex
-                    + "-of"
-                    + shardTotal
-                    + "-"
-                    + System.nanoTime();
-
-            boolean permitAcquired = false;
-            boolean jobLockAcquired = false;
-            Long jobInstanceId = null;
-            try {
-                permitAcquired = launchPermits.tryAcquire(1, TimeUnit.SECONDS);
-                if (!permitAcquired) {
-                    return LaunchResult.reschedule();
-                }
-                jobLockAcquired = jobLaunchLock.tryAcquire(1, TimeUnit.SECONDS);
-                if (!jobLockAcquired) {
-                    return LaunchResult.reschedule();
-                }
-                var businessInstance = jobInstanceService.createTriggeredInstance(new JobInstanceService.CreateRequest(
-                        def.getId(),
-                        def.getJobName(),
-                        "SCHEDULER",
-                        null,
-                        batchDate,
-                        taskParameters.get("batchNo"),
-                        executionId,
-                        !rerunId.isBlank(),
-                        false,
-                        false,
-                        jobInstanceService.resolveRelatedFileId(taskParameters),
-                        buildRequestPayload(taskParameters, executionId, shardIndex, shardTotal)));
-                jobInstanceId = businessInstance.getId();
-                JobParameters parameters = buildJobParameters(
-                        def,
-                        taskParameters,
-                        batchDate,
-                        executionId,
-                        shardIndex,
-                        shardTotal,
-                        businessInstance.getId(),
-                        businessInstance.getJobInstanceNo());
-                JobExecution execution = runAndWarnIfSlow(job, parameters, launchWarnThresholdMs);
-                if (execution != null && execution.getStatus() == BatchStatus.FAILED) {
-                    failedShards++;
-                } else {
-                    successShards++;
-                }
-            } catch (Exception e) {
-                lastFailureCause = e;
-                log.warn(
-                        "Launch failed: taskId={} jobName={} shardIndex={} reason={}",
-                        def.getId(),
-                        def.getJobName(),
-                        shardIndex,
-                        e.toString(),
-                        e);
-                if (jobInstanceId != null) {
-                    jobInstanceService.markLaunchFailed(jobInstanceId, e.getMessage());
-                }
+            ShardLaunchOutcome outcome = launchSingleShard(
+                    def,
+                    job,
+                    taskParameters,
+                    batchDate,
+                    rerunId,
+                    shardIndex,
+                    shardTotal,
+                    launchWarnThresholdMs,
+                    jobLaunchLock,
+                    true);
+            if (outcome.shouldReschedule()) {
+                return LaunchResult.reschedule();
+            }
+            if (outcome.success()) {
+                successShards++;
+            } else {
                 failedShards++;
-            } finally {
-                if (jobLockAcquired) {
-                    jobLaunchLock.release();
-                }
-                if (permitAcquired) {
-                    launchPermits.release();
-                }
+                lastFailureCause = outcome.failureCause();
             }
         }
 
+        return summarizeShardOutcomes(successShards, failedShards, lastFailureCause);
+    }
+
+    private LaunchResult launchParallelShards(
+            OrchestrationTaskDefinition def,
+            Job job,
+            Map<String, String> taskParameters,
+            String batchDate,
+            String rerunId,
+            List<Integer> shardIndexes,
+            int shardTotal,
+            long launchWarnThresholdMs) {
+        int availablePermits = launchPermits.availablePermits();
+        if (availablePermits <= 0) {
+            return LaunchResult.reschedule();
+        }
+        int parallelism = Math.max(1, Math.min(shardIndexes.size(), availablePermits));
+        int successShards = 0;
+        int failedShards = 0;
+        Throwable lastFailureCause = null;
+        boolean permitsAcquired = false;
+        ExecutorService executor = null;
+        try {
+            permitsAcquired = launchPermits.tryAcquire(parallelism, 1, TimeUnit.SECONDS);
+            if (!permitsAcquired) {
+                return LaunchResult.reschedule();
+            }
+            executor = Executors.newFixedThreadPool(parallelism);
+            ExecutorService shardExecutor = executor;
+            List<Future<ShardLaunchOutcome>> futures = shardIndexes.stream()
+                    .map(shardIndex -> shardExecutor.submit(() -> launchSingleShard(
+                            def,
+                            job,
+                            taskParameters,
+                            batchDate,
+                            rerunId,
+                            shardIndex,
+                            shardTotal,
+                            launchWarnThresholdMs,
+                            null,
+                            false)))
+                    .toList();
+            for (Future<ShardLaunchOutcome> future : futures) {
+                ShardLaunchOutcome outcome = future.get();
+                if (outcome.shouldReschedule()) {
+                    return LaunchResult.reschedule();
+                }
+                if (outcome.success()) {
+                    successShards++;
+                } else {
+                    failedShards++;
+                    lastFailureCause = outcome.failureCause();
+                }
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return LaunchResult.failed("Parallel shard launch interrupted", e);
+        } catch (ExecutionException e) {
+            return LaunchResult.failed("Parallel shard launch failed", e.getCause());
+        } finally {
+            if (executor != null) {
+                executor.shutdown();
+            }
+            if (permitsAcquired) {
+                launchPermits.release(parallelism);
+            }
+        }
+        return summarizeShardOutcomes(successShards, failedShards, lastFailureCause);
+    }
+
+    private LaunchResult summarizeShardOutcomes(int successShards, int failedShards, Throwable lastFailureCause) {
         if (failedShards == 0) {
             return LaunchResult.success();
         }
@@ -175,6 +202,94 @@ public class LaunchExecutor {
             return LaunchResult.partial("Partial success, failed shards=" + failedShards, lastFailureCause);
         }
         return LaunchResult.failed("All shards failed", lastFailureCause);
+    }
+
+    private ShardLaunchOutcome launchSingleShard(
+            OrchestrationTaskDefinition def,
+            Job job,
+            Map<String, String> taskParameters,
+            String batchDate,
+            String rerunId,
+            Integer shardIndex,
+            int shardTotal,
+            long launchWarnThresholdMs,
+            Semaphore jobLaunchLock,
+            boolean acquirePermit) {
+        String executionId = def.getId()
+                + "-"
+                + batchDate
+                + (rerunId.isEmpty() ? "" : "-" + rerunId)
+                + "-s"
+                + shardIndex
+                + "-of"
+                + shardTotal
+                + "-"
+                + System.nanoTime();
+
+        boolean permitAcquired = false;
+        boolean jobLockAcquired = false;
+        Long jobInstanceId = null;
+        try {
+            if (acquirePermit) {
+                permitAcquired = launchPermits.tryAcquire(1, TimeUnit.SECONDS);
+                if (!permitAcquired) {
+                    return ShardLaunchOutcome.rescheduled();
+                }
+            }
+            if (jobLaunchLock != null) {
+                jobLockAcquired = jobLaunchLock.tryAcquire(1, TimeUnit.SECONDS);
+                if (!jobLockAcquired) {
+                    return ShardLaunchOutcome.rescheduled();
+                }
+            }
+            var businessInstance = jobInstanceService.createTriggeredInstance(new JobInstanceService.CreateRequest(
+                    def.getId(),
+                    def.getJobName(),
+                    "SCHEDULER",
+                    null,
+                    batchDate,
+                    taskParameters.get("batchNo"),
+                    executionId,
+                    !rerunId.isBlank(),
+                    false,
+                    false,
+                    jobInstanceService.resolveRelatedFileId(taskParameters),
+                    buildRequestPayload(taskParameters, executionId, shardIndex, shardTotal)));
+            jobInstanceId = businessInstance.getId();
+            JobParameters parameters = buildJobParameters(
+                    def,
+                    taskParameters,
+                    batchDate,
+                    executionId,
+                    shardIndex,
+                    shardTotal,
+                    businessInstance.getId(),
+                    businessInstance.getJobInstanceNo());
+            JobExecution execution = runAndWarnIfSlow(job, parameters, launchWarnThresholdMs);
+            if (execution != null && execution.getStatus() == BatchStatus.FAILED) {
+                return ShardLaunchOutcome.failedOutcome(null);
+            }
+            return ShardLaunchOutcome.successOutcome();
+        } catch (Exception e) {
+            log.warn(
+                    "Launch failed: taskId={} jobName={} shardIndex={} reason={}",
+                    def.getId(),
+                    def.getJobName(),
+                    shardIndex,
+                    e.toString(),
+                    e);
+            if (jobInstanceId != null) {
+                jobInstanceService.markLaunchFailed(jobInstanceId, e.getMessage());
+            }
+            return ShardLaunchOutcome.failedOutcome(e);
+        } finally {
+            if (jobLockAcquired) {
+                jobLaunchLock.release();
+            }
+            if (acquirePermit && permitAcquired) {
+                launchPermits.release();
+            }
+        }
     }
 
     private int resolveShardTotal(OrchestrationTaskDefinition def, int queueSize) {
@@ -325,6 +440,20 @@ public class LaunchExecutor {
                     .reason(reason)
                     .failureCause(failureCause)
                     .build();
+        }
+    }
+
+    private record ShardLaunchOutcome(boolean success, boolean shouldReschedule, Throwable failureCause) {
+        static ShardLaunchOutcome successOutcome() {
+            return new ShardLaunchOutcome(true, false, null);
+        }
+
+        static ShardLaunchOutcome failedOutcome(Throwable cause) {
+            return new ShardLaunchOutcome(false, false, cause);
+        }
+
+        static ShardLaunchOutcome rescheduled() {
+            return new ShardLaunchOutcome(false, true, null);
         }
     }
 }

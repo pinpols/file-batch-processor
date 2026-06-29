@@ -10,8 +10,10 @@ import com.example.filebatchprocessor.repository.FileReceptionQueueRepository;
 import com.example.filebatchprocessor.repository.MigrationStatusRepository;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -22,6 +24,11 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Transactional
 public class MigrationService {
+
+    private static final Set<String> SUPPORTED_READ_SWITCH_TYPES =
+            Set.of("FILE_RECORD", "FILE_DISPATCH_RECORD", "FILE_RECEPTION_QUEUE", "FILE_DISTRIBUTION_TASK");
+    private static final Set<String> SUPPORTED_DEPRECATED_TABLES =
+            Set.of("file_reception_queue", "file_distribution_task");
 
     private final MigrationStatusRepository migrationStatusRepository;
     private final FileAssetRecordRepository fileAssetRepository;
@@ -179,10 +186,11 @@ public class MigrationService {
     }
 
     public Map<String, Object> switchToNewModel(String tableType) {
+        String normalizedTableType = normalizeReadSwitchType(tableType);
         MigrationStatus migration = migrationStatusRepository
-                .findByMigrationName("READ_SWITCH_" + tableType)
+                .findByMigrationName("READ_SWITCH_" + normalizedTableType)
                 .orElseGet(() -> {
-                    MigrationStatus m = MigrationStatus.create("READ_SWITCH_" + tableType, "READ_SWITCH");
+                    MigrationStatus m = MigrationStatus.create("READ_SWITCH_" + normalizedTableType, "READ_SWITCH");
                     return migrationStatusRepository.save(m);
                 });
 
@@ -191,18 +199,19 @@ public class MigrationService {
         migration.complete();
         migrationStatusRepository.save(migration);
 
-        log.info("Switched to new model for: {}", tableType);
+        log.info("Switched to new model for: {}", normalizedTableType);
         return Map.of(
-                "table", tableType,
+                "table", normalizedTableType,
                 "status", "SWITCHED",
                 "message", "Read path now uses new model");
     }
 
     public Map<String, Object> deprecateLegacyTable(String tableName) {
+        String normalizedTableName = normalizeLegacyTableName(tableName);
         MigrationStatus migration = migrationStatusRepository
-                .findByMigrationName("DEPRECATE_" + tableName)
+                .findByMigrationName("DEPRECATE_" + normalizedTableName)
                 .orElseGet(() -> {
-                    MigrationStatus m = MigrationStatus.create("DEPRECATE_" + tableName, "DEPRECATION");
+                    MigrationStatus m = MigrationStatus.create("DEPRECATE_" + normalizedTableName, "DEPRECATION");
                     return migrationStatusRepository.save(m);
                 });
 
@@ -211,10 +220,10 @@ public class MigrationService {
         migration.complete();
         migrationStatusRepository.save(migration);
 
-        log.info("旧表已标记为退役: {}", tableName);
+        log.info("旧表已标记为退役: {}", normalizedTableName);
 
         Map<String, Object> result = new HashMap<>();
-        result.put("table", tableName);
+        result.put("table", normalizedTableName);
         result.put("status", "DEPRECATED");
         result.put("message", "旧表已标记为退役，只读保留");
         return result;
@@ -244,5 +253,27 @@ public class MigrationService {
                 coverage >= 100,
                 "readyForDeprecation",
                 coverage >= 100);
+    }
+
+    private String normalizeReadSwitchType(String tableType) {
+        if (tableType == null || tableType.isBlank()) {
+            throw new IllegalArgumentException("tableType is required");
+        }
+        String normalized = tableType.trim().toUpperCase(Locale.ROOT).replace('-', '_');
+        if (!SUPPORTED_READ_SWITCH_TYPES.contains(normalized)) {
+            throw new IllegalArgumentException("Unsupported migration tableType: " + tableType);
+        }
+        return normalized;
+    }
+
+    private String normalizeLegacyTableName(String tableName) {
+        if (tableName == null || tableName.isBlank()) {
+            throw new IllegalArgumentException("tableName is required");
+        }
+        String normalized = tableName.trim().toLowerCase(Locale.ROOT).replace('-', '_');
+        if (!SUPPORTED_DEPRECATED_TABLES.contains(normalized)) {
+            throw new IllegalArgumentException("Unsupported legacy table: " + tableName);
+        }
+        return normalized;
     }
 }

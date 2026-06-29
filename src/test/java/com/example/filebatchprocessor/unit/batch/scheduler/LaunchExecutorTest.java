@@ -11,7 +11,10 @@ import com.example.filebatchprocessor.scheduler.OrchestrationTaskDefinition;
 import com.example.filebatchprocessor.service.BatchJobResolver;
 import com.example.filebatchprocessor.service.JobInstanceService;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.batch.core.BatchStatus;
@@ -101,6 +104,51 @@ class LaunchExecutorTest {
         LaunchExecutor.LaunchResult result = launchExecutor.launch(def, "2026-03-01", 0);
         assertTrue(result.isShouldReschedule());
         assertEquals(0, permits.availablePermits());
+    }
+
+    @Test
+    void shouldLaunchAllowedShardsInParallel() throws Exception {
+        Job job = mock(Job.class);
+        JobExecution execution = mock(JobExecution.class);
+        when(execution.getStatus()).thenReturn(BatchStatus.COMPLETED);
+        when(jobResolver.resolve("jobA"))
+                .thenReturn(Optional.of(new BatchJobResolver.ResolvedJob("jobA", "jobA", job)));
+        AtomicInteger id = new AtomicInteger(100);
+        when(jobInstanceService.createTriggeredInstance(any())).thenAnswer(invocation -> {
+            BusinessJobInstance businessJobInstance = new BusinessJobInstance();
+            businessJobInstance.setId((long) id.incrementAndGet());
+            businessJobInstance.setJobInstanceNo("JI-" + id.get());
+            return businessJobInstance;
+        });
+
+        CountDownLatch bothStarted = new CountDownLatch(2);
+        AtomicInteger running = new AtomicInteger();
+        AtomicInteger maxRunning = new AtomicInteger();
+        when(jobOperator.run(eq(job), any())).thenAnswer(invocation -> {
+            int current = running.incrementAndGet();
+            maxRunning.accumulateAndGet(current, Math::max);
+            bothStarted.countDown();
+            bothStarted.await(2, TimeUnit.SECONDS);
+            running.decrementAndGet();
+            return execution;
+        });
+
+        LaunchExecutor launchExecutor =
+                new LaunchExecutor(jobOperator, jobResolver, jobInstanceService, new Semaphore(2), 2, 10_000);
+
+        OrchestrationTaskDefinition def = OrchestrationTaskDefinition.builder()
+                .id("t1")
+                .jobName("jobA")
+                .priority(TaskPriority.NORMAL)
+                .allowParallel(true)
+                .shardTotal(2)
+                .build();
+
+        LaunchExecutor.LaunchResult result = launchExecutor.launch(def, "2026-03-01", 0);
+
+        assertTrue(result.isSuccess());
+        assertTrue(maxRunning.get() > 1, "allowed shards should overlap instead of running sequentially");
+        verify(jobOperator, times(2)).run(eq(job), any());
     }
 
     private OrchestrationTaskDefinition definition(String taskId, String jobName) {

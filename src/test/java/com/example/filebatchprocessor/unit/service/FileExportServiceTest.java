@@ -1,5 +1,7 @@
 package com.example.filebatchprocessor.service;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -16,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.springframework.test.util.ReflectionTestUtils;
 
 class FileExportServiceTest {
 
@@ -91,5 +94,18 @@ class FileExportServiceTest {
                         eq(null),
                         eq("PROCESSED"),
                         any());
+    }
+
+    @Test
+    void exportToJSON_shouldRejectPathEscapingConfiguredBaseDir(@TempDir Path tempDir) {
+        FileExportService service = new FileExportService(
+                new ObjectMapper(), mock(FileAssetService.class), mock(FileProcessLogService.class));
+        Path baseDir = tempDir.resolve("exports");
+        ReflectionTestUtils.setField(service, "outputBaseDir", baseDir.toString());
+
+        assertThrows(
+                RuntimeException.class, () -> service.exportToJSON("", "../escape.json", List.of(Map.of("id", "1"))));
+
+        assertFalse(Files.exists(tempDir.resolve("escape.json")));
     }
 }

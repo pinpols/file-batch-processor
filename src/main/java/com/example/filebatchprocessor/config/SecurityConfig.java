@@ -48,6 +48,7 @@ public class SecurityConfig {
                                 "/ops/tasks/*/toggle",
                                 "/ops/change-requests",
                                 "/ops/scheduler/trigger/*",
+                                "/ops/scheduler/reload",
                                 "/ops/batch/**",
                                 "/ops/file-dispatch/**",
                                 "/ops/files/*/reprocess")

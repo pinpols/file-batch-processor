@@ -50,10 +50,14 @@ public class FileArchivalService {
         this.fileAssetRepository = fileAssetRepository;
         this.retentionPolicyRepository = retentionPolicyRepository;
         this.stateMachineService = stateMachineService;
-        this.schedulerLeaderService = schedulerLeaderService.getIfAvailable();
-        this.fileDispatchRecordRepository = fileDispatchRecordRepository.getIfAvailable();
-        this.fileReceptionQueueRepository = fileReceptionQueueRepository.getIfAvailable();
-        this.receptionGroupMemberRepository = receptionGroupMemberRepository.getIfAvailable();
+        this.schedulerLeaderService = optionalBean(schedulerLeaderService);
+        this.fileDispatchRecordRepository = optionalBean(fileDispatchRecordRepository);
+        this.fileReceptionQueueRepository = optionalBean(fileReceptionQueueRepository);
+        this.receptionGroupMemberRepository = optionalBean(receptionGroupMemberRepository);
+    }
+
+    private static <T> T optionalBean(ObjectProvider<T> provider) {
+        return provider == null ? null : provider.getIfAvailable();
     }
 
     @Scheduled(cron = "${file.archive.cron:0 0 2 * * *}")

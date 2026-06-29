@@ -1,10 +1,9 @@
 package com.example.filebatchprocessor.controller;
 
-import com.example.filebatchprocessor.model.BusinessJobInstance;
+import com.example.filebatchprocessor.batch.scheduler.TaskSchedulerService;
 import com.example.filebatchprocessor.model.CompensationActionType;
 import com.example.filebatchprocessor.model.CompensationRecord;
 import com.example.filebatchprocessor.service.FileAssetService;
-import com.example.filebatchprocessor.service.JobInstanceService;
 import com.example.filebatchprocessor.service.OpsAuditService;
 import com.example.filebatchprocessor.service.RetryCompensationService;
 import jakarta.validation.Valid;
@@ -19,17 +18,17 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/ops/batch")
 public class OpsBatchController {
 
-    private final JobInstanceService jobInstanceService;
+    private final TaskSchedulerService taskSchedulerService;
     private final RetryCompensationService retryCompensationService;
     private final OpsAuditService opsAuditService;
     private final FileAssetService fileAssetService;
 
     public OpsBatchController(
-            JobInstanceService jobInstanceService,
+            TaskSchedulerService taskSchedulerService,
             RetryCompensationService retryCompensationService,
             OpsAuditService opsAuditService,
             FileAssetService fileAssetService) {
-        this.jobInstanceService = jobInstanceService;
+        this.taskSchedulerService = taskSchedulerService;
         this.retryCompensationService = retryCompensationService;
         this.opsAuditService = opsAuditService;
         this.fileAssetService = fileAssetService;
@@ -42,37 +41,28 @@ public class OpsBatchController {
         String taskId = request.taskId();
         String reason = request.reason() != null ? request.reason() : "Manual rerun requested";
 
-        BusinessJobInstance instance = jobInstanceService.createTriggeredInstance(new JobInstanceService.CreateRequest(
-                taskId,
-                taskId,
-                "MANUAL",
-                operator,
-                bizDate,
-                null,
-                null,
-                true,
-                false,
-                true,
-                null,
-                Map.of("rerunReason", reason)));
+        TaskSchedulerService.ManualEnqueueResult enqueued =
+                taskSchedulerService.enqueueManualRerun(taskId, bizDate, reason, operator);
 
         opsAuditService.log(
                 "BATCH_RERUN",
                 operator,
-                "JOB_INSTANCE",
-                String.valueOf(instance.getId()),
+                "TASK",
+                taskId,
                 "SUCCESS",
-                "bizDate=" + bizDate + ", taskId=" + taskId + ", reason=" + reason);
+                "bizDate=" + enqueued.batchDate() + ", taskId=" + taskId + ", rerunId=" + enqueued.rerunId()
+                        + ", reason=" + reason);
 
         Map<String, Object> response = new LinkedHashMap<>();
-        response.put("instanceId", instance.getId());
-        response.put("instanceNo", instance.getJobInstanceNo());
-        response.put("bizDate", bizDate);
+        response.put("accepted", true);
         response.put("taskId", taskId);
+        response.put("jobName", enqueued.jobName());
+        response.put("bizDate", enqueued.batchDate());
+        response.put("rerunId", enqueued.rerunId());
+        response.put("runKey", enqueued.runKey());
         response.put("operator", operator);
         response.put("reason", reason);
-        response.put("status", instance.getStatus());
-        response.put("message", "Batch rerun initiated");
+        response.put("message", "Batch rerun enqueued");
         return response;
     }
 

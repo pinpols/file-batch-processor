@@ -11,6 +11,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -20,7 +21,9 @@ import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 /**
  * 增强型导出服务：
@@ -37,6 +40,9 @@ public class FileExportService {
     private final ObjectMapper objectMapper;
     private final FileAssetService fileAssetService;
     private final FileProcessLogService fileProcessLogService;
+
+    @Value("${batch.io.output-base-dir:}")
+    private String outputBaseDir;
 
     public FileExportService(
             ObjectMapper objectMapper, FileAssetService fileAssetService, FileProcessLogService fileProcessLogService) {
@@ -98,11 +104,8 @@ public class FileExportService {
         log.info("Exporting to CSV: {}", fileName);
 
         try {
-            // 确保输出目录存在
-            Files.createDirectories(Paths.get(outputDir));
-
-            // 生成完整路径
-            String filePath = Paths.get(outputDir, fileName).toString();
+            String filePath = resolveOutputPath(outputDir, fileName);
+            ensureParentDirectory(filePath);
 
             // 写入 CSV 文件(显式 UTF-8,避免依赖平台默认编码)
             try (CSVWriter writer = new CSVWriter(new FileWriter(filePath, StandardCharsets.UTF_8))) {
@@ -140,8 +143,8 @@ public class FileExportService {
         log.info("Exporting to JSON: {}", fileName);
 
         try {
-            Files.createDirectories(Paths.get(outputDir));
-            String filePath = Paths.get(outputDir, fileName).toString();
+            String filePath = resolveOutputPath(outputDir, fileName);
+            ensureParentDirectory(filePath);
             objectMapper.writeValue(Paths.get(filePath).toFile(), data);
 
             log.info("JSON export completed: {}", filePath);
@@ -165,8 +168,8 @@ public class FileExportService {
         log.info("Exporting to Excel: {}", fileName);
 
         try {
-            Files.createDirectories(Paths.get(outputDir));
-            String filePath = Paths.get(outputDir, fileName).toString();
+            String filePath = resolveOutputPath(outputDir, fileName);
+            ensureParentDirectory(filePath);
 
             try (ExcelWriter writer = ExcelUtil.getWriter(filePath)) {
                 if (headers != null && headers.length > 0) {
@@ -199,8 +202,8 @@ public class FileExportService {
         log.info("Exporting compressed file: {}", fileName);
 
         try {
-            Files.createDirectories(Paths.get(outputDir));
-            String zipPath = Paths.get(outputDir, fileName).toString();
+            String zipPath = resolveOutputPath(outputDir, fileName);
+            ensureParentDirectory(zipPath);
             File source = new File(sourceFilePath);
             if (!source.exists() || !source.isFile()) {
                 throw new IllegalArgumentException("Source file not found: " + sourceFilePath);
@@ -292,6 +295,22 @@ public class FileExportService {
                     null,
                     null,
                     metadata);
+        }
+    }
+
+    private String resolveOutputPath(String outputDir, String fileName) {
+        String candidate =
+                Paths.get(outputDir == null ? "" : outputDir, fileName).toString();
+        if (StringUtils.hasText(outputBaseDir)) {
+            return com.example.filebatchprocessor.util.PathSafety.confine(outputBaseDir, candidate);
+        }
+        return candidate;
+    }
+
+    private void ensureParentDirectory(String filePath) throws IOException {
+        Path parent = Paths.get(filePath).getParent();
+        if (parent != null) {
+            Files.createDirectories(parent);
         }
     }
 }
