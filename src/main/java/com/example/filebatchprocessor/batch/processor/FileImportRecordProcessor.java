@@ -8,9 +8,7 @@ import org.springframework.batch.infrastructure.item.ItemProcessor;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
-/**
- * 导入文件处理器：示例将 name 转大写，可在此扩展业务校验与转换。
- */
+/** 导入文件处理器：执行基础字段校验，并将名称字段标准化为大写。 */
 @Component
 public class FileImportRecordProcessor implements ItemProcessor<FileRecord, FileRecord> {
 

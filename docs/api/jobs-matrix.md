@@ -51,7 +51,7 @@ timeoutMinutes=60
 
 ### 7) `fileDistributionJob`
 ```text
-targetType=http&targetPath=https://downstream.example.com/api/upload&maxRetries=3&retryIntervalSeconds=300
+targetType=http&targetPath=https://downstream.internal/api/upload&maxRetries=3&retryIntervalSeconds=300
 ```
 
 ### 8) `fileDistributionRetryJob`

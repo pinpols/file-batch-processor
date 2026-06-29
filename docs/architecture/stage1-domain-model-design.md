@@ -138,7 +138,7 @@
 
 | 旧状态 | 新状态 | 说明 |
 | --- | --- | --- |
-| `RECEIVED` | `ARRIVED` | 文件已登记，但还未完成完整性/可处理性判定 |
+| `RECEIVED` | `ARRIVED` | 文件已登记，等待完整性/可处理性判定 |
 | `WAITING` | `ARRIVED` | 仍视为已到达文件，等待原因写入 `metadata.waitReason` 或 `file_process_log.extra` |
 | `PROCESSING` | `PROCESSING` | 正在被批处理链路消费 |
 | `COMPLETED` | `PROCESSED` | 入站处理完成 |

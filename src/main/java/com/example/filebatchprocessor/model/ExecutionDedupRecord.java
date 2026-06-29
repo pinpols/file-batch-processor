@@ -35,7 +35,7 @@ public class ExecutionDedupRecord {
     @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
 
-    // Explicit getters and setters as workaround for Lombok annotation processing issue
+    // 显式访问器用于稳定 JPA/测试反射行为，避免依赖 Lombok 生成细节。
 
     public Long getId() {
         return id;

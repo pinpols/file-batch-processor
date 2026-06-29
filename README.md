@@ -1,41 +1,41 @@
-## File Batch Processor 使用说明
+# File Batch Processor 使用说明
 
 ### 场景概览
-- **场景一：文件接收 → 解析 → 入表（幂等）**  
-  - 入口：`processFileJob`（可被本地编排触发）。  
-  - Reader：`FileRecordReader` 读取 CSV，支持分片；记录 read.count 与 checksum。  
-  - Processor：`FileRecordProcessor` 示例逻辑，可扩展业务校验/转换。  
-  - Writer：`FileRecordWriter` 将数据写入表 `imported_records`，唯一索引 `business_key + batch_date` 保证幂等。  
+- **场景一：文件接收 → 解析 → 入表（幂等）**
+  - 入口：`processFileJob` / `importJob`（由本地编排或运维接口触发）。
+  - Reader：`FileImportRecordReader` 读取 CSV、定长、JSON、Excel，支持分片；记录 `read.count` 与 checksum。
+  - Processor：`FileImportRecordProcessor` 执行业务字段标准化和基础校验。
+  - Writer：`FileImportRecordWriter` 将数据写入导入结果表；唯一索引保证批量日维度幂等。
   - 质量校验：`JobCompletionNotificationListener` 检查读写计数/校验和，不一致则失败。
 
-- **场景二：按 SQL 取数 → 生成文件（可再分发）**  
-  - 入口：`dataExportJob`。  
-  - Reader：`JdbcCursorItemReader`，SQL 从参数 `export.sql` 传入（默认导出 `imported_records`）。  
+- **场景二：按 SQL 取数 → 生成文件（可再分发）**
+  - 入口：`dataExportJob`。
+  - Reader：`JdbcCursorItemReader`，SQL 从参数 `export.sql` 传入（默认导出 `imported_records`）。
   - Writer：`FlatFileItemWriter` 输出 CSV，路径由 `output.file.name` 决定；可在后续 Step/Listener 中扩展分发（SFTP/HTTP/OSS）。
 
 ### 关键能力
-- 触发：CRON/固定频率/固定延迟/一次性；任务配置默认来自数据库（`task_definition`、`task_trigger`、`task_parameter`），YAML 仅用于 local/dev 临时调试。
+- 触发：CRON/固定频率/固定延迟/一次性；任务配置默认来自数据库（`task_definition`、`task_trigger`、`task_parameter`），YAML 仅用于 local/dev 验证。
 - DAG/优先级/分片：`TaskSchedulerService` 管理；分片参数透传到 Reader。
 - 去重与合并：短窗 dedup，时间窗合并小任务；批量日/重跑 `batchDate/runMode/rerunId` 透传。
 - 可靠性：可配重试/退避/最大时长/超时；失败落 `dlq_records`。
 - 幂等：Writer 利用唯一索引 + 批量日保证重复导入不污染数据。
 
 ### 新增能力
-- **多格式导入**：CSV/定长之外支持 JSON（顶层数组，Jackson streaming）、Excel `.xlsx`（首行表头列名映射）。文档格式按 record 序号分片。详见 [job 配置范例](docs/user-guide/job-configuration-examples.md)。
+- **多格式导入**：CSV/定长之外支持 JSON（顶层数组，Jackson streaming）、Excel `.xlsx`（首行表头列名映射）。文档格式按 record 序号分片。详见 [作业配置范例](docs/user-guide/job-configuration-examples.md)。
 - **加密/压缩文件导入**：上游文件可 PGP 加密 + `.gz`/`.zip` 压缩送达；导入前解密+解压到临时明文文件再解析（PGP 完整性校验、zip-slip 防护、step 结束清理临时文件）。详见 [encrypted-compressed-intake](docs/operations/encrypted-compressed-intake.md)。
 - **清单(manifest)驱动入库**：上游送 `.manifest.json` 控制文件列出期望文件 + 条数/MD5；等一组到齐且对账通过才放行（灰度默认关）。详见 [manifest-driven-intake](docs/operations/manifest-driven-intake.md)。
 - **多告警渠道**：`AlertSender` SPI（webhook/email/IM 飞书）+ `AlertDispatcher` 失败隔离 + severity 门槛。详见 [alerting-channels](docs/operations/alerting-channels.md)。
 - **声明式映射**：`feed_definition`/`field_mapping` 配置 + `MappingEngine`（6 算子)+ `attributes JSONB`；**已接入导入链路（feedId 路由,默认路径不变）**——job 参数带 `feedId` 走 feed 路径,按配置映射列与 business_key。详见 [declarative-mapping](docs/operations/declarative-mapping.md)。
 - **安全/可靠性加固**：export.sql 只读白名单、SSRF/路径穿越防护、SFTP 主机密钥校验、运维端点角色限制、弱口令 fail-fast；ACK 无限重发修复、熔断状态持久化、多副本 leader 门控、FIXED_DELAY 退避持久化、质量门 opt-in 硬闸门。
 
-### 配置示例（application.yml）
-- 导入示例（已内置）：`process-file-cron`、`process-file-fixed`、一次性 backfill。  
+### 配置范例（application.yml）
+- 导入范例（已内置）：`process-file-cron`、`process-file-fixed`、一次性 backfill。
   - 参数：`input.file.name`、`batchDate`、`runMode`、`rerunId` 等。
-- 导出示例（已内置）：`data-export-daily`  
-  - `export.sql`: 自定义查询  
+- 导出范例（已内置）：`data-export-daily`
+  - `export.sql`: 自定义查询
   - `output.file.name`: 输出路径
 
-### 触发参数示例
+### 触发参数范例
 ```
 input=/data/input.csv&batchDate=2025-01-01&runMode=backfill&rerunId=bf-20250101&priority=10&maxRetries=3&backoffMs=2000&timeoutMs=60000&maxDurationMs=300000
 ```
@@ -65,7 +65,7 @@ input=/data/input.csv&batchDate=2025-01-01&runMode=backfill&rerunId=bf-20250101&
 - E2E 测试：`mvn test -Pe2e-test`（使用 Testcontainers PostgreSQL，需要本机 Docker 可用）
 - 本地后端全场景：`./scripts/testing/run-local-scenarios.sh`（需要后端已启动，并连接本地 PostgreSQL；脚本会刷新调度器配置、等待导入/导出成功，并校验导出文件）
 
-### 本地运行数据库准备
+### 本地数据库准备
 1. 创建测试数据库：`CREATE DATABASE file_batch;`
 2. 启动应用后由 Flyway 自动迁移；也可使用 `scripts/testing/init-test-environment.sh all` 加载本地验证数据。
 

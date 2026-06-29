@@ -51,7 +51,7 @@ spring.mail.password  = ${SMTP_PASSWORD}
 - 任一渠道发送异常被捕获并记录，**不影响其它渠道**，也**不阻塞告警评估循环**。
 - 各渠道 sender（webhook/im）的 HTTP 客户端配置了连接/读取超时，email 走 SMTP 超时（`mail.smtp.connectiontimeout` / `timeout` / `writetimeout`），避免单渠道挂起拖垮整体。
 
-## application.yml 配置片段示例
+## application.yml 配置片段范例
 
 ```yaml
 batch:
@@ -60,11 +60,11 @@ batch:
     channels:
       webhook:
         enabled: true
-        url: "https://hooks.example.com/alert"
+        url: "https://hooks.internal/alert"
       email:
         enabled: true            # 开启后需配 spring.mail.*
-        from: "alert@example.com"
-        to: "ops@example.com"
+        from: "batch-alerts@localhost"
+        to: "ops-team@localhost"
       im:                        # 飞书自定义机器人
         enabled: true
         url: "https://open.feishu.cn/open-apis/bot/v2/hook/xxxx"

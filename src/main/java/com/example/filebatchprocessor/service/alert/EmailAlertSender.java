@@ -27,7 +27,7 @@ public class EmailAlertSender implements AlertSender {
 
     public EmailAlertSender(
             ObjectProvider<JavaMailSender> mailSenderProvider,
-            @Value("${batch.alert.channels.email.from:alert@example.com}") String from,
+            @Value("${batch.alert.channels.email.from:batch-alerts@localhost}") String from,
             @Value("${batch.alert.channels.email.to:}") String to) {
         this.mailSenderProvider = mailSenderProvider;
         this.from = from;

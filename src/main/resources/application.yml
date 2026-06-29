@@ -129,7 +129,7 @@ batch:
         url: ""
       email:
         enabled: false
-        from: "alert@example.com"
+        from: "batch-alerts@localhost"
         to: ""
       im:
         enabled: false

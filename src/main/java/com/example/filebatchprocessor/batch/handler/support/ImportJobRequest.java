@@ -19,7 +19,7 @@ public class ImportJobRequest {
     private final String fileFormat;
     private final String fileDelimiter;
 
-    // Explicit builder as workaround for Lombok annotation processing issue
+    // 显式构建器用于保持请求对象构造逻辑稳定，避免依赖 Lombok 生成细节。
     public static Builder builder() {
         return new Builder();
     }

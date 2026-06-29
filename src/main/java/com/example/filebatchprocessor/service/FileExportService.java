@@ -51,7 +51,7 @@ public class FileExportService {
         this.fileProcessLogService = fileProcessLogService;
     }
 
-    public String exportDemoData(String outputDir, String fileName, String batchDate, String format) {
+    public String exportSampleData(String outputDir, String fileName, String batchDate, String format) {
         if ("csv".equalsIgnoreCase(format)) {
             String[] headers = {"id", "business_key", "name", "description", "batch_date"};
             String[][] data = {

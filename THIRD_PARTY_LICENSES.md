@@ -1,19 +1,19 @@
-# 开源软件声明
+# 第三方开源软件声明
 
-本项目使用了以下开源软件，特此声明并致谢：
+本项目使用以下开源软件。版本以 `pom.xml`、容器编排文件和实际构建产物为准；本文档用于说明主要依赖及许可证义务。
 
 ## 🏗️ 核心框架
 
-### Spring Framework
-- **名称**：Spring Boot, Spring Batch, Spring Security
-- **版本**：4.0.0
+### Spring Framework / Spring Boot
+- **名称**：Spring Boot、Spring Batch、Spring Security
+- **版本**：Spring Boot 4.1.x 管理版本
 - **许可证**：Apache License 2.0
 - **用途**：应用核心框架、批处理、安全认证
 - **官网**：https://spring.io/
 
 ### Spring Batch
 - **名称**：Spring Batch
-- **版本**：4.0.0
+- **版本**：Spring Boot 4.1.x 管理版本
 - **许可证**：Apache License 2.0
 - **用途**：批处理任务调度和执行
 - **官网**：https://spring.io/projects/spring-batch
@@ -68,7 +68,7 @@
 
 ### Lombok
 - **名称**：Project Lombok
-- **版本**：1.18.42
+- **版本**：1.18.46
 - **许可证**：MIT License
 - **用途**：Java 代码生成工具
 - **官网**：https://projectlombok.org/
@@ -84,7 +84,7 @@
 
 ### Testcontainers
 - **名称**：Testcontainers
-- **版本**：1.21.3
+- **版本**：2.0.5
 - **许可证**：MIT License
 - **用途**：集成测试容器化
 - **官网**：https://testcontainers.com/
@@ -170,13 +170,13 @@
 | **Eclipse Public License 1.0** | ✅ 完全兼容 | 需要保留版权声明 |
 | **PostgreSQL License** | ✅ 完全兼容 | 需要保留版权声明 |
 
-## 🙏 致谢
+## 致谢
 
 感谢以下开源社区和开发者：
 
 - **Spring 团队**：提供了优秀的企业级 Java 开发框架
 - **PostgreSQL 社区**：提供了可靠的关系型数据库
-- **Docker 团队**：革命性的容器化技术
+- **Docker 团队**：容器化基础设施
 - **Prometheus 团队**：现代化的监控解决方案
 - **所有开源贡献者**：让软件开发更加高效和可靠
 
@@ -189,14 +189,9 @@
 3. **致谢明确**：明确声明使用的第三方开源软件
 4. **透明公开**：所有依赖关系都公开透明
 
-## 📞 联系信息
+## 联系信息
 
 如有任何关于开源软件使用的问题，请联系：
 
-- **项目邮箱**：legal@example.com
-- **GitHub Issues**：https://github.com/your-username/file-batch-processor/issues
-- **许可证咨询**：license@example.com
-
----
-
-**🎉 感谢所有开源软件的贡献者，是你们的努力让这个项目成为可能！**
+- **GitHub Issues**：https://github.com/pinpols/file-batch-processor/issues
+- **安全或许可证问题**：按仓库安全策略登记的渠道处理

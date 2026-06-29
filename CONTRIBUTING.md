@@ -1,10 +1,10 @@
 # 贡献指南
 
-感谢您对 File Batch Processor 项目的关注！我们欢迎所有形式的贡献。
+本项目主要面向内部批处理平台研发和运维协作。提交变更前，请先确认变更边界、测试证据和文档同步。
 
-## 🎯 贡献方式
+## 贡献方式
 
-### 🐛 报告问题
+### 报告问题
 - 发现 Bug 请提交 Issue
 - 描述问题时请提供：
   - 详细的问题描述
@@ -12,17 +12,16 @@
   - 环境信息（操作系统、Java 版本等）
   - 相关日志或截图
 
-### 💡 功能建议
+### 功能建议
 - 新功能建议请提交 Issue
 - 建议内容请包含：
   - 功能描述和使用场景
   - 实现思路或参考
   - 预期效果
 
-### 🔧 代码贡献
-- Fork 项目到您的 GitHub 账户
-- 创建功能分支：`git checkout -b feature/amazing-feature`
-- 提交您的更改：`git commit -m 'Add some amazing feature'`
+### 代码贡献
+- 创建功能分支：`git checkout -b feature/<short-topic>`
+- 提交您的更改：`git commit -m 'feat: add <scope>'`
 - 推送到分支：`git push origin feature/amazing-feature`
 - 创建 Pull Request
 
@@ -31,7 +30,7 @@
 ### 环境准备
 ```bash
 # 克隆项目
-git clone https://github.com/your-username/file-batch-processor.git
+git clone https://github.com/pinpols/file-batch-processor.git
 cd file-batch-processor
 
 # 安装依赖
@@ -62,7 +61,7 @@ cd file-batch-processor
 ### 文档规范
 - 使用 Markdown 格式
 - 遵循现有的文档结构
-- 包含实际示例和代码片段
+- 包含可执行范例和代码片段
 - 保持与代码同步更新
 
 ## 🧪 测试贡献
@@ -94,7 +93,7 @@ cd file-batch-processor
 
 本项目采用 MIT 许可证，详情请参见 [LICENSE](LICENSE) 文件。
 
-## 📞 联系方式
+## 联系方式
 
 ### 技术问题
 - GitHub Issues：推荐用于 Bug 报告和功能请求
@@ -102,20 +101,15 @@ cd file-batch-processor
 
 ### 安全问题
 - 请勿在公开 Issue 中报告安全漏洞
-- 邮件联系：security@example.com
+- 通过仓库安全策略中登记的安全渠道提交
 
 ### 其他联系
-- 邮件：maintainer@example.com
-- 项目主页：https://github.com/your-username/file-batch-processor
+- 项目主页：https://github.com/pinpols/file-batch-processor
 
-## 🎉 致谢
+## 致谢
 
-感谢所有为项目做出贡献的开发者！您的贡献将被记录在：
+贡献记录维护在：
 
 - [贡献者列表](CONTRIBUTORS.md)
 - [发布日志](CHANGELOG.md)
 - [项目文档](docs/)
-
----
-
-**🚀 我们期待您的贡献，让项目变得更好！**

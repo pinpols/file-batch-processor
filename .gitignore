@@ -66,6 +66,7 @@ Thumbs.db
 *.temp
 *.cache
 *.pid
+tmp/
 
 ### Local tools ###
 tools/scheduler/*.jar
