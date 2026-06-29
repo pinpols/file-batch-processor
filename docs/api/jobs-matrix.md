@@ -17,6 +17,14 @@
 | `batchRestartJob` | `FileImportJobHandler` | 手工触发 / 可配置定时 | `executionId` 或 `jobName` |
 | `dagOrchestratorJob` | `DagOrchestratorJobHandler` | `CRON` / 手工触发 | `dagId`, `batchDate`, `rerunId` |
 
+## 单体调度治理入口
+| 能力 | API | 说明 |
+|---|---|---|
+| 批量日登记/查询 | `GET/POST /ops/batch-days` | 维护单体应用内的账期状态锚点 |
+| 批量日状态切换 | `POST /ops/batch-days/{id}/status` | `OPEN/FROZEN/SETTLING/SETTLED/REPLAYING/CLOSED` |
+| 账期级 replay | `POST /ops/batch-days/replays` | `ALL` / `ALL_FAILED` / `SUBSET_TASK_IDS`，复用现有手工重跑入队 |
+| replay 收敛 | `POST /ops/batch-days/replays/{sessionId}/reconcile` | 从 `task_execution_state` 回填 entry/session 终态 |
+
 ## 参数示例
 
 ### 1) `processFileJob` / `importJob`
@@ -26,7 +34,7 @@ input=/data/inbound/customer_20260301.csv&batchDate=2026-03-01&runMode=normal&re
 
 ### 2) `dataExportJob`
 ```text
-export.sql=select id,business_key,name,description,batch_date from imported_records where batch_date='2026-03-01'&output.file.name=export/data_export_20260301.csv
+export.sql=select id,business_key,name,description,batch_date from imported_records where batch_date='2026-03-01'&output.file.name=data_export_20260301.csv
 ```
 
 ### 3) `partitionedImportJob`
@@ -36,7 +44,7 @@ batchDate=2026-03-01
 
 ### 4) `fileExportJob`
 ```text
-batchDate=2026-03-01&format=csv&outputDir=export
+batchDate=2026-03-01&format=csv
 ```
 
 ### 5) `fileReceptionJob`

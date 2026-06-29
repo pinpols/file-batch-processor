@@ -53,4 +53,25 @@ class DependencyResolverTest {
 
         assertEquals(DependencyResolver.DependencyState.FAILED, resolver.resolve(task, "2026-03-04", 600000L, 5000L));
     }
+
+    @Test
+    void shouldResolveCrossDayDependencyByOffset() {
+        TaskExecutionStateRepository repository = mock(TaskExecutionStateRepository.class);
+        DependencyResolver resolver = new DependencyResolver(repository);
+
+        TaskExecutionState successState = new TaskExecutionState();
+        successState.setStatus("SUCCESS");
+        when(repository.findByTaskIdAndBatchDateAndRerunId("daily-close", "2026-03-03", ""))
+                .thenReturn(Optional.of(successState));
+
+        OrchestrationTaskDefinition task = OrchestrationTaskDefinition.builder()
+                .id("monthly-report")
+                .dependencies(List.of("daily-close"))
+                .dependencyBatchDateOffsetDaysByTask(Map.of("daily-close", -1))
+                .dependencyTimeoutByTask(Map.of())
+                .parameters(Map.of())
+                .build();
+
+        assertEquals(DependencyResolver.DependencyState.READY, resolver.resolve(task, "2026-03-04", 600000L, 1000L));
+    }
 }

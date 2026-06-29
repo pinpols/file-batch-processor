@@ -116,12 +116,17 @@ public class TaskOrchestrationRegistry {
                 .toList());
 
         Map<String, Long> depTimeouts = new HashMap<>();
+        Map<String, Integer> depBatchDateOffsets = new HashMap<>();
         Map<String, String> depFailureActions = new HashMap<>();
         for (TaskDependency dep : dependencyConfigs) {
             depTimeouts.put(dep.getDependsOnTaskId(), dep.getDependencyTimeoutMs());
+            depBatchDateOffsets.put(
+                    dep.getDependsOnTaskId(),
+                    dep.getDependencyBatchDateOffsetDays() == null ? 0 : dep.getDependencyBatchDateOffsetDays());
             depFailureActions.put(dep.getDependsOnTaskId(), dep.getOnFailureAction());
         }
         orchestrationTaskDefinition.setDependencyTimeoutByTask(depTimeouts);
+        orchestrationTaskDefinition.setDependencyBatchDateOffsetDaysByTask(depBatchDateOffsets);
         orchestrationTaskDefinition.setDependencyFailureActionByTask(depFailureActions);
         return orchestrationTaskDefinition;
     }

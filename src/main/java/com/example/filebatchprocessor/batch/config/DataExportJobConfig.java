@@ -182,7 +182,7 @@ public class DataExportJobConfig {
         ExportJobParams params = ExportJobParams.from(jobParameters);
         String fileName = (params.getOutputFileName() == null
                         || params.getOutputFileName().isEmpty())
-                ? "export/output.csv"
+                ? "output.csv"
                 : params.getOutputFileName();
         // 路径穿越防护:限定在 batch.io.output-base-dir 之内(未配置则至少拒绝 .. 逃逸)
         fileName = com.example.filebatchprocessor.util.PathSafety.confine(outputBaseDir, fileName);

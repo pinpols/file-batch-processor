@@ -1006,6 +1006,10 @@ public class TaskSchedulerService {
         copy.setDependencies(new ArrayList<>(source.getDependencies() == null ? List.of() : source.getDependencies()));
         copy.setDependencyTimeoutByTask(new HashMap<>(
                 source.getDependencyTimeoutByTask() == null ? Map.of() : source.getDependencyTimeoutByTask()));
+        copy.setDependencyBatchDateOffsetDaysByTask(new HashMap<>(
+                source.getDependencyBatchDateOffsetDaysByTask() == null
+                        ? Map.of()
+                        : source.getDependencyBatchDateOffsetDaysByTask()));
         copy.setDependencyFailureActionByTask(new HashMap<>(
                 source.getDependencyFailureActionByTask() == null
                         ? Map.of()

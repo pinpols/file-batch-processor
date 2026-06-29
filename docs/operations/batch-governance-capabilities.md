@@ -1,11 +1,12 @@
 # Batch 治理能力落地清单
 > 中文名：批量治理能力落地清单（任务调度 + 应用治理）
 
-本文对应 9 项能力逐一落地，建议生产使用任务调度系统触发，应用负责治理。
+本文对应 9 项能力逐一落地。BFP 定位仍是单体批量应用：调度、治理和执行在同一应用内完成，底层继续复用 Quartz + 本地队列 + Spring Batch；不引入 BFS 的独立 trigger/orchestrator/worker lease/outbox 架构。
 
 ## 1) DAG 编排与失败传播
 - 依赖关系：`task_dependency`
 - 新增字段：`dependency_timeout_ms`、`on_failure_action(FAIL/SKIP/IGNORE)`
+- 跨日依赖：`dependency_batch_date_offset_days`（0=同日，-1=T-1，1=T+1），当前按自然日解析；`dependency_calendar_code` 仅作配置表达预留
 - 代码：`DependencyResolver`、`TaskOrchestrationConfig`、`TaskSchedulerService`
 - 运行态：`/ops/dag` 提供 DAG 拓扑快照
 
@@ -19,6 +20,13 @@
 - 能力：按 executionId 或按 jobName 重启失败执行
 - 代码：`BatchRecoveryService`、`FileImportJobHandler#batchRestartJob`
 - 说明：Spring Batch restart 会从失败 Step 继续
+- 账期级 replay：`batch_day_replay_session` + `batch_day_replay_entry`，入口 `/ops/batch-days/replays`，按 `ALL` / `ALL_FAILED` / `SUBSET_TASK_IDS` 复用现有手工重跑入队
+
+## 3.1) 批量日主模型
+- 批量日表：`batch_day_instance`
+- 状态：`OPEN/FROZEN/SETTLING/SETTLED/REPLAYING/CLOSED`
+- 入口：`GET /ops/batch-days`、`POST /ops/batch-days`、`POST /ops/batch-days/{id}/status`
+- 边界：这是单体内的账期治理锚点，用于表达“哪一天在运行/冻结/重放”；不承担 BFS 中跨服务 trigger outbox、worker lease 或 result_version 的职责
 
 ## 4) 数据质量门禁
 - 解析错误率门禁：`ParseErrorRateGateListener`

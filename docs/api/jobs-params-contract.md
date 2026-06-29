@@ -16,7 +16,7 @@
 | 参数 | 必填 | 默认 | 规则 |
 |---|---|---|---|
 | `export.sql` | 是 | 无 | 只允许查询语句 |
-| `output.file.name` | 是 | 无 | 输出文件路径（可写） |
+| `output.file.name` | 是 | 无 | 输出文件名或相对路径；配置 `batch.io.output-base-dir` 后限定在该目录内 |
 
 ## 3. partitionedImportJob
 | 参数 | 必填 | 默认 | 规则 |
@@ -28,7 +28,7 @@
 |---|---|---|---|
 | `batchDate` | 是 | 无 | `yyyy-MM-dd` |
 | `format` | 否 | `csv` | `csv/json` |
-| `outputDir` | 否 | `export` | 目录需可写 |
+| `outputDir` | 否 | 空 | 相对 `batch.io.output-base-dir` 的子目录；为空时直接写入输出基目录 |
 
 ## 5. dlqReplayJob
 | 参数 | 必填 | 默认 | 规则 |

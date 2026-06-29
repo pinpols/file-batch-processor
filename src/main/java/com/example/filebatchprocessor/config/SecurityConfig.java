@@ -41,7 +41,9 @@ public class SecurityConfig {
                                 "/ops/tasks",
                                 "/ops/task-audit",
                                 "/ops/audit",
-                                "/ops/change-requests")
+                                "/ops/change-requests",
+                                "/ops/batch-days",
+                                "/ops/batch-days/**")
                         .hasAnyRole("VIEWER", "OPERATOR", "ADMIN")
                         .requestMatchers(
                                 HttpMethod.POST,
@@ -50,6 +52,8 @@ public class SecurityConfig {
                                 "/ops/scheduler/trigger/*",
                                 "/ops/scheduler/reload",
                                 "/ops/batch/**",
+                                "/ops/batch-days",
+                                "/ops/batch-days/**",
                                 "/ops/file-dispatch/**",
                                 "/ops/files/*/reprocess")
                         .hasAnyRole("OPERATOR", "ADMIN")

@@ -123,7 +123,7 @@ public class OperationalTaskJobConfig {
             var params = chunkContext.getStepContext().getJobParameters();
             String batchDate = resolveBatchDate(params.get("batchDate"));
             String format = resolveString(params.get("format"), "csv").toLowerCase(Locale.ROOT);
-            String outputDir = resolveString(params.get("outputDir"), "export");
+            String outputDir = resolveString(params.get("outputDir"), "");
             String extension =
                     switch (format) {
                         case "csv", "json", "excel" -> format;

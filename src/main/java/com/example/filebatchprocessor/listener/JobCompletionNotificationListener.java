@@ -495,7 +495,7 @@ public class JobCompletionNotificationListener implements JobExecutionListener {
 
         String outputFileName = jobExecution.getJobParameters().getString("output.file.name");
         if (outputFileName == null || outputFileName.isBlank()) {
-            outputFileName = "export/output.csv";
+            outputFileName = "output.csv";
         }
 
         Path outputPath = Path.of(outputFileName);

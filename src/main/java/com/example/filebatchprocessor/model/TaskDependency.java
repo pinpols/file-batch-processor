@@ -38,6 +38,18 @@ public class TaskDependency {
     private Long dependencyTimeoutMs;
 
     /**
+     * 相对当前 batchDate 的依赖账期偏移；0 表示同日，-1 表示依赖 T-1。
+     */
+    @Column(name = "dependency_batch_date_offset_days")
+    private Integer dependencyBatchDateOffsetDays = 0;
+
+    /**
+     * 预留日历编码，用于文档和配置表达；当前单体实现按自然日偏移解析。
+     */
+    @Column(name = "dependency_calendar_code", length = 64)
+    private String dependencyCalendarCode;
+
+    /**
      * On dependency failed behavior: FAIL / SKIP / IGNORE.
      */
     @Column(name = "on_failure_action", length = 16)

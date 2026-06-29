@@ -4,6 +4,8 @@ import com.example.filebatchprocessor.model.TaskExecutionState;
 import com.example.filebatchprocessor.model.TaskExecutionStatus;
 import com.example.filebatchprocessor.repository.TaskExecutionStateRepository;
 import com.example.filebatchprocessor.scheduler.OrchestrationTaskDefinition;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.Locale;
 
 public class DependencyResolver {
@@ -25,10 +27,14 @@ public class DependencyResolver {
             OrchestrationTaskDefinition task, String batchDate, long defaultDependencyTimeoutMs, long waitedMs) {
         String rerunId = task.getParameters().getOrDefault("rerunId", "");
         for (String dep : task.getDependencies()) {
+            String dependencyBatchDate = resolveDependencyBatchDate(task, dep, batchDate);
             TaskExecutionState state = taskExecutionStateRepository
-                    .findByTaskIdAndBatchDateAndRerunId(dep, batchDate, rerunId)
+                    .findByTaskIdAndBatchDateAndRerunId(dep, dependencyBatchDate, rerunId)
                     .orElse(null);
-            long depTimeout = task.getDependencyTimeoutByTask().getOrDefault(dep, defaultDependencyTimeoutMs);
+            Long configuredTimeout = task.getDependencyTimeoutByTask() == null
+                    ? null
+                    : task.getDependencyTimeoutByTask().get(dep);
+            long depTimeout = configuredTimeout == null ? defaultDependencyTimeoutMs : configuredTimeout;
             if (waitedMs > Math.max(1000L, depTimeout)) {
                 return DependencyState.FAILED;
             }
@@ -36,8 +42,10 @@ public class DependencyResolver {
                 return DependencyState.WAITING;
             }
             String depStatus = TaskExecutionStatus.normalize(state.getStatus());
-            String action = task.getDependencyFailureActionByTask()
-                    .getOrDefault(dep, "FAIL")
+            String configuredAction = task.getDependencyFailureActionByTask() == null
+                    ? null
+                    : task.getDependencyFailureActionByTask().get(dep);
+            String action = (configuredAction == null || configuredAction.isBlank() ? "FAIL" : configuredAction)
                     .toUpperCase(Locale.ROOT);
             if (TaskExecutionStatus.FAILED.name().equals(depStatus)
                     || TaskExecutionStatus.PARTIAL.name().equals(depStatus)) {
@@ -54,5 +62,20 @@ public class DependencyResolver {
             }
         }
         return DependencyState.READY;
+    }
+
+    private String resolveDependencyBatchDate(
+            OrchestrationTaskDefinition task, String dependencyTaskId, String batchDate) {
+        Integer offset = task.getDependencyBatchDateOffsetDaysByTask() == null
+                ? 0
+                : task.getDependencyBatchDateOffsetDaysByTask().getOrDefault(dependencyTaskId, 0);
+        if (offset == null || offset == 0) {
+            return batchDate;
+        }
+        try {
+            return LocalDate.parse(batchDate).plusDays(offset).toString();
+        } catch (DateTimeParseException ex) {
+            return batchDate;
+        }
     }
 }

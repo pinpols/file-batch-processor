@@ -35,6 +35,9 @@ public class OrchestrationTaskDefinition {
     private Map<String, Long> dependencyTimeoutByTask = new HashMap<>();
 
     @Builder.Default
+    private Map<String, Integer> dependencyBatchDateOffsetDaysByTask = new HashMap<>();
+
+    @Builder.Default
     private Map<String, String> dependencyFailureActionByTask = new HashMap<>();
 
     private String dedupKey;
