@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 import com.example.filebatchprocessor.batch.config.OperationalTaskJobConfig;
 import com.example.filebatchprocessor.listener.JobCompletionNotificationListener;
 import com.example.filebatchprocessor.manifest.JsonManifestParser;
+import com.example.filebatchprocessor.model.FileAssetRecord;
 import com.example.filebatchprocessor.model.FileDistributionTask;
 import com.example.filebatchprocessor.model.FileReceptionQueue;
 import com.example.filebatchprocessor.model.ImportedRecord;
@@ -142,9 +143,16 @@ class OperationalTaskJobConfigIT {
                 });
         PartitionedImportService partitionedImportService =
                 new PartitionedImportService(importedRecordPartitionedRepository, jdbcTemplate);
+        // registerGeneratedFile 会用 registerOutboundFile 的返回值取 id 记流水,
+        // mock 默认返 null 会让导出 job 直接 FAILED,stub 一条带 id 的记录
+        FileAssetService exportFileAssetService = mock(FileAssetService.class);
+        FileAssetRecord exportedRecord = new FileAssetRecord();
+        exportedRecord.setId(1L);
+        when(exportFileAssetService.registerOutboundFile(any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(exportedRecord);
         FileExportService fileExportService = new FileExportService(
                 new com.fasterxml.jackson.databind.ObjectMapper(),
-                mock(FileAssetService.class),
+                exportFileAssetService,
                 mock(FileProcessLogService.class));
         FileDistributorDispatcher fileDistributorDispatcher =
                 new FileDistributorDispatcher(List.of(new HttpFileDistributor(
