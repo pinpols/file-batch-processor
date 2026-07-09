@@ -28,6 +28,14 @@
         <Bug pattern="ST_WRITE_TO_STATIC_FROM_INSTANCE_METHOD"/>
     </Match>
 
+    <!-- CT_CONSTRUCTOR_THROW:Spring bean(@Service/@Transactional)必须可被 CGLIB
+         代理,类不能 final;构造器里做依赖解析 / 参数校验抛异常是框架惯用法。该模式
+         防的 Finalizer 攻击需要攻击者能子类化并触发 finalize,而 finalization 自
+         Java 18 起已弃用(JEP 421),本项目 Java 21 下无实际攻击面。 -->
+    <Match>
+        <Bug pattern="CT_CONSTRUCTOR_THROW"/>
+    </Match>
+
     <!-- 以下为「低价值 / 防御性」模式,门禁聚焦正确性与安全,不为这些纠缠:
          BX_UNBOXING_IMMEDIATELY_REBOXED:装箱/拆箱微优化,无正确性影响。
          RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE:有意保留的防御性判空。
